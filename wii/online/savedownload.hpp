@@ -14,7 +14,8 @@ const SaveListing* Listing(std::size_t& count);
 bool StartList();
 // Wii: destination is its configured emulated NAND root. GameCube: its
 // RiftWii SD memory card path, as gc_card_file_of resolves it.
-bool StartInstall(const SaveListing& save, const std::string& destination);
+// title_id: the Wii game's full title ID from its TMD, 0 when not known.
+bool StartInstall(const SaveListing& save, const std::string& destination, std::uint64_t title_id = 0);
 enum class Stage { Download, Check, Install, Finish };
 struct Progress {
     Stage stage = Stage::Download;

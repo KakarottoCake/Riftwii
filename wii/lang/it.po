@@ -5079,5 +5079,8 @@ msgstr "Il salvataggio è installato."
 msgid "The save is installed. Your previous save is kept at {1}."
 msgstr "Il salvataggio è installato. Quello precedente è conservato in {1}."
 
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."
+
 msgid "The save is installed. The memory card was backed up to {1}."
 msgstr "Il salvataggio è installato. La memory card è stata copiata in {1}."

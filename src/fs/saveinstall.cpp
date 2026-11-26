@@ -203,9 +203,26 @@ bool save_publish(const std::string& staged, const std::string& target, const st
     return true;
 }
 
+std::uint32_t save_wii_title_type(const std::string& root, const std::string& game_id, std::uint64_t title_id) {
+    if (!save_game_id_ok(game_id)) return kSaveDiscTitle;
+    const std::uint32_t type = static_cast<std::uint32_t>(title_id >> 32);
+    const std::uint32_t id = static_cast<std::uint32_t>(title_id);
+    const std::uint32_t game = static_cast<std::uint32_t>(static_cast<unsigned char>(game_id[0])) << 24 |
+                               static_cast<std::uint32_t>(static_cast<unsigned char>(game_id[1])) << 16 |
+                               static_cast<std::uint32_t>(static_cast<unsigned char>(game_id[2])) << 8 |
+                               static_cast<std::uint32_t>(static_cast<unsigned char>(game_id[3]));
+    if (id == game && (type == kSaveDiscTitle || type == kSaveDiscChannelTitle)) return type;
+    const bool channel_save = exists(root + save_wii_title_path(game_id, kSaveDiscChannelTitle) + "/data");
+    const bool disc_save = exists(root + save_wii_title_path(game_id, kSaveDiscTitle) + "/data");
+    if (channel_save && !disc_save) return kSaveDiscChannelTitle;
+    if (game_id.compare(0, 3, "RMC") == 0) return kSaveDiscChannelTitle;
+    return kSaveDiscTitle;
+}
+
 bool save_install_wii_zip(const SaveListing& save, const std::string& root, const ZipReadAt& read,
                            ZipInflateStream* inflater, bool replace, const std::string& timestamp,
-                           std::string& backup, std::string& error, const SaveInstallProgress& progress) {
+                           std::string& backup, std::string& error, const SaveInstallProgress& progress,
+                           std::uint64_t title_id) {
     backup.clear();
     // rwnand: is the menu's temporary USB mount. All other roots pass the
     // same folder rules as the emulated NAND manager, before adding paths.
@@ -221,7 +238,7 @@ bool save_install_wii_zip(const SaveListing& save, const std::string& root, cons
     std::vector<std::size_t> plan;
     if (!zip_read_directory_at(read, save.size, entries, error, kSaveMaxFiles * 2) ||
         !save_plan_wii_zip(save, entries, plan, error)) return false;
-    const std::string title = root + save_wii_title_path(save.game_id);
+    const std::string title = root + save_wii_title_path(save.game_id, save_wii_title_type(root, save.game_id, title_id));
     const std::string target = title + "/data";
     const std::string stage = title + "/data.download";
     if (exists(stage)) {

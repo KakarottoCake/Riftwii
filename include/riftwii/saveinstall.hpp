@@ -33,9 +33,17 @@ using SaveInstallProgress = std::function<bool(std::uint64_t, std::uint64_t)>;
 // The only archive destination is root + save_wii_title_path(game_id) +
 // /data. A backup is a uniquely named sibling of data, retained indefinitely.
 // An abandoned staging folder is retained and reported, never deleted blindly.
+// title_id is the game's full title ID from its TMD when the menu knows it
+// (0 when not: a disc or an RVZ image); see save_wii_title_type.
 bool save_install_wii_zip(const SaveListing& save, const std::string& root, const ZipReadAt& read,
                            ZipInflateStream* inflater, bool replace, const std::string& timestamp,
                            std::string& backup, std::string& error,
-                           const SaveInstallProgress& progress = {});
+                           const SaveInstallProgress& progress = {}, std::uint64_t title_id = 0);
+
+// The title type the game reads its save from, in this order: the TMD's
+// title ID when it belongs to this game, a save already under 00010004 (and
+// none under 00010000) in the emulated NAND at root, Mario Kart Wii (whose
+// launch uses 00010004, see riftwii/ctgprsave.hpp), else 00010000.
+std::uint32_t save_wii_title_type(const std::string& root, const std::string& game_id, std::uint64_t title_id);
 
 }  // namespace riftwii

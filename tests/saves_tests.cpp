@@ -88,6 +88,10 @@ void parser_tests() {
     CHECK(!save_id_ok("../bad"));
     CHECK(save_wii_title_path("RAAE01") == "/title/00010000/52414145");
     CHECK(save_wii_title_path("../bad").empty());
+    CHECK(save_wii_title_path("RMCE01", kSaveDiscChannelTitle) == "/title/00010004/524d4345");
+    CHECK(save_wii_title_path("RMCE01", 0x00010001).empty());
+    // A record that is not an object is skipped; the next one still loads.
+    CHECK(parse("{\"schema\":1,\"saves\":[null,7," + record + "]}") && count == 1 && skipped == 2);
 
     const auto extend = [&](const std::string& fields) {
         return parse(list(record.substr(0, record.size() - 1) + "," + fields + "}"));
@@ -423,6 +427,19 @@ void wii_install_tests() {
     CHECK(save_install_wii_zip(save, "sd:/nands/02", read, nullptr, false, "20261126-120000", backup, error));
     CHECK(backup.empty());
     CHECK(read_text("sd:/nands/02" + save_wii_title_path(save.game_id) + "/data/sub/save.dat") == "new-save!");
+    // Mario Kart Wii, or any game whose TMD says 00010004, saves there.
+    CHECK(save_wii_title_type("sd:/none", "RMCE01", 0) == kSaveDiscChannelTitle);
+    CHECK(save_wii_title_type("sd:/none", "RAAE01", 0x0001000452414145ull) == kSaveDiscChannelTitle);
+    CHECK(save_wii_title_type("sd:/none", "RAAE01", 0x0001000452414146ull) == kSaveDiscTitle);  // another game's
+    CHECK(save_wii_title_type("sd:/none", "RAAE01", 0x0001000152414145ull) == kSaveDiscTitle);  // not a disc type
+    CHECK(save_wii_title_type("sd:/none", "RAAE01", 0) == kSaveDiscTitle);
+    // A save already under 00010004 is where the game reads it.
+    fs::create_directories("sd:/typed/title/00010004/52414145/data");
+    CHECK(save_wii_title_type("sd:/typed", "RAAE01", 0) == kSaveDiscChannelTitle);
+    fs::create_directories("sd:/typed/title/00010000/52414145/data");
+    CHECK(save_wii_title_type("sd:/typed", "RAAE01", 0) == kSaveDiscTitle);
+    fs::remove_all("sd:/typed");
+
     fs::create_directories(title + "/data.download");
     std::ofstream(title + "/data.download/keep") << "interrupted";
     // An interrupted download's folder is moved aside and kept; the install goes on.

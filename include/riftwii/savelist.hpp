@@ -66,7 +66,12 @@ bool save_wii_zip_path(const std::string& name, std::string& relative);
 bool save_wii_zip_relative(const SaveListing& save, const std::string& name, std::string& relative);
 bool save_plan_wii_zip(const SaveListing& save, const std::vector<ZipEntry>& entries,
                        std::vector<std::size_t>& files, std::string& error);
-// The disc title ID uses the first four ASCII bytes of the full game ID.
-std::string save_wii_title_path(const std::string& game_id);
+// A disc's title ID: its type (upper half) and the first four ASCII bytes
+// of the game ID. Most discs are type 00010000; one that installs its own
+// channel (Mario Kart Wii) keeps its save under 00010004. No other type is
+// accepted.
+constexpr std::uint32_t kSaveDiscTitle = 0x00010000;
+constexpr std::uint32_t kSaveDiscChannelTitle = 0x00010004;
+std::string save_wii_title_path(const std::string& game_id, std::uint32_t type = kSaveDiscTitle);
 
 }  // namespace riftwii

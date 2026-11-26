@@ -39,6 +39,7 @@ bool g_have_list = false;
 bool g_install = false;
 SaveListing g_pick;
 std::string g_destination;
+std::uint64_t g_title_id = 0;
 std::string g_error, g_backup;
 bool g_success = false;
 bool g_pending = false;
@@ -132,6 +133,12 @@ bool install_gci() {
         return false;
     }
     if (!existed) {
+        // gc_card_format sizes the card with a plain assign; reserve its
+        // 2 MiB first so a full heap is an error here, not a crash.
+        if (!try_reserve(card, std::size_t{GcCardFormat{}.size_mbits} * (0x100000u / 8u))) {
+            g_error = "there is not enough memory for a new memory card";
+            return false;
+        }
         GcCardFormat format;
         format.shift_jis = gc_card_shift_jis(g_pick.game_id);
         format.format_time = gettime();
@@ -160,6 +167,15 @@ bool install_gci() {
     mkdir(g_destination.substr(0, slash).c_str(), 0777);
     g_stage.store(Stage::Finish);
     return gc_real_commit(g_destination, card, [] { return !stopped(); }, g_error);
+}
+
+// `text` with every mention of the mounted folder replaced by the drive's.
+std::string on_drive(std::string text, const std::string& mounted, const std::string& drive) {
+    if (mounted.empty()) return text;
+    for (std::size_t at = text.find(mounted); at != std::string::npos; at = text.find(mounted, at + drive.size())) {
+        text.replace(at, mounted.size(), drive);
+    }
+    return text;
 }
 
 struct UsbMount {
@@ -201,8 +217,14 @@ bool install_wii() {
         [](std::uint64_t done, std::uint64_t total) {
             g_percent.store(total ? static_cast<unsigned>(done * 100 / total) : 0);
             return !stopped();
-        });
+        }, g_title_id);
     std::fclose(archive);
+    // The temporary USB mount is gone when the menu shows these: name the
+    // folder on the drive the player chose instead.
+    if (mount.mounted) {
+        g_backup = on_drive(g_backup, root, g_destination);
+        g_error = on_drive(g_error, root, g_destination);
+    }
     return ok;
 }
 
@@ -280,11 +302,12 @@ bool StartList() {
     return start();
 }
 
-bool StartInstall(const SaveListing& save, const std::string& destination) {
+bool StartInstall(const SaveListing& save, const std::string& destination, std::uint64_t title_id) {
     if (g_pending) return false;
     g_install = true;
     g_pick = save;
     g_destination = destination;
+    g_title_id = title_id;
     return start();
 }
 

@@ -106,6 +106,10 @@ class Web:
             try:
                 with self.opener.open(request, timeout=45) as response:
                     data = response.read(limit + 1)
+                    if len(data) > limit and response.status == 200 and "Range" in (headers or {}):
+                        # The server ignored the range and sent the whole file:
+                        # the caller downloads it properly instead.
+                        return None, response.status, response.headers
                     save_list.require(len(data) <= limit, "response exceeds its size limit")
                     return data, response.status, response.headers
             except urllib.error.HTTPError as error:
@@ -159,6 +163,8 @@ class Web:
             start = max(0, size - 65536)
             tail, status, headers = self.get(record["_sDownloadUrl"], 65536,
                                              {"Range": f"bytes={start}-{size - 1}"})
+            if tail is None:
+                return None
             if status == 206:
                 save_list.require(headers.get("Content-Range") == f"bytes {start}-{size - 1}/{size}", "bad byte range")
             elif status != 200 or size > 65536:

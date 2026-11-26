@@ -164,6 +164,7 @@
 #include "riitagview.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/sharednand.hpp"
 #include "riftwii/gamepage.hpp"
 #include "gamefiles.hpp"
 #include "riftwii/textlines.hpp"
@@ -3282,6 +3283,12 @@ public:
 		unknown = false;
 	}
 	void SetUnknown() { unknown = true; }
+	// Empty again, for the next stage of a job (Set only moves forward).
+	void Restart()
+	{
+		fraction = 0;
+		shown = 0;
+	}
 	void Draw() override
 	{
 		if (!IsVisible()) return;
@@ -12563,7 +12570,7 @@ static void MenuGcCard(FrontendState& state)
 // The network thread owns all download and install work. The menu only
 // reads atomic progress and consumes the result after that thread ended.
 static bool RunSaveDownload(const riftwii::SaveListing* save, const std::string& destination,
-	std::string& backup, std::string& error)
+	std::uint64_t title_id, std::string& backup, std::string& error)
 {
 	namespace saves = riftwii::wii::saves;
 	ProgressBar bar(56, 280, 528);
@@ -12572,7 +12579,7 @@ static bool RunSaveDownload(const riftwii::SaveListing* save, const std::string&
 	box.AddProgress(&bar);
 	bar.SetUnknown();
 	const riftwii::wii::CardWriteHold hold;
-	const bool started = save ? saves::StartInstall(*save, destination) : saves::StartList();
+	const bool started = save ? saves::StartInstall(*save, destination, title_id) : saves::StartList();
 	if (!started) {
 		error = "the save downloader could not start (not enough memory or the network is busy)";
 		return false;
@@ -12580,6 +12587,7 @@ static bool RunSaveDownload(const riftwii::SaveListing* save, const std::string&
 	bool success = false;
 	bool cancelled = false;
 	int shown = -1;
+	saves::Stage shownStage = saves::Stage::Download;
 	ResumeGui();
 	for (;;) {
 		usleep(50000);
@@ -12589,6 +12597,11 @@ static bool RunSaveDownload(const riftwii::SaveListing* save, const std::string&
 		const int change = static_cast<int>(progress.stage) * 101 + progress.percent;
 		if (change != shown && !cancelled) {
 			shown = change;
+			// Each stage counts from 0 again: the bar starts over with it.
+			if (progress.stage != shownStage) {
+				shownStage = progress.stage;
+				bar.Restart();
+			}
 			if (!save || (progress.stage == saves::Stage::Download && progress.percent == 0)) bar.SetUnknown();
 			else bar.Set(progress.percent / 100.0);
 			const char* stage = progress.stage == saves::Stage::Check ? "Checking the download..."
@@ -12619,7 +12632,7 @@ static void MenuGetSave(FrontendState& state)
 	riftwii::wii::NetWaitForBackground();
 	HaltGui();
 	std::string backup, error;
-	if (!saves::HaveList() && !RunSaveDownload(nullptr, "", backup, error)) {
+	if (!saves::HaveList() && !RunSaveDownload(nullptr, "", 0, backup, error)) {
 		logf("Saves: the list could not be downloaded: %s.\n", error.c_str());
 		ShowPopup(tr("Get a save"), tr("The save list could not be downloaded. Check the connection and try again."), tr("OK"));
 		return;
@@ -12680,6 +12693,12 @@ static void MenuGetSave(FrontendState& state)
 				}
 				destination = riftwii::resolve_save_override(mode, "", state.game_id, shared).dir;
 				if (destination.empty()) return false;
+				// A disc's saves stay on the SD card (the launch refuses a USB
+				// emulated NAND for it), so a save put there would not be read.
+				if (!state.use_sd && !state.use_usb && riftwii::shared_nand_on_usb(destination)) {
+					ShowPopup(tr("Get a save"), tr("A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."), tr("OK"));
+					return false;
+				}
 			}
 			if (ShowPopup(tr("Get a save"),
 				tr("Install {1} in {2}? Any save it replaces is backed up first.", {save.title, destination}),
@@ -12687,7 +12706,13 @@ static void MenuGetSave(FrontendState& state)
 			riftwii::SaveListing selected;
 			if (!riftwii::save_select_game(save, state.game_id,
 				gamecube ? riftwii::SavePlatform::GameCube : riftwii::SavePlatform::Wii, selected)) return false;
-			const bool ok = RunSaveDownload(&selected, destination, backup, error);
+			// Its title ID from the image's TMD, when the scan read it.
+			std::uint64_t titleId = 0;
+			if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
+				titleId = state.sd_catalog.games[state.sd_index].title_id;
+			else if (state.use_usb && state.usb_index < state.usb_catalog.games.size())
+				titleId = state.usb_catalog.games[state.usb_index].title_id;
+			const bool ok = RunSaveDownload(&selected, destination, titleId, backup, error);
 			if (!ok) {
 				logf("Saves: installation failed: %s.\n", error.c_str());
 				ShowPopup(tr("Get a save"), tr("The save could not be installed: {1}", {error}), tr("OK"));

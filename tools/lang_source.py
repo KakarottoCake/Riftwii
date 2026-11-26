@@ -10364,6 +10364,11 @@ T.update({
         "セーブをインストールしました。前のセーブは{1}に残しています。",
         "O save foi instalado. O anterior está guardado em {1}.",
         "Il salvataggio è installato. Quello precedente è conservato in {1}."),
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": (
+        "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD.",
+        "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。",
+        "Um jogo em disco não pode usar uma NAND emulada na unidade USB. Escolha primeiro um local de saves no cartão SD.",
+        "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."),
     "The save is installed. The memory card was backed up to {1}.": (
         "La partida está instalada. Se hizo una copia de la tarjeta de memoria en {1}.",
         "セーブをインストールしました。メモリーカードは{1}にバックアップしました。",
@@ -10385,6 +10390,7 @@ KO.update({
     "The save is installed.": "세이브가 설치되었습니다.",
     "The save is installed. Your previous save is kept at {1}.": "세이브가 설치되었습니다. 이전 세이브는 {1}에 보관됩니다.",
     "The save is installed. The memory card was backed up to {1}.": "세이브가 설치되었습니다. 메모리 카드는 {1}에 백업했습니다.",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요.",
 })
 FR.update({
     "Get a save": "Obtenir une sauvegarde",
@@ -10401,6 +10407,7 @@ FR.update({
     "The save is installed.": "La sauvegarde est installée.",
     "The save is installed. Your previous save is kept at {1}.": "La sauvegarde est installée. La précédente est conservée dans {1}.",
     "The save is installed. The memory card was backed up to {1}.": "La sauvegarde est installée. La carte mémoire a été copiée dans {1}.",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque USB. Choisissez d'abord un emplacement de sauvegarde sur la carte SD.",
 })
 
 if __name__ == "__main__":

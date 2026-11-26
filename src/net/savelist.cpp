@@ -250,6 +250,14 @@ bool parse_save_list(const char* text, std::size_t bytes, SaveListing* out, std:
                 if (!reader.take(']')) {
                     for (;;) {
                         if (++seen > kSaveListMaxEntries) return bad();
+                        if (reader.peek() != '{') {
+                            // Not a record (null, a number...): skipped like a bad one.
+                            if (!reader.skip_value(2)) return bad();
+                            ++skipped;
+                            if (reader.take(',')) continue;
+                            if (!reader.take(']')) return bad();
+                            break;
+                        }
                         SaveListing save;
                         bool valid = true;
                         if (!read_save(reader, save, valid)) return bad();
@@ -321,10 +329,11 @@ bool save_wii_zip_relative(const SaveListing& save, const std::string& name, std
     return save_wii_zip_path("data/" + name.substr(prefix.size()), relative);
 }
 
-std::string save_wii_title_path(const std::string& game_id) {
+std::string save_wii_title_path(const std::string& game_id, std::uint32_t type) {
     if (!save_game_id_ok(game_id)) return {};
+    if (type != kSaveDiscTitle && type != kSaveDiscChannelTitle) return {};
     char path[40];
-    std::snprintf(path, sizeof(path), "/title/00010000/%02x%02x%02x%02x",
+    std::snprintf(path, sizeof(path), "/title/%08x/%02x%02x%02x%02x", static_cast<unsigned>(type),
                   static_cast<unsigned char>(game_id[0]), static_cast<unsigned char>(game_id[1]),
                   static_cast<unsigned char>(game_id[2]), static_cast<unsigned char>(game_id[3]));
     return path;

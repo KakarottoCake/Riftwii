@@ -14,6 +14,9 @@ class SaveZipInflater final : public ZipInflateStream {
 public:
     explicit SaveZipInflater(std::function<bool()> cancelled = {}) : cancelled_(cancelled) {}
     ~SaveZipInflater();
+    // The z_stream's state belongs to one inflater: no copies.
+    SaveZipInflater(const SaveZipInflater&) = delete;
+    SaveZipInflater& operator=(const SaveZipInflater&) = delete;
     bool begin() override;
     Step feed(const std::uint8_t* input, std::size_t bytes, const ZipSink& sink) override;
     void end() override;
