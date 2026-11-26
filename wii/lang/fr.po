@@ -2406,7 +2406,7 @@ msgstr "Installer des fichiers WAD"
 msgid "{1} found"
 msgstr "{1} trouvés"
 
-msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."
 msgstr "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas."
 
 msgid "No .wad files in the wad folder of the SD card."

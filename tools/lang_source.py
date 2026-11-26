@@ -2134,7 +2134,7 @@ T = {
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
     "{1} found": ("{1} encontrados", "{1}個", "{1} encontrados", "{1} trovati"),
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
     "No .wad files in the wad folder of the SD card.": ("No hay archivos .wad en la carpeta wad de la tarjeta SD.", "SDカードのwadフォルダに.wadファイルがありません。", "Não há arquivos .wad na pasta wad do cartão SD.", "Nessun file .wad nella cartella wad della scheda SD."),
     "Install {1} WAD file(s) into {2}? The Wii itself is not changed.": ("¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia.", "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。", "Instalar {1} arquivo(s) WAD em {2}? O próprio Wii não muda.", "Installare {1} file WAD in {2}? La Wii stessa non cambia."),
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
@@ -4051,7 +4051,7 @@ KO = {
         "WAD 파일 설치",
     "{1} found":
         "{1}개",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다.",
     "No .wad files in the wad folder of the SD card.":
         "SD 카드의 wad 폴더에 .wad 파일이 없습니다.",
@@ -5919,7 +5919,7 @@ FR = {
         "Installer des fichiers WAD",
     "{1} found":
         "{1} trouvés",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas.",
     "No .wad files in the wad folder of the SD card.":
         "Aucun fichier .wad dans le dossier wad de la carte SD.",

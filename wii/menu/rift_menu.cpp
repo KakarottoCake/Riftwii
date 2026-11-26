@@ -6517,7 +6517,7 @@ static void MenuEmulatedNand()
 		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
 		wads.dim = wadCount == 0;
 		rows.push_back(wads);
-		help.push_back(tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."));
+		help.push_back(tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."));
 		for (const std::string& folder : folders) {
 			FlowRow row;
 			row.kind = FlowRow::Kind::Action;
