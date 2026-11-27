@@ -207,8 +207,12 @@ void rtshape_step(struct rtshape* sh, uint32_t i, const struct rtsrc_sample* s, 
     rtshape_count_shake(sh, i, shaking, now);
     if (!((sh->camera >> i) & 1u)) {
         /* Camera off: L's tap counts for nothing (no half-pressed switch
-         * waits for the camera). */
+         * waits for the camera), and an old C-stick move's mark still
+         * expires, so it can't read as recent once the time base wraps and
+         * show the pointer when the camera comes back on (CodeRabbit CLI). */
         sh->pointer_l &= ~(1u << i);
+        if (sh->pointer_moved[i] != 0 && rtshape_elapsed(now, sh->pointer_moved[i]) >= sh->pointer_show)
+            sh->pointer_moved[i] = 0;
         return;
     }
     rtshape_pointer_switch(sh, i, s);
