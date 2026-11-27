@@ -3681,6 +3681,9 @@ msgstr "このゲームでWiiリモコンを振動させます。"
 msgid "Sound from the Wii Remotes' speakers."
 msgstr "Wiiリモコンのスピーカーの音です。"
 
+msgid "GameCube controllers as a Wii controller in this game."
+msgstr "このゲームでゲームキューブコントローラーをWiiのコントローラーとして使います。"
+
 msgid "Country names for a game from another region."
 msgstr "ほかの地域のゲームの国名です。"
 

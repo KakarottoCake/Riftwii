@@ -3681,6 +3681,9 @@ msgstr "Fa vibrare i telecomandi Wii in questo gioco."
 msgid "Sound from the Wii Remotes' speakers."
 msgstr "Suono dagli altoparlanti dei telecomandi Wii."
 
+msgid "GameCube controllers as a Wii controller in this game."
+msgstr "I controller GameCube come un controller Wii in questo gioco."
+
 msgid "Country names for a game from another region."
 msgstr "Nomi dei paesi per un gioco di un'altra regione."
 

@@ -16513,6 +16513,7 @@ static std::string GameRowShortNote(RowRef::What what)
 		case W::Aspect: return tr("Makes this game use 4:3 or widescreen.");
 		case W::Rumble: return tr("Lets the Wii Remotes rumble in this game.");
 		case W::Speaker: return tr("Sound from the Wii Remotes' speakers.");
+		case W::GcControllers: return tr("GameCube controllers as a Wii controller in this game.");
 		case W::RegionStrings: return tr("Country names for a game from another region.");
 		case W::Language: return tr("The language this game is told to use.");
 		case W::Cios: return tr("The system software this game runs under.");

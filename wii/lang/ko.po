@@ -3681,6 +3681,9 @@ msgstr "이 게임에서 Wii 리모컨 진동을 켭니다."
 msgid "Sound from the Wii Remotes' speakers."
 msgstr "Wii 리모컨 스피커의 소리입니다."
 
+msgid "GameCube controllers as a Wii controller in this game."
+msgstr "이 게임에서 게임큐브 컨트롤러를 Wii 컨트롤러로 씁니다."
+
 msgid "Country names for a game from another region."
 msgstr "다른 지역 게임의 국가 이름입니다."
 
