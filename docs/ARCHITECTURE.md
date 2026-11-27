@@ -833,7 +833,10 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   writes the list as `gc_arg=` lines beside `gc_tgc=`, and the TGC's
   reads start nothing on such a disc. The next start puts the arguments
   in the TGC's BI2, where the game's start-up code reads them
-  (`gc_pack_exec_args`). The Collector's Edition menu has no such routine
+  (`gc_pack_exec_args`). The list is written whole or not at all (at
+  most eight arguments that all fit exec.txt's sector), and the hook
+  turns the read rule back on as it runs, so a start it can't carry out
+  is still caught the old way. The Collector's Edition menu has no such routine
   and keeps the read rule: each of its games is a TGC of its own.
 
 Only for an image on the SD card, with a way back. If IOS refuses to

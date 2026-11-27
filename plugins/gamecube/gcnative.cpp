@@ -3996,14 +3996,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                     // start routine is hooked, and the list goes into
                     // exec.txt with the TGC's offset.
                     const GcTgcMenuStart menu = find_gc_tgc_menu_start(code.ranges());
-                    const unsigned menu_first = menu.start != 0 ? opcode(code.at(menu.start)) : 0;
-                    if (menu.start != 0 && menu_first != 16 && menu_first != 18) {
+                    // The routine must be in the program's own code (a call
+                    // can name any address): else nothing is hooked.
+                    const bool menu_in_code = menu.start != 0 && code.has(menu.start);
+                    const unsigned menu_first = menu_in_code ? opcode(code.at(menu.start)) : 0;
+                    if (menu_in_code && menu_first != 16 && menu_first != 18) {
                         replay_hook(menu.start, h.hook_tgc_start, h.replay_tgc_start, h.continue_tgc_start);
                         static_cast<gc_rt_cold*>(staged(cold_addr))->tgc_start_hooked = 1;
                         logf("GameCube: the menu's start routine 0x%08x is hooked, so the game it starts gets the "
                              "arguments the menu gives it (its list at 0x%08x)\n",
                              static_cast<unsigned>(menu.start), static_cast<unsigned>(menu.args));
-                    } else if (menu.start != 0) {
+                    } else if (menu_in_code) {
                         logf("GameCube: the menu's start routine 0x%08x begins with a branch and is left alone; the "
                              "game it starts gets no arguments\n",
                              static_cast<unsigned>(menu.start));

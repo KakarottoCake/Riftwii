@@ -783,7 +783,9 @@ struct gc_rt_cold {
     /* 1: a bonus disc menu's start routine is hooked (gc_on_tgc_start),
      * so the game it starts goes back through RiftWii from there, with
      * the arguments the menu hands it, and its reads of a TGC start
-     * nothing (gc_on_tgc_read). Read only then, so it waits here in MEM2. */
+     * nothing (gc_on_tgc_read). The hook clears it as it runs, so a start
+     * it could not carry out still has the read rule. Read only then, so
+     * it waits here in MEM2. */
     uint32_t tgc_start_hooked;
 };
 #define GC_MEM2_CODE_RAN 0x52554E21u /* "RUN!" */

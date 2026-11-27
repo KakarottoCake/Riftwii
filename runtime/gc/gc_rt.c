@@ -2326,21 +2326,37 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * the Zelda Ocarina of Time / Master Quest disc's N64 emulator takes the
  * ROM to run and the menu's options from it, and without them runs its
  * default ROM, Master Quest, whichever game was picked. The list is the
- * menu's, so it is checked here: entries until its 0, at most
- * GC_TGC_ARGS, each pointing into MEM1 with room there for the longest
- * argument kept; the first that doesn't ends the list. */
+ * menu's, so it is checked first, and written whole or not at all (a cut
+ * argument, "-C" for "-C1", would start the game wrong without a word):
+ * at most GC_TGC_ARGS entries before its 0, each pointing into MEM1 at a
+ * string of at most GC_EXEC_ARG_BYTES, and all of them fitting the
+ * sector after `at`. A list that breaks any of that gives no arguments,
+ * and the game starts as it did before RiftWii carried them: patched,
+ * with its default. */
 #define GC_TGC_ARGS 8u
 #define GC_MEM1_START 0x80000000u
 #define GC_MEM1_END 0x81800000u
+#define GC_ARG_LINE_EXTRA 8u  /* "gc_arg=" and the newline */
 static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
-    uint32_t i;
+    const volatile uint32_t* const entries = (const volatile uint32_t*)(uintptr_t)list;
+    uint32_t count, i, need = 0;
     if (list == 0) return at;
-    for (i = 0; i < GC_TGC_ARGS; ++i) {
-        const uint32_t text = ((const volatile uint32_t*)(uintptr_t)list)[i];
-        if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) break;
+    for (count = 0; count < GC_TGC_ARGS && entries[count] != 0; ++count) {
+        const uint32_t text = entries[count];
+        uint32_t length = 0;
+        if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) return at;
+        while (length <= GC_EXEC_ARG_BYTES && ((const volatile char*)(uintptr_t)text)[length] != 0) ++length;
+        if (length > GC_EXEC_ARG_BYTES) return at;
+        need += length + GC_ARG_LINE_EXTRA;
+    }
+    /* No 0 within GC_TGC_ARGS: longer than RiftWii carries. */
+    if (count == GC_TGC_ARGS && entries[count] != 0) return at;
+    /* The sector keeps its last two bytes (gc_exec_bytes' bound). */
+    if (at > GC_SECTOR - 2u || need > GC_SECTOR - 2u - at) return at;
+    for (i = 0; i < count; ++i) {
         at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
         at = gc_exec_bytes(buf, at, 0x72673D00u, 3);
-        at = gc_exec_end_line(buf, gc_exec_text(buf, at, (const char*)(uintptr_t)text));
+        at = gc_exec_end_line(buf, gc_exec_text(buf, at, (const char*)(uintptr_t)entries[i]));
     }
     return at;
 }
@@ -2388,11 +2404,17 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
 #define GC_DVD_FILE_START 0x30u
 void gc_on_tgc_start(struct gc_rt_context* ctx, uint32_t file, uint32_t args) {
     uint32_t start, i;
+    /* Whatever happens here, the TGC reads count again afterwards: if the
+     * game could not leave from this hook, the read rule (gc_on_tgc_read)
+     * is what still catches the start, as it did before the hook. */
+    gc_cold(ctx)->tgc_start_hooked = 0;
     /* As a program switch does (gc_on_boot_dol): IOS done with the
      * blob's requests first, or the menu's own start runs. */
     if (!gc_io_drain(ctx, 0)) return;
     if (file < GC_MEM1_START || file > GC_MEM1_END - GC_DVD_FILE_START - 4u || (file & 3u) != 0) return;
-    if (args != 0 && (args < GC_MEM1_START || args > GC_MEM1_END - 4u * GC_TGC_ARGS || (args & 3u) != 0)) return;
+    /* A list outside MEM1 is not taken; the game still starts, without it. */
+    if (args != 0 && (args < GC_MEM1_START || args > GC_MEM1_END - 4u * (GC_TGC_ARGS + 1u) || (args & 3u) != 0))
+        args = 0;
     start = ((const volatile uint32_t*)(uintptr_t)file)[GC_DVD_FILE_START / 4u];
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX; ++i) {
         if (ctx->tgc_offset[i] == start) {
