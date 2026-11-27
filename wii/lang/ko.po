@@ -1542,6 +1542,18 @@ msgstr "끔: 이 게임에서는 Wii 리모컨이 절대 진동하지 않습니�
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "끔: 이 게임에서는 Wii 리모컨 스피커에서 소리가 나지 않습니다."
 
+msgid "GameCube controllers"
+msgstr "게임큐브 컨트롤러"
+
+msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
+msgstr "각 게임큐브 컨트롤러가 클래식 컨트롤러로 작동합니다(포트 1은 Wii 리모컨 1 등). 지원하는 게임용입니다."
+
+msgid "A code build doesn't use it."
+msgstr "코드 빌드에서는 사용되지 않습니다."
+
+msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
+msgstr "게임큐브 컨트롤러는 전용 게임에서만 작동합니다. 다른 선택지에서는 Wii 컨트롤러로 작동합니다."
+
 msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
 msgstr "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지역 정보를 확인해야 할 위치에서 자사 지역의 국가명을 인식합니다."
 
@@ -5435,6 +5447,9 @@ msgstr "기타 타이틀"
 
 msgid "Emulated + Wii"
 msgstr "에뮬레이트 + Wii"
+
+msgid "In a game with no GameCube controller code, only the adapter's controllers play."
+msgstr "게임큐브 컨트롤러 코드가 없는 게임에서는 어댑터의 컨트롤러만 쓸 수 있습니다."
 
 msgid "Get a save"
 msgstr "세이브 받기"

@@ -511,6 +511,7 @@ std::string LaunchModel::save() const {
     if (game.aspect != "global") text += "*riftwii*\taspect\t" + clean(game.aspect) + "\n";
     if (game.rumble == "off") text += "*riftwii*\trumble\toff\n";
     if (game.speaker == "off") text += "*riftwii*\tspeaker\toff\n";
+    if (game.gc_controllers == "classic") text += "*riftwii*\tgccontrollers\tclassic\n";
     if (game.region_strings == "on") text += "*riftwii*\tregionstrings\ton\n";
     if (game.nand_source == "real" || game.nand_source == "emu")
         text += "*riftwii*\tnandsource\t" + game.nand_source + "\n";
@@ -616,6 +617,8 @@ void LaunchModel::restore(const std::string& text) {
                 game.rumble = value == "off" ? "off" : "on";
             } else if (key == "speaker") {
                 game.speaker = value == "off" ? "off" : "on";
+            } else if (key == "gccontrollers") {
+                game.gc_controllers = value == "classic" ? "classic" : "off";
             } else if (key == "regionstrings") {
                 game.region_strings = value == "on" ? "on" : "off";
             } else if (key == "nandsource") {

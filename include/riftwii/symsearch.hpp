@@ -125,6 +125,16 @@ bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address);
 bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<CodeRange>& patched,
                        std::vector<CodeRange>& out);
 
+// The Wii Remotes' screen-dimming reset (__VIResetRFIdle), found without a
+// PADRead to start from: the one-store reset (a flag cleared, 1 returned,
+// the flag r13- or lis-based) that the Wii Remote library calls, from
+// within 64 KiB of `wpad_probe`. Clearing it keeps the picture on, as the
+// ports' reset does in games that read GameCube controllers. 0 when none,
+// or two different ones, are called there; and 0 as unsupported (not
+// ambiguous) when the one found is called fewer than twice from within that
+// reach, or from anywhere outside it.
+std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std::uint32_t wpad_probe);
+
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the
 // command's two low bits (`rlwinm rX, rY, 0, 30, 31`), ORs them into the

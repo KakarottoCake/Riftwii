@@ -1542,6 +1542,18 @@ msgstr "Desactivado: los mandos de Wii nunca vibran en este juego."
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "Desactivado: sin sonido de los altavoces de los mandos de Wii en este juego."
 
+msgid "GameCube controllers"
+msgstr "Mandos de GameCube"
+
+msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
+msgstr "Cada mando de GameCube juega como un mando clásico (el puerto 1 como el mando de Wii 1, y así sucesivamente), en los juegos que lo admiten."
+
+msgid "A code build doesn't use it."
+msgstr "Una compilación de código no lo usa."
+
+msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
+msgstr "Los mandos de GameCube solo funcionan en los juegos hechos para ellos. Las otras opciones los hacen jugar como un mando de Wii."
+
 msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
 msgstr "Para un juego de otra región (importado): el juego ve los nombres de país de su región donde busca los de la consola."
 
@@ -5435,6 +5447,9 @@ msgstr "Otros títulos"
 
 msgid "Emulated + Wii"
 msgstr "Emulada + Wii"
+
+msgid "In a game with no GameCube controller code, only the adapter's controllers play."
+msgstr "En un juego sin código para mandos de GameCube, solo juegan los mandos del adaptador."
 
 msgid "Get a save"
 msgstr "Descargar partida"

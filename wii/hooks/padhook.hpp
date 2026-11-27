@@ -126,6 +126,18 @@ struct PadHook {
     // after the driver's state in MEM2; nullptr: none stored, none placed.
     const rtpadcal_table* calibration = nullptr;
     std::uint32_t calibration_base = 0;     // where the table went, 0: none
+    // GameCube controllers as Classic Controllers (#587): the game's own
+    // setting (off by default). Its state goes after the calibrations in
+    // MEM2, only with the HOME Menu's blob, whose KPAD read and WPADProbe
+    // hooks it shares (runtime/rtgcwii.h).
+    bool as_classic = false;
+    std::uint32_t gcwii_base = 0;           // where the state went, 0: none
+    // For it with no adapter (a Wii's own ports): the hook goes in, USB
+    // untouched (RT_PAD_FLAG_NO_USB).
+    bool no_usb = false;
+    // Settings > Leaving a game, HOME only: its hooks were found for it,
+    // but the HOME Menu's stand-in stays off (the combo leaves nothing).
+    bool home_combo_off = false;
     // The HOME Menu; any of the four required (kpad_read, wpad_probe,
     // hbm_calc, hbm_select) 0: off.
     std::uint32_t kpad_read = 0;          // the KPAD read (KPADReadEx in newer SDKs)
@@ -185,9 +197,13 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 // loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
 // (libogc's USB is shut down for it). A PADRead in a pack's plain
 // <memory> patches (`patches`, not applied yet) is found too, and wins
-// over the game's own. False (with a reason) turns the adapter off.
-bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
-                        std::string& why);
+// over the game's own. `as_classic`: the game's GameCube controllers as
+// Classic Controllers setting (its KPAD hooks are looked for even with
+// Leaving a game on HOME only); `usb` false: no adapter is wanted and
+// /dev/usb/hid is never opened (the Wii's own ports only). False (with a
+// reason) turns the adapter off.
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, bool as_classic,
+                        bool usb, PadHook& out, std::string& why);
 
 // Before the <memory> patches, on the game as loaded: what their plain
 // writes will leave (PatchedCode), for a PADRead search. Without memory

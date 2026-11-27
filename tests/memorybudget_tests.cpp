@@ -6,6 +6,7 @@
 #include "loadersettings.hpp"
 #include "memorybudget.hpp"
 #include "memorybudget_blobs.hpp"
+#include "rtgcwii.h"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -30,6 +31,26 @@ bool GcAdapterMenuLastView(GcAdapterView& view) {
 
 using namespace riftwii;
 using namespace riftwii::wii;
+
+// GameCube controllers as Classic Controllers with the adapter off and no
+// USB pads (the Wii's own GameCube ports): the hook is counted, with the
+// stand-in's state (#609).
+static void test_classic_without_adapter() {
+    FrontendState state;
+    state.game_id = "SKREG9";
+    state.model.save_mode = "nand";
+    state.use_sd = true;
+    state.sd_catalog.games.push_back(ImageGame{});
+    settings.gc_adapter = "off";
+    adapter_plugged = false;
+    const ExtrasBudget off = EstimateExtras(state);
+    state.model.game.gc_controllers = "classic";
+    const ExtrasBudget classic = EstimateExtras(state);
+    const auto state_bytes = ((sizeof(gcad_hub) + 31) & ~std::size_t(31)) + ((sizeof(rtgcwii) + 31) & ~std::size_t(31));
+    EXPECT_EQ(classic.pieces.size(), off.pieces.size() + 1);
+    EXPECT_EQ(classic.mem1() - off.mem1(), budget_pad.size);
+    EXPECT_EQ(classic.mem2() - off.mem2(), state_bytes);
+}
 
 static void test_adapter_budget() {
     for (bool usb : {false, true}) {
@@ -99,6 +120,7 @@ static void test_code_build_adapter_budget() {
 int main() {
     test_adapter_budget();
     test_code_build_adapter_budget();
+    test_classic_without_adapter();
     if (g_failures != 0) return 1;
     std::cout << "ALL MEMORYBUDGET TESTS PASSED" << std::endl;
     return 0;

@@ -1,9 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The pads plugin (docs/PLUGINS.md, "The pads plugin"): carries the six
+/* The pads plugin (docs/PLUGINS.md, "The pads plugin"): carries the
  * builds of the in-game pad code (runtime/pad: the GameCube adapter, the
- * other USB pads and the HOME Menu by the controller), which the DOL used
- * to embed. Its launch copies the build the DOL asks for into the DOL's
+ * other USB pads, the HOME Menu by the controller and the Wii controller
+ * stand-ins), which the DOL used to embed. Its launch copies the build the DOL asks for into the DOL's
  * buffer; the DOL checks it, shuts the plugin down and puts it into the
  * game itself (wii/hooks/padhook.cpp), as before. */
 #include "riftwii/plugin_api.h"

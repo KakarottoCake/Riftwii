@@ -63,6 +63,10 @@
  * pad): the /dev/usb/hid list owner lies dormant, a pad link's size,
  * asking for no list (#496). */
 #define RT_PAD_FLAG_HID_DORMANT 4u
+/* No adapter and no USB pad (GameCube controllers as Classic Controllers on
+ * a Wii's own ports, #587): the driver is never asked anything, so USB is
+ * left alone; only the console's own ports count. */
+#define RT_PAD_FLAG_NO_USB 8u
 
 /* Big-endian words at the start of the blob. */
 struct rt_pad_header {
@@ -186,6 +190,12 @@ struct rt_pad_context {
      * the game was last told is connected, plus one (0: none). */
     uint32_t kpad_connect;
     uint32_t kpad_connect_info;
+    /* GameCube controllers as Classic Controllers (#587, rtgcwii.h): the
+     * state's address in MEM2, 0: off (the game's setting is off, the
+     * default, or the KPAD read or WPADProbe wasn't found). Loader-filled.
+     * Independent of home_on: a game that can't take the HOME Menu's
+     * stand-in may still take this one. */
+    uint32_t gcwii;
 };
 
 #ifdef RT_TARGET_PPC

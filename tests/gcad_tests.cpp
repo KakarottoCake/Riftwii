@@ -1682,6 +1682,113 @@ static void TestPatchedCodeRanges() {
     EXPECT_TRUE(error.find("plain memory patches") != std::string::npos);
 }
 
+// The Wii Remotes' screen-dimming reset found with no PADRead to start
+// from: the one-store reset the Wii Remote library (near WPADProbe) calls.
+static void TestRemotesIdleReset() {
+    Asm a{0x80200000u, {}};
+    a.blr();
+    const std::uint32_t remotes = idle_reset_function(a, -0x6034, false);
+    const std::uint32_t other = idle_reset_function(a, -0x6020, true);  // never called near WPADProbe
+    // The lis form (LEGO Star Wars III's other reset): lis r3,hi; li r0,0; stw r0,lo(r3); li r3,1; blr.
+    const std::uint32_t lis_form = a.here();
+    a.op(0x3C60809Cu);
+    a.op(0x38000000u);
+    a.op(0x9003FB48u);
+    a.op(0x38600001u);
+    a.blr();
+    const std::uint32_t probe = a.here();  // "WPADProbe", and the library's calls around it
+    a.prologue();
+    a.bl(remotes);
+    a.op(0x60000000u);
+    a.bl(remotes);
+    a.blr();
+    std::vector<std::uint8_t> code = a.bytes();
+    std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), remotes);
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, 0), 0u);
+    // The library calling two different resets: not guessed.
+    Asm two = a;
+    two.prologue();
+    two.bl(lis_form);
+    two.blr();
+    code = two.bytes();
+    text = {{two.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), 0u);
+    // ... but the lis form alone is taken.
+    Asm lis_only{0x80200000u, {}};
+    const std::uint32_t lone = lis_only.here();
+    lis_only.op(0x3C60809Cu);
+    lis_only.op(0x38000000u);
+    lis_only.op(0x9003FB48u);
+    lis_only.op(0x38600001u);
+    lis_only.blr();
+    const std::uint32_t probe2 = lis_only.here();
+    lis_only.prologue();
+    lis_only.bl(lone);
+    lis_only.op(0x60000000u);
+    lis_only.bl(lone);  // the library's two calls, as in every dumped game
+    lis_only.blr();
+    code = lis_only.bytes();
+    text = {{lis_only.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), lone);
+    // The return value loaded before the store, the address in r4 (CodeRabbit
+    // on #609): li r0,0; lis r4,hi; li r3,1; stw r0,lo(r4); blr. Taken; with
+    // the address in r3 the same order would lose it, so not.
+    for (const bool in_r3 : {false, true}) {
+        Asm early{0x80200000u, {}};
+        const std::uint32_t reset = early.here();
+        early.op(0x38000000u);
+        early.op(in_r3 ? 0x3C60809Cu : 0x3C80809Cu);
+        early.op(0x38600001u);
+        early.op(in_r3 ? 0x9003FB48u : 0x9004FB48u);
+        early.blr();
+        const std::uint32_t probe_early = early.here();
+        early.prologue();
+        early.bl(reset);
+        early.op(0x60000000u);
+        early.bl(reset);
+        early.blr();
+        code = early.bytes();
+        text = {{early.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe_early), in_r3 ? 0u : reset);
+    }
+    // Called only once near WPADProbe: not the library's (CodeRabbit on #609).
+    Asm once{0x80200000u, {}};
+    const std::uint32_t once_reset = idle_reset_function(once, -0x6034, false);
+    const std::uint32_t probe3 = once.here();
+    once.prologue();
+    once.bl(once_reset);
+    once.blr();
+    code = once.bytes();
+    text = {{once.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe3), 0u);
+    // Called twice near WPADProbe and also from the game's own code far
+    // from it: a game helper of the same shape, not taken.
+    Asm far{0x80200000u, {}};
+    const std::uint32_t far_reset = idle_reset_function(far, -0x6034, false);
+    const std::uint32_t probe4 = far.here();
+    far.prologue();
+    far.bl(far_reset);
+    far.op(0x60000000u);
+    far.bl(far_reset);
+    far.blr();
+    while (far.here() < probe4 + 0x10010) far.op(0x60000000u);
+    far.bl(far_reset);  // the game's own call, out of WPAD's reach
+    code = far.bytes();
+    text = {{far.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe4), 0u);
+    // The lis-form reset split across two touching ranges (a pack's patch
+    // over its middle with the same bytes, as code_with_patches gives it):
+    // still found (CodeRabbit on #610); with a gap between, not.
+    code = lis_only.bytes();
+    const std::uint32_t split = lone - lis_only.base + 8;  // after its first two words
+    text = {{lis_only.base, code.data(), split}, {lis_only.base + split, code.data() + split, code.size() - split}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), lone);
+    text = {{lis_only.base, code.data(), split}, {lis_only.base + split + 4, code.data() + split + 4, code.size() - split - 4}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), 0u);
+    (void)other;
+}
+
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
 // 0x40 in the top half, then SISetCommand and SITransferCommands in a row.
 static void gc_motor_function(Asm& a, std::uint32_t set_command, std::uint32_t transfer, bool second_call) {
@@ -2323,6 +2430,7 @@ int main() {
     TestPatchedSiProbeAndMotor();
     TestPackPadRead();
     TestIdleResetSearch();
+    TestRemotesIdleReset();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();

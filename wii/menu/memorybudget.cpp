@@ -20,6 +20,7 @@
 #include "rt_hook.h"
 #include "rtfs.h"
 #include "rtgcad.h"
+#include "rtgcwii.h"
 #include "shot_hook.h"
 #include "vsd_hook.h"
 #include "zstd.h"
@@ -41,11 +42,15 @@ std::uint32_t blob_bytes(const std::uint8_t* blob) {
     return align(reinterpret_cast<const Header*>(blob)->size);
 }
 
-// The pad code's full build (the pads plugin carries the builds; the DOL
-// keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h).
-std::uint32_t pad_build_bytes() {
+// The pad code's full build, or with GameCube controllers as Classic
+// Controllers its full stand-in build (the pads plugin carries the builds;
+// the DOL keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h, in
+// padhook.cpp's order: the stand-in's full build is the seventh).
+std::uint32_t pad_build_bytes(bool as_classic) {
     constexpr std::uint32_t kBytes[] = RIFTWII_PAD_BUILD_BYTES;
-    return align(kBytes[0]);
+    constexpr std::size_t kClassicFull = 6;
+    static_assert(sizeof(kBytes) / sizeof(kBytes[0]) > kClassicFull, "the pad builds' sizes miss the stand-in's");
+    return align(kBytes[as_classic ? kClassicFull : 0]);
 }
 
 // A typical pack's redirect table and payload (a few hundred files).
@@ -112,19 +117,24 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
     const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged) ||
                          (settings.usb_input != "off" && view.hid_pads != 0);
+    // GameCube controllers as Classic Controllers (the game's own setting)
+    // put the hook in for the Wii's own GameCube ports even with no adapter
+    // or USB pads, and take the stand-in's build and its state.
+    const bool as_classic = state.model.game.gc_controllers == "classic";
     if (!protected_game && !whole_mem1) {
         b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")
             b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
-        if (adapter)
-            b.add(tr("GameCube adapter"), pad_build_bytes(), align(sizeof(gcad_hub)));
+        if (adapter || as_classic)
+            b.add(tr("GameCube adapter"), pad_build_bytes(as_classic),
+                  align(sizeof(gcad_hub)) + (as_classic ? align(sizeof(rtgcwii)) : 0));
     } else if (!protected_game && code_build && !clears_mem1_top && adapter) {
         // A code build keeps all of MEM1: the adapter's code and state both
         // go to the top of the MEM2 arena, reached through veneers in low
         // memory (wii/hooks/padhook.cpp). A game that clears MEM1's top
         // gets no adapter at all (boot.cpp), code build or not.
         b.add(tr("GameCube adapter"), 0,
-              pad_build_bytes() + align(sizeof(gcad_hub)));
+              pad_build_bytes(false) + align(sizeof(gcad_hub)));
     }
     return b;
 }
