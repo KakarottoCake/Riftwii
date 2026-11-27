@@ -1421,6 +1421,22 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
             const int32_t* own = (uint32_t)chan < RTGCWII_CHANNELS && ((w->shape.camera >> (uint32_t)chan) & 1u)
                                      ? w->shape.pointer[chan]
                                      : 0;
+            /* Held sideways, the pointer is off the screen unless the player
+             * has it up (L, or a C-stick move): no dots then either, as in
+             * KPAD's status, but the camera's format stays, as a Wii Remote
+             * with its camera on and nothing in view (CodeRabbit on #651).
+             * Looked at, nothing taken. */
+            int unseen = 0;
+#ifdef RT_PAD_FORM_SIDEWAYS
+            if (own) {
+                struct rtshape_out look;
+                rtgcwii_wii_remote((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, t, &look, 0);
+                if (!look.pointer_shown) {
+                    own = 0;
+                    unseen = 1;
+                }
+            }
+#endif
             /* KPAD's raw samples, each at its own time (a sample every
              * 5 ms, rtgcwii_unified): a shake swings through them as a
              * real Wii Remote's do, which Donkey Kong Country Returns'
@@ -1440,6 +1456,7 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
                  * over the sample's buttons, accelerometer and dots. */
                 const uint8_t written = entry[c->kpad_unified_bytes - 2u];
                 pad_gcwii_wpad_status(raw, hold, own, 0);
+                if (unseen) raw[RTHOME_WPAD_STATUS_BYTES - 2u] = PAD_FORMAT_STANDIN_DPD;
                 entry[40] = raw[40];
                 for (k = RTHOME_WPAD_STATUS_BYTES - 2u; k < c->kpad_unified_bytes; ++k) entry[k] = 0;
                 entry[c->kpad_unified_bytes - 2u] = written != 0 ? written : raw[RTHOME_WPAD_STATUS_BYTES - 2u];
@@ -1471,6 +1488,20 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
             rthome_menu_open(&c->home) ? pointer
             : (rtslot_on(&w->slot, (uint32_t)chan) && ((w->shape.camera >> (uint32_t)chan) & 1u)) ? w->shape.pointer[chan]
                                                                                                    : 0;
+        /* Outside the open HOME Menu, the sideways pointer's own rule, as
+         * in the permanent report: no dots, the camera's format kept
+         * (CodeRabbit on #651). */
+        int at_unseen = 0;
+#ifdef RT_PAD_FORM_SIDEWAYS
+        if (at && !rthome_menu_open(&c->home)) {
+            struct rtshape_out look;
+            rtgcwii_wii_remote((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, t, &look, 0);
+            if (!look.pointer_shown) {
+                at = 0;
+                at_unseen = 1;
+            }
+        }
+#endif
         const int32_t* level = 0;
 #ifdef RT_PAD_FORM_POINTING
         /* The pointing form's roll, as the KPAD status under the HOME claim
@@ -1484,6 +1515,7 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
 #endif
         for (i = 0; i < count; ++i) {
             pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, at, level);
+            if (at_unseen) status[(uint32_t)i * c->kpad_unified_bytes + RTHOME_WPAD_STATUS_BYTES - 2u] = PAD_FORMAT_STANDIN_DPD;
             pad_unified_format(c, status + (uint32_t)i * c->kpad_unified_bytes);
         }
         interrupts_restore(msr);

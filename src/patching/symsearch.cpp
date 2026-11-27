@@ -671,8 +671,11 @@ std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std
             if (!is_bl(w)) continue;
             const std::uint32_t target = bl_target(at, w);
             if (!one_store_reset(text, target)) continue;
-            if (std::find(candidates.begin(), candidates.end(), target) == candidates.end())
-                candidates.push_back(target);
+            // Their number comes from the game's code: the checked push
+            // (AGENTS.md); with no room, none is guessed (CodeRabbit on #651).
+            if (std::find(candidates.begin(), candidates.end(), target) == candidates.end() &&
+                !try_push_back(candidates, target))
+                return 0;
         }
     }
     // The one that is the Wii Remote library's own: called from inside it
