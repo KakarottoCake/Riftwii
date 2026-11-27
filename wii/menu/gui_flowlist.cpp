@@ -124,6 +124,9 @@ void GuiFlowList::SetRows(const std::vector<FlowRow>* r) {
 
 void GuiFlowList::Refresh() {
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
+    // A press held through the change named a row of the old rows: its
+    // release acts on nothing (a drag or a held arrow goes on).
+    grabRow = -1;
     ScrollTo(aim);
     dirty = true;
 }
@@ -598,7 +601,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
             return;
         }
         // Let go: a press that stayed put acts on its row.
-        if (!dragging && !grabTrack && pointing && RowAt(px, py) == grabRow && Actionable(grabRow)) {
+        if (!dragging && !grabTrack && pointing && grabRow >= 0 && RowAt(px, py) == grabRow && Actionable(grabRow)) {
             // A Back release leaves a forward press still waiting as it was.
             if (grabPart == Part::Back) {
                 clickedBack = grabRow;

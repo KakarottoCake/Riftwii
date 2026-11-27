@@ -21133,13 +21133,19 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (direction > 0 && !list.LastClickStepped() && actedRow.kind == FlowRow::Kind::Option && !actedRow.dim) {
 				std::vector<std::string> labels, notes;
 				const int set = choicesOf(actedAction, labels, notes);
+				// Screen size saved between the fives (settings.txt takes 82):
+				// none of the list is in use; the focus starts on the five
+				// under it, and picking any one sets it.
+				const bool sizeBetween = settings.screen_size % 5 != 0 || settings.screen_size < 80 ||
+					settings.screen_size > 100;
+				const bool setListed = !(actedAction == kScreenSize && sizeBetween);
 				if (set >= 0 && labels.size() > 1) {
 					const std::string about = help(actedAction);
 					std::vector<FlowRow> choiceRows(labels.size());
 					for (std::size_t i = 0; i < labels.size(); ++i) {
 						choiceRows[i].kind = FlowRow::Kind::Action;
 						choiceRows[i].label = labels[i];
-						if (static_cast<int>(i) == set) {
+						if (static_cast<int>(i) == set && setListed) {
 							choiceRows[i].on = true;
 							choiceRows[i].value = tr("In use");
 						}
@@ -21167,14 +21173,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// list marks IOS 58, the slot that is used, and picking it
 					// saves it.
 					const bool iosSlotGone = std::find(iosChoices.begin(), iosChoices.end(), iosSlot) == iosChoices.end();
-					// Screen size saved between the fives (settings.txt takes
-					// 82): the list marks the five under it, and picking it
-					// sets that.
-					const bool sizeBetween = settings.screen_size % 5 != 0 || settings.screen_size < 80 ||
-						settings.screen_size > 100;
 					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource ||
 						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto")) ||
-						(actedAction == kIos && iosSlotGone) || (actedAction == kScreenSize && sizeBetween);
+						(actedAction == kIos && iosSlotGone) || !setListed;
 					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
 					else {
 						direction = picked - set;
@@ -21920,7 +21921,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						// A failed write may have emptied the file: shown as the card has it.
 						iosSlot = riftwii::wii::LoadMenuIos();
 						logf("Menu IOS: could not save %s\n", MenuIosLabel(wanted).c_str());
-						noteTxt.SetText("Cannot write sd:/riftwii/menu_ios.txt");
+						noteTxt.SetText(tr("Cannot write sd:/riftwii/menu_ios.txt"));
 					}
 					build();
 					list.Refresh();
