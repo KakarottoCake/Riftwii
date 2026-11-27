@@ -2334,10 +2334,8 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * and the game starts as it did before RiftWii carried them: patched,
  * with its default; a "gc_tgc_args=dropped" line in their place has
  * RiftWii's next start say so in its log. */
-#define GC_TGC_ARGS 8u
 #define GC_MEM1_START 0x80000000u
 #define GC_MEM1_END 0x81800000u
-#define GC_ARG_LINE_EXTRA 8u  /* "gc_arg=" and the newline */
 static uint32_t gc_tgc_args_dropped(uint8_t* buf, uint32_t at) {
     at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc_args=dropped" */
     at = gc_exec_bytes(buf, at, 0x67635F61u, 4);
@@ -2348,20 +2346,20 @@ static uint32_t gc_tgc_args_dropped(uint8_t* buf, uint32_t at) {
 }
 static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
     const volatile uint32_t* const entries = (const volatile uint32_t*)(uintptr_t)list;
-    uint32_t count, i, need = 0;
+    uint32_t lengths[GC_TGC_ARGS];
+    uint32_t count, i;
     if (list == 0) return at;
     for (count = 0; count < GC_TGC_ARGS && entries[count] != 0; ++count) {
         const uint32_t text = entries[count];
         uint32_t length = 0;
         if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) return gc_tgc_args_dropped(buf, at);
         while (length <= GC_EXEC_ARG_BYTES && ((const volatile char*)(uintptr_t)text)[length] != 0) ++length;
-        if (length > GC_EXEC_ARG_BYTES) return gc_tgc_args_dropped(buf, at);
-        need += length + GC_ARG_LINE_EXTRA;
+        lengths[count] = length;
     }
     /* No 0 within GC_TGC_ARGS: longer than RiftWii carries. */
     if (count == GC_TGC_ARGS && entries[count] != 0) return gc_tgc_args_dropped(buf, at);
-    /* The sector keeps its last two bytes (gc_exec_bytes' bound). */
-    if (at > GC_SECTOR - 2u || need > GC_SECTOR - 2u - at) return gc_tgc_args_dropped(buf, at);
+    /* Each short enough, and all of them in the sector (gc_tgc.h). */
+    if (!gc_tgc_args_fit(lengths, count, GC_EXEC_ARG_BYTES, at, GC_SECTOR)) return gc_tgc_args_dropped(buf, at);
     for (i = 0; i < count; ++i) {
         at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
         at = gc_exec_bytes(buf, at, 0x72673D00u, 3);

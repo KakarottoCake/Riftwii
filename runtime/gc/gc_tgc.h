@@ -29,4 +29,25 @@ static inline int gc_tgc_read_starts_game(uint32_t tgc_offset, uint32_t dol_star
     return dol_start - offset < length;
 }
 
+/* The arguments a bonus disc's menu hands its game (gc_on_tgc_start)
+ * are carried whole or not at all: 1 when `count` of them, each
+ * `lengths[i]` bytes, fit as "gc_arg=" lines (GC_TGC_ARG_LINE_EXTRA more
+ * each) in the `sector_bytes` of exec.txt after `at`, the sector's last
+ * two kept; 0 when there are more than GC_TGC_ARGS, one is longer than
+ * `longest`, or they do not all fit. No sum that could wrap. */
+#define GC_TGC_ARGS 8u
+#define GC_TGC_ARG_LINE_EXTRA 8u /* "gc_arg=" and the newline */
+static inline int gc_tgc_args_fit(const uint32_t* lengths, uint32_t count, uint32_t longest, uint32_t at,
+                                  uint32_t sector_bytes) {
+    uint32_t i, room;
+    if (count > GC_TGC_ARGS || sector_bytes < 2u || at > sector_bytes - 2u) return 0;
+    room = sector_bytes - 2u - at;
+    for (i = 0; i < count; ++i) {
+        if (lengths[i] > longest) return 0;
+        if (room < GC_TGC_ARG_LINE_EXTRA || lengths[i] > room - GC_TGC_ARG_LINE_EXTRA) return 0;
+        room -= lengths[i] + GC_TGC_ARG_LINE_EXTRA;
+    }
+    return 1;
+}
+
 #endif

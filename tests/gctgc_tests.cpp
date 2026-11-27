@@ -274,6 +274,33 @@ void test_read_starts_game() {
     EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0, 0xFFFFFFFFu), 1);
 }
 
+// The menu's arguments whole or not at all (gc_tgc.h's gc_tgc_args_fit),
+// in a 512-byte exec.txt whose launch lines take the first 86 bytes.
+void test_args_fit() {
+    constexpr std::uint32_t kSector = 512, kHead = 86, kLongest = 160;
+    const std::uint32_t zelda[4] = {9, 3, 3, 3};  // zle_f.n64 -V1 -P1 -C1
+    EXPECT_EQ(gc_tgc_args_fit(zelda, 4, kLongest, kHead, kSector), 1);
+    EXPECT_EQ(gc_tgc_args_fit(zelda, 0, kLongest, kHead, kSector), 1);
+    // Six of 80 bytes: each within the limit, together 528 of the 424 left.
+    const std::uint32_t six[6] = {80, 80, 80, 80, 80, 80};
+    EXPECT_EQ(gc_tgc_args_fit(six, 6, kLongest, kHead, kSector), 0);
+    EXPECT_EQ(gc_tgc_args_fit(six, 4, kLongest, kHead, kSector), 1);  // 352 of 424
+    // Exactly the room left fits; one byte more does not.
+    const std::uint32_t exact[1] = {kSector - 2 - kHead - 8};
+    EXPECT_EQ(gc_tgc_args_fit(exact, 1, 1000, kHead, kSector), 1);
+    const std::uint32_t over[1] = {kSector - 2 - kHead - 7};
+    EXPECT_EQ(gc_tgc_args_fit(over, 1, 1000, kHead, kSector), 0);
+    // One longer than the longest kept; more than eight; a full sector.
+    const std::uint32_t long_one[2] = {9, 161};
+    EXPECT_EQ(gc_tgc_args_fit(long_one, 2, kLongest, kHead, kSector), 0);
+    const std::uint32_t nine[9] = {1, 1, 1, 1, 1, 1, 1, 1, 1};
+    EXPECT_EQ(gc_tgc_args_fit(nine, 9, kLongest, kHead, kSector), 0);
+    EXPECT_EQ(gc_tgc_args_fit(zelda, 4, kLongest, kSector - 1, kSector), 0);
+    // Lengths near the top of the 32-bit range do not wrap past the check.
+    const std::uint32_t huge[2] = {0xFFFFFFFCu, 9};
+    EXPECT_EQ(gc_tgc_args_fit(huge, 2, 0xFFFFFFFFu, kHead, kSector), 0);
+}
+
 using riftwii::CodeRange;
 using riftwii::find_gc_tgc_menu_start;
 using riftwii::GcTgcMenuStart;
@@ -412,6 +439,7 @@ int main() {
     test_rebase();
     test_find_files();
     test_menu_args();
+    test_args_fit();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
