@@ -250,16 +250,23 @@ struct CtgpPackWriter::Impl {
             if (!fat_dirty[sector]) {
                 continue;
             }
-            std::memset(block.data(), 0, block.size());
-            for (int i = 0; i < 128; ++i) {
-                const std::size_t index = std::size_t(sector) * 128 + i;
-                if (index < fat.size()) {
-                    put_le32(block.data() + i * 4, fat[index]);
-                }
-            }
             for (std::uint32_t copy = 0; copy < fats; ++copy) {
                 if (!mirrored && copy != active_fat) continue;
                 const std::uint64_t at = (std::uint64_t(reserved) + std::uint64_t(copy) * fat_sectors + sector) * kSectorBytes;
+                // FAT32 keeps the top four bits of every entry for itself, and
+                // a writer must leave them as they are: each copy's sector is
+                // read and only the low 28 bits of its entries are replaced.
+                if (!image->read(at, block.data(), block.size())) {
+                    error = "could not read the package disk's file table";
+                    return false;
+                }
+                for (int i = 0; i < 128; ++i) {
+                    const std::size_t index = std::size_t(sector) * 128 + i;
+                    if (index < fat.size()) {
+                        const std::uint32_t kept = le32(block.data() + i * 4) & ~kFatMask;
+                        put_le32(block.data() + i * 4, kept | (fat[index] & kFatMask));
+                    }
+                }
                 if (!image->write(at, block.data(), block.size())) {
                     error = "could not write the package disk's file table";
                     return false;
@@ -285,6 +292,12 @@ struct CtgpPackWriter::Impl {
         out.clear();
         std::uint32_t cluster = first;
         std::uint32_t guard = 0;
+        // Brent's detector, as Fat32Volume::chain uses: a short loop is
+        // caught after about its own length, before `out` grows towards the
+        // volume's cluster count.
+        std::uint32_t tortoise = first;
+        std::uint64_t power = 1;
+        std::uint64_t steps = 0;
         while (cluster >= 2 && cluster < max_cluster) {
             out.push_back(cluster);
             if (out.size() > std::size_t(cluster_count)) {
@@ -305,6 +318,16 @@ struct CtgpPackWriter::Impl {
                 return false;
             }
             if (++guard > cluster_count) {
+                error = "the package disk has a loop in a file";
+                return false;
+            }
+            if (steps == power) {
+                tortoise = out.back();
+                power <<= 1;
+                steps = 0;
+            }
+            ++steps;
+            if (cluster == tortoise) {
                 error = "the package disk has a loop in a file";
                 return false;
             }
@@ -460,8 +483,69 @@ struct CtgpPackWriter::Impl {
         return false;
     }
 
+    // Whether the first clusters of a file's chain, as many as `size` bytes
+    // fill, lie on the disk, link on through clusters in use, and repeat
+    // none of themselves: a file read stops at its size, so a loop it
+    // reaches before the end would otherwise hand back the same cluster
+    // twice. Once a chain repeats, every cluster after the first repeat
+    // does, so the last one is enough to compare with the ones before it.
+    // The FAT is in memory: two walks, no allocation.
+    bool file_chain_ok(std::uint32_t first, std::uint32_t size, std::string& error) const {
+        if (size == 0) {
+            return true;
+        }
+        const std::uint64_t needed = (std::uint64_t(size) + cluster_bytes() - 1) / cluster_bytes();
+        std::uint32_t cluster = first;
+        std::uint32_t last = first;
+        for (std::uint64_t i = 0; i < needed; ++i) {
+            if (cluster < 2 || cluster >= max_cluster) {
+                error = "a package file runs past the end of the disk";
+                return false;
+            }
+            last = cluster;
+            if (i + 1 == needed) {
+                break;
+            }
+            cluster = next_cluster(cluster);
+            if (cluster >= kFatEndOfChain) {
+                error = "a package file's cluster chain is shorter than the file";
+                return false;
+            }
+            if (cluster < 2 || cluster == kFatBadCluster) {
+                error = "the package disk's file table is damaged";
+                return false;
+            }
+        }
+        cluster = first;
+        for (std::uint64_t i = 0; i + 1 < needed; ++i) {
+            if (cluster == last) {
+                error = "the package disk has a loop in a file";
+                return false;
+            }
+            cluster = next_cluster(cluster);
+        }
+        return true;
+    }
+
+    // How many free clusters there are, up to `count`.
+    std::uint32_t free_up_to(std::uint32_t count) const {
+        std::uint32_t free = 0;
+        for (std::uint32_t cluster = 2; cluster < max_cluster && cluster < fat.size() && free < count; ++cluster) {
+            if (fat[cluster] == 0) {
+                ++free;
+            }
+        }
+        return free;
+    }
+
     std::uint32_t allocate(std::uint32_t count, std::string& error) {
         if (count == 0) {
+            return 0;
+        }
+        // Counted first, so a request that can't be met changes nothing:
+        // no cluster is left marked used and unlinked.
+        if (free_up_to(count) < count) {
+            error = "the package disk is full";
             return 0;
         }
         std::uint32_t found = 0;
@@ -526,6 +610,9 @@ struct CtgpPackWriter::Impl {
         // The size comes from a directory entry: checked before it is asked for.
         if (size > kCtgpPackMaxFileBytes) {
             error = "a package file is larger than any the updater reads";
+            return false;
+        }
+        if (!file_chain_ok(first, size, error)) {
             return false;
         }
         if (!can_allocate(size)) {
@@ -684,7 +771,17 @@ bool CtgpPackWriter::replace_file(const std::string& path, std::size_t size, con
     // only a growth asks for new ones. The chain is extended first, then the
     // data is written over it and the entry is switched to the new size.
     std::vector<std::uint32_t> chain;
-    if (!d.walk_chain(entry.cluster, chain, error)) {
+    bool chain_clean = false;
+    if (!d.walk_chain(entry.cluster, chain, error, &chain_clean)) {
+        return false;
+    }
+    // The old chain must be whole before it is written over: it ends at an
+    // end mark, on the disk, and holds the old size. A shorter one means the
+    // file table is damaged, and replacing over it would hide that. An empty
+    // file with no cluster has no chain at all.
+    const bool no_chain = entry.cluster == 0 && entry.size == 0;
+    if (!no_chain && (!chain_clean || std::uint64_t(chain.size()) * d.cluster_bytes() < entry.size)) {
+        error = "the package disk's chain for " + path + " is damaged";
         return false;
     }
     const std::uint64_t capacity = std::uint64_t(chain.size()) * d.cluster_bytes();
@@ -810,6 +907,10 @@ bool CtgpPackWriter::read_file(const std::string& path, const Sink& sink, std::u
         *size = entry.size;
     }
     const Impl& d = *impl_;
+    // Checked before the first byte goes to the sink.
+    if (!d.file_chain_ok(entry.cluster, entry.size, error)) {
+        return false;
+    }
     std::vector<std::uint8_t> block(std::size_t(d.cluster_bytes()));
     std::uint32_t cluster = entry.cluster;
     std::uint32_t done = 0;

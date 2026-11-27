@@ -85,6 +85,32 @@ std::vector<std::uint8_t> encrypt(const std::vector<std::uint8_t>& plain) {
     return out;
 }
 
+std::vector<std::uint8_t> decrypt(const std::vector<std::uint8_t>& image) {
+    std::vector<std::uint8_t> out(image.size());
+    const Aes128 aes(kKey.data());
+    for (std::size_t at = 0; at < image.size(); at += kChunk) {
+        const auto iv = ctgp_efa_chunk_iv(kIv, std::uint32_t(at / kSector));
+        aes.cbc_decrypt(iv.data(), image.data() + at, out.data() + at, kChunk);
+    }
+    return out;
+}
+
+// A.BIN's directory entry claims `size` bytes.
+void set_size(std::vector<std::uint8_t>& plain, std::uint32_t size) {
+    put32(plain.data() + cluster_at(2) + 0x1C, size);
+}
+
+// FAT entry `cluster` in both copies.
+void set_fat(std::vector<std::uint8_t>& plain, std::uint32_t cluster, std::uint32_t value) {
+    for (std::uint32_t copy = 0; copy < kFats; ++copy) {
+        put32(plain.data() + (std::size_t(kReserved) + copy * kFatSectors) * kSector + cluster * 4, value);
+    }
+}
+
+std::uint32_t get32(const std::uint8_t* p) {
+    return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[3]) << 24);
+}
+
 CtgpPackIo io_on(std::vector<std::uint8_t>& image, int& writes) {
     CtgpPackIo io;
     io.read = [&image](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
@@ -144,6 +170,82 @@ int main() {
         w.close();
         EXPECT_TRUE(writes == 0);
         EXPECT_TRUE(image == before);
+    }
+
+    // A two-cluster file whose first cluster links to itself: both reads
+    // would reach the size with the same cluster twice. Refused before any
+    // byte goes to the sink, and the replace writes nothing.
+    // A one-cluster chain under a two-cluster size is refused the same way.
+    for (const std::uint32_t link : {3u, kEnd}) {
+        auto plain = make_plain(link);
+        set_size(plain, 2 * kTestCluster);
+        auto image = encrypt(plain);
+        const auto before = image;
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        std::vector<std::uint8_t> back;
+        EXPECT_TRUE(!w.read_file("/A.BIN", back, err));
+        EXPECT_TRUE(!err.empty());
+        bool sunk = false;
+        EXPECT_TRUE(!w.read_file("/A.BIN", [&sunk](const std::uint8_t*, std::size_t) { sunk = true; return true; },
+                                 nullptr, err));
+        EXPECT_TRUE(!sunk);
+        const auto data = pattern(kTestCluster);
+        EXPECT_TRUE(!w.replace_file("/A.BIN", data.data(), data.size(), err));
+        w.close();
+        EXPECT_TRUE(writes == 0);
+        EXPECT_TRUE(image == before);
+    }
+
+    // A growth the disk can't hold leaves no cluster marked used: with one
+    // free cluster, growing A.BIN by two fails, and a later replace that
+    // fits (which writes the FAT) still leaves that cluster free.
+    {
+        auto plain = make_plain(kEnd);
+        const std::uint32_t last = 2 + (kTotalSectors - kDataStart) / kSectorsPerCluster - 1;
+        for (std::uint32_t c = 5; c <= last; ++c) set_fat(plain, c, kEnd);
+        auto image = encrypt(plain);
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        EXPECT_TRUE(w.free_clusters() == 1);
+        const auto big = pattern(3 * kTestCluster);
+        EXPECT_TRUE(!w.replace_file("/A.BIN", big.data(), big.size(), err));
+        EXPECT_TRUE(w.free_clusters() == 1);
+        const auto small = pattern(kTestCluster);
+        EXPECT_TRUE(w.replace_file("/A.BIN", small.data(), small.size(), err));
+        w.close();
+        CtgpPackWriter again;
+        EXPECT_TRUE(again.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        EXPECT_TRUE(again.free_clusters() == 1);
+    }
+
+    // FAT32's top four bits of an entry are the volume's: a write of the
+    // file table keeps them, in the entries it changes and the ones it
+    // doesn't, in both copies.
+    {
+        auto plain = make_plain(kEnd);
+        set_fat(plain, 2, 0xF0000000u | kEnd);  // the root folder, untouched
+        set_fat(plain, 3, 0xA0000000u | kEnd);  // A.BIN, which grows
+        auto image = encrypt(plain);
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        const auto data = pattern(2 * kTestCluster);
+        EXPECT_TRUE(w.replace_file("/A.BIN", data.data(), data.size(), err));
+        w.close();
+        const auto after = decrypt(image);
+        for (std::uint32_t copy = 0; copy < kFats; ++copy) {
+            const std::uint8_t* fat = after.data() + (std::size_t(kReserved) + copy * kFatSectors) * kSector;
+            EXPECT_TRUE(get32(fat + 8) == (0xF0000000u | kEnd));
+            EXPECT_TRUE((get32(fat + 12) & 0xF0000000u) == 0xA0000000u);
+            EXPECT_TRUE((get32(fat + 12) & 0x0FFFFFFFu) >= 2 && (get32(fat + 12) & 0x0FFFFFFFu) < 0x0FFFFFF8u);
+        }
+        std::vector<std::uint8_t> back;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        EXPECT_TRUE(w.read_file("/A.BIN", back, err));
+        EXPECT_TRUE(back == data);
     }
 
     if (g_failures == 0) std::cout << "ctgppackwrite: all tests passed" << std::endl;
