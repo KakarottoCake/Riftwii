@@ -145,6 +145,20 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
 bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
                            const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
 
+// Whether no code in `gct` writes into any of the [start, end) ranges of
+// `keep_out` (cached addresses; the uncached ones are the same memory):
+// the looser check for a code build, whose codes always ran before the
+// game starts and stay run first unless one would write over the loader.
+// Every code is walked, conditions, C0 and pointer codes included, and
+// each write whose address is known is checked: 00 to 08 (and their po
+// forms), C2, C6, D2, D6, F2 and F4, through the base and pointer as
+// E0, E2, 42 and 4A set them. A write through a base or pointer read
+// from the game's memory (40, 48, 46, 4E and the added forms) isn't
+// judged: that is the game's memory, not the loader's. False for a list
+// that is not valid or that has a code it can't walk past.
+bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
+                        const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
+
 // A code that was switched off by switch_off_slot_b_codes: where its
 // instructions went and how many lines they took.
 struct SlotBCode {

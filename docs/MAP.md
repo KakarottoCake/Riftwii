@@ -41,6 +41,7 @@ headers, generated data and assets with the code that uses them.
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | The app store's list (apps.json) | `src/net/applist.cpp`, `include/riftwii/jsonreader.hpp`, `tools/app_list.py`, `tools/app_list_check.cpp`, `tests/applist_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
+| Riivolution mods from GameBanana (a game's Mods page > Get more mods) | `tools/mod_list.py` (builds mods.json), `tests/mod_list_tests.py`, the mod fields in `src/net/applist.cpp`, the store's mods mode in `plugins/appstore/storeui.cpp`, MenuMods in `wii/menu/rift_menu.cpp`, the chain order fix in `wii/online/tls.cpp`, [MODS.md](MODS.md) |
 | The Rift Store, the app store (Settings > Online > Rift Store) | The `appstore` plugin: `plugins/appstore/` (pages, jobs), `src/net/appcatalog.cpp` (categories, state, search, the install plan), `src/fs/zipread.cpp` (`zip_read_directory_at`, `zip_extract_at`), `src/art/storeicons.cpp` (its icons, painted by the plugin; `plugins/appstore/storemath.cpp` has the float functions they need); its screen and network in the DOL: `wii/menu/pluginscreen.cpp`, `wii/core/pluginhost.cpp`, `HttpGetStream` in `wii/online/httpmem.cpp`; `tests/appcatalog_tests.cpp`, `tests/httpchunk_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
@@ -146,7 +147,7 @@ The build compiles every folder into one, so no two files share a name.
 | `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
 | `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
 | `mainstack.cpp` | The stacks crt0 sets up: the main thread's in MEM2 (`mem::kMainStack`), the exception stack in MEM1, in place of libogc's defaults |
-| `mem2sections.ld` | Added to libogc's linker script: the zero-filled buffers of libbte, libwiiuse, parts of libogc and the C library and RiftWii itself in MEM2, after the code and read-only data (all three back to back from `mem::kProgramArea`), zeroed by `restart.cpp` at every start, and the code and read-only data run from MEM2 (`mem::kProgramCode`, `mem::kReadOnlyData`), which `tools/dol_stash.py` loads above `.bss` and `restart.cpp` copies up |
+| `mem2sections.ld` | Added to libogc's linker script: the zero-filled buffers of libbte, libwiiuse, parts of libogc and the C library and RiftWii itself in MEM2, after the code and read-only data (all three back to back from `mem::kProgramArea`), zeroed by `restart.cpp` at every start, and the code and read-only data run from MEM2 (`mem::kProgramArea`, up to `mem::ProgramAreaEnd()`), which `tools/dol_stash.py` loads above `.bss` and `restart.cpp` copies up |
 | `timezone.cpp` | newlib's time zone set-up without its `TZ` parser, which a Wii never needs (`--wrap=_tzset_unlocked_r`) |
 | `packedblobs.cpp`, `packedblobs.hpp` | Unpacks a zstd frame of runtime blobs made by `tools/pack_blobs.py`, for the time a launch needs them |
 
@@ -440,6 +441,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `miidb` | The Wii's Mii database (`RFL_DB.dat`): its check, its Miis by name and ID, one Mii copied in or taken out (Manage emulated NAND > Miis) |
 | `homelist` | `homelist.txt`: the games Home found the last time it read the drives, shown at the next start until each drive is read again |
 | `foldernames` | A folder's file names kept as hashes, to answer "is this file there?" for many files from one listing |
 | `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |
@@ -571,6 +573,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `app_list.py`, `app_list_check.cpp` | The app store's list: pins each app's release, checks its download and writes apps.json; reads it back as the Wii does |
+| `mod_list.py` | The Riivolution mods list: finds GameBanana mods that really are Riivolution packs and writes mods.json and their icons (docs/MODS.md) |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
 | `dolphin/` | Dolphin test harness: `run.sh`, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see `docs/HARNESS.md`) |
 | `attribution_audit.py`, `ci_rules.py` | Code-attribution comparison and the project rules checked by CI |

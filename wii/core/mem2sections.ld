@@ -129,5 +129,7 @@ SECTIONS {
  * what a GameCube game uses before its jump. */
 ASSERT(__riftwii_mem2text_start == 0x90829000,
        "the code no longer starts at mem::kProgramArea (wii/core/memlimits.hpp)");
-ASSERT(__riftwii_mem2_end <= 0x90E00000,
+/* 4 KiB under 0x90E00000: stash::ReservedEnd() adds the stash's 32-byte
+ * note and rounds up to 4 KiB, so a full 2 MiB stash needs that too. */
+ASSERT(__riftwii_mem2_end <= 0x90DFF000,
        "the code, read-only data and buffers bound for MEM2 no longer leave room for the stash")

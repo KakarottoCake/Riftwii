@@ -473,13 +473,17 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
 // code is safe with nothing of the game set up.
 bool codes_run_first(bool debugger_handler, bool start_file_pending) {
     bool first = false;
-    const std::vector<std::pair<std::uint32_t, std::uint32_t>> loader_ranges = {{kLoaderStart, kMem1End},
-                                                                                {mem::kMem2Floor, kMem2End}};
     if (!g_extras.code_builds.empty()) {
-        // A build whose codes write where this loader still runs starts with
-        // the game instead, like a player's cheat does; the others run first.
-        first = g_extras.cheat_gct.empty() || gct_runs_before_start(g_extras.cheat_gct, loader_ranges);
-        if (!first) logf("Codes: the build's codes write where RiftWii's loader still runs: they start with the game\n");
+        // A build's codes run first, as they always have (C0, conditions,
+        // pointers and all: the builds are made for that), unless one
+        // writes into RiftWii's MEM2, where its stack, code and heap still
+        // run until the jump: then they start with the game instead. Only
+        // MEM2 is checked: RiftWii's MEM1 part was already there before
+        // its code moved up, and builds always ran over it.
+        first = g_extras.cheat_gct.empty() || gct_keeps_clear_of(g_extras.cheat_gct, {{mem::kMem2Floor, kMem2End}});
+        if (!first)
+            logf("Codes: the build's codes write into RiftWii's memory in MEM2 (or can't be read to the end): they start "
+                 "with the game\n");
     } else if (debugger_handler) {
         logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
     } else if (start_file_pending) {

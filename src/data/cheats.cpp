@@ -850,6 +850,115 @@ bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
 
 }  // namespace
 
+bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
+                        const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out) {
+    if (!valid_gct(gct)) return false;
+    const std::size_t end = gct.size() - 8;
+    // Whether `bytes` written at `address` miss every kept-out range (64-bit,
+    // so nothing wraps round). An uncached address is the same memory as
+    // the cached one 0x40000000 below it.
+    const auto misses = [&](std::uint64_t address, std::uint64_t bytes) {
+        if (address >= 0xC0000000u && address < 0xE0000000u) address -= 0x40000000u;
+        const std::uint64_t last = address + bytes;
+        for (const auto& range : keep_out) {
+            if (last > range.first && address < range.second) return false;
+        }
+        return true;
+    };
+    // The handler's base address and pointer, both 0x80000000 at the start;
+    // unknown once read from memory (where the game's own data is).
+    std::uint64_t ba = 0x80000000u, po = 0x80000000u;
+    bool ba_known = true, po_known = true;
+    std::size_t at = 8;
+    while (at < end) {
+        const std::uint32_t first = get32(gct, at);
+        const std::uint32_t value = get32(gct, at + 4);
+        // Without the bit that adds 0x01000000 to the address.
+        const std::uint32_t type = gct[at] & 0xFEu;
+        const std::size_t lines_left = (end - at) / 8 - 1;
+        // The lines after this one. D2 is C2 through the pointer; F2 and F4
+        // insert instructions with a checksum, NN lines (the value's low
+        // byte); F6 searches with NN lines of pattern (the first word's).
+        std::size_t extra = 0;
+        if (type == 0xD2) {
+            extra = value;
+        } else if (type == 0xF2 || type == 0xF4) {
+            extra = value & 0xFFu;
+        } else if (type == 0xF6) {
+            extra = first & 0xFFu;
+        } else if (type == 0xD6) {
+            extra = 0;
+        } else if (!lines_after(type, value, extra)) {
+            return false;
+        }
+        if (extra > lines_left) return false;
+        // Where a write of this code lands: through the pointer for the po
+        // forms (bit 0x10 below 0x40, and D2, D6, F4), else the base, of
+        // which the handler keeps only the top seven bits.
+        const bool through_po = (type < 0x40 && (type & 0x10u) != 0) || type == 0xD2 || type == 0xD6 || type == 0xF4;
+        const bool known = through_po ? po_known : ba_known;
+        const std::uint64_t address =
+            (through_po ? po : (ba & 0xFE000000u)) + (first & 0x01FFFFFFu);
+        const std::uint32_t plain = type < 0x40 ? (type & ~0x10u) : type;
+        bool writes = true;
+        bool word = false;  // written as a word, aligned down as the handler does
+        std::uint64_t bytes = 0;
+        if (plain == 0x00) {
+            bytes = (value >> 16) + 1u;
+        } else if (plain == 0x02) {
+            bytes = 2u * ((value >> 16) + 1u);
+        } else if (plain == 0x04) {
+            bytes = 4;
+            word = true;
+        } else if (plain == 0x06) {
+            bytes = value;
+        } else if (plain == 0x08) {
+            // The second line: TNNNZZZZ, a 1, 2 or 4-byte write (T) made
+            // NNN + 1 times, ZZZZ bytes apart.
+            const std::uint32_t second = get32(gct, at + 8);
+            const std::uint32_t size = (second >> 28) == 0 ? 1u : (second >> 28) == 1 ? 2u : 4u;
+            const std::uint64_t count = (second >> 16) & 0xFFFu;
+            bytes = count * (second & 0xFFFFu) + size;
+        } else if (type == 0xC2 || type == 0xD2 || type == 0xC6 || type == 0xD6 || type == 0xF2 || type == 0xF4) {
+            bytes = 4;  // the branch written at the address
+            word = true;
+        } else {
+            writes = false;
+        }
+        if (writes && known && !misses(word ? address & ~std::uint64_t(3) : address, bytes)) return false;
+        // What sets the base or the pointer.
+        if (type == 0xE0 || type == 0xE2) {
+            // A nonzero top half sets the base, a nonzero low half the pointer.
+            if ((value >> 16) != 0) {
+                ba = value & 0xFFFF0000u;
+                ba_known = true;
+            }
+            if ((value & 0xFFFFu) != 0) {
+                po = (value & 0xFFFFu) << 16;
+                po_known = true;
+            }
+        } else if (type == 0x42 || type == 0x4A) {
+            // 42 sets the base, 4A the pointer; to the value when nothing is
+            // added to it (the first word's low bits all zero), else to a
+            // sum this doesn't follow.
+            const bool plain_set = (first & 0x00FFFFFFu) == 0;
+            if (type == 0x42) {
+                ba = value;
+                ba_known = plain_set;
+            } else {
+                po = value;
+                po_known = plain_set;
+            }
+        } else if (type == 0x40 || type == 0x46) {
+            ba_known = false;
+        } else if (type == 0x48 || type == 0x4E) {
+            po_known = false;
+        }
+        at += (1 + extra) * 8;
+    }
+    return at == end;
+}
+
 std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan) {
     std::vector<SlotBCode> switched_off;
     if (scan != nullptr) *scan = SlotBScan{};

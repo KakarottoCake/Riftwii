@@ -332,12 +332,21 @@ restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
 (`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
 and RiftWii's own, which follow the code and the read-only data back to
 back from `0x90829000` (the end moves with each build; the linker checks it
-stays below `0x90E00000`). In
+stays below `0x90DFF000`, so a full 2 MiB stash with its note fits). In
 MEM1 the DOL loads the code first above `.bss`, then the read-only data,
 then the stash. It is 32 bytes of notes plus the stash (191
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
+- **Codes that run before the game starts** must not write there either:
+  RiftWii's stack, code and heap run from `0x90800000` up until the jump.
+  A player's cheats run first only when every code passes the strict
+  check (`gct_runs_before_start`). A code build's codes still run first,
+  as they always did, conditions and C0 included; only a write whose
+  address is known (through a base or pointer set by E0, E2, 42 or 4A)
+  landing in RiftWii's MEM2 (`gct_keeps_clear_of`), or a list that can't
+  be walked to its end, makes the whole build start with the game
+  instead. boot.log says which.
 - **The menu's MEM2 heap**, covers and textures come from arena 2, which
   starts above the stash.
 - **The plugin arena** ([PLUGINS.md](PLUGINS.md)) is taken from the top of
@@ -500,7 +509,7 @@ threads run), by running the program's read-only data from MEM2:
 
 | What | Before | Now | MEM1 kept |
 | --- | --- | --- | ---: |
-| `.rodata`: strings, tables, embedded pictures, sounds and blobs | 768 KiB for the program's whole life | `mem::kReadOnlyData`: linked there by `wii/core/mem2sections.ld`; `tools/dol_stash.py` makes the DOL load it just above `.bss` (the packed DOL's stub runs before libogc maps MEM2), and `__wrap___CheckARGV` copies it up before anything reads it, so its MEM1 bytes become the heap's. A marker and its size in its first two words tell a fresh start from a warm restart, which keeps the copy. libasnd's stays in MEM1 | 766 KiB |
+| `.rodata`: strings, tables, embedded pictures, sounds and blobs | 768 KiB for the program's whole life | In `mem::kProgramArea`, after the code: linked there by `wii/core/mem2sections.ld`; `tools/dol_stash.py` makes the DOL load it just above `.bss` (the packed DOL's stub runs before libogc maps MEM2), and `__wrap___CheckARGV` copies it up before anything reads it, so its MEM1 bytes become the heap's. A marker and its size in its first two words tell a fresh start from a warm restart, which keeps the copy. libasnd's stays in MEM1 | 766 KiB |
 
 In Dolphin the menu draws as before (screenshots before and after a warm
 restart from a deliberate crash, which kept the MEM2 copy), a Wii Remote
@@ -512,7 +521,7 @@ threads run), by running the program's code from MEM2 the same way:
 
 | What | Before | Now | MEM1 kept |
 | --- | --- | --- | ---: |
-| `.text`: the program's code, but libogc, the C library, libgcc, crtbegin/crtend and `restart.o` | 3.3 MiB for the program's whole life | `mem::kProgramCode` (`0x90951000`, 4 MiB): linked there by `wii/core/mem2sections.ld`, loaded by the DOL just above `.bss` ahead of the read-only data, and copied up by `__wrap___CheckARGV` before it calls anything there (the instruction cache is cleared over the copy). libogc maps MEM2 for instructions as for data (IBAT4). Calls between the two halves are beyond a branch's reach; ld adds long-branch stubs | 3268 KiB |
+| `.text`: the program's code, but libogc, the C library, libgcc, crtbegin/crtend and `restart.o` | 3.3 MiB for the program's whole life | `mem::kProgramArea` (`0x90829000`, its end the linker's, `mem::ProgramAreaEnd()`): linked there by `wii/core/mem2sections.ld`, loaded by the DOL just above `.bss` ahead of the read-only data, and copied up by `__wrap___CheckARGV` before it calls anything there (the instruction cache is cleared over the copy). libogc maps MEM2 for instructions as for data (IBAT4). Calls between the two halves are beyond a branch's reach; ld adds long-branch stubs | 3268 KiB |
 
 What stays in MEM1 and why: libogc runs before the copy (crt0's helpers)
 and under every thread, exception and interrupt; the C library and libgcc
@@ -537,7 +546,7 @@ threads run):
 
 | What | Before | Now | MEM1 kept |
 | --- | --- | --- | ---: |
-| libogc's, the C library's, libm's and libgcc's code | 313 KiB, kept in MEM1 wholesale | In `mem::kProgramCode` with the rest. libogc's exception entry turns translation back on before it calls a handler, so only what runs before the copy or is called from `.init` stays: `restart.o`, libogc's `cache.o`, `early_init.o`, `exception.o`, `interrupt.o`, `thread.o`, `system.o` and its assembly, `memset`, crtbegin and crtend (18 KiB). `osrestart.o` had been kept by accident too: `*restart.o` matched it | 313 KiB |
+| libogc's, the C library's, libm's and libgcc's code | 313 KiB, kept in MEM1 wholesale | In `mem::kProgramArea` with the rest. libogc's exception entry turns translation back on before it calls a handler, so only what runs before the copy or is called from `.init` stays: `restart.o`, libogc's `cache.o`, `early_init.o`, `exception.o`, `interrupt.o`, `thread.o`, `system.o` and its assembly, `memset`, crtbegin and crtend (18 KiB). `osrestart.o` had been kept by accident too: `*restart.o` matched it | 313 KiB |
 | RiftWii's own zero-filled buffers: the disc and SD bounce buffers, the launch's TMD, the cover pool, the crash screen's fallback stack and report, and about a hundred smaller ones | 190 KiB in `.bss` | `.mem2bss`, zeroed at every start with libbte's. IOS reads and writes MEM2 as it does MEM1. Not the GX FIFO (`video.o`) or the exception stack (`mainstack.o`) | 190 KiB |
 | libogc's buffers that only the CPU or IOS touch: `conf.o`, `wiilaunch.o`, `usbmouse.o`, `network_wii.o`, `gx.o` | 27 KiB in `.bss` | `.mem2bss`. Its EXI, SD Gecko and thread buffers stay, and so do libasnd's, which the DSP reads | 27 KiB |
 
