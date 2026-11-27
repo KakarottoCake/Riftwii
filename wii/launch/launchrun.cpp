@@ -217,7 +217,14 @@ bool Session::ensure_probe(std::string& error) {
     // saves. A launch that turns out to take no pad code lets it go
     // (release_pads_plugin); one that needs it and can't have it stops
     // with the loader's reason (fetch_pad_build).
-    const bool storage_goes = source.kind != LaunchSource::Kind::Disc || (usb_packs && MenuCiosSlot() == 0);
+    // A disc launch can lose the USB drive too: with the GameCube adapter
+    // on, settle_gc_adapter gives the menu's USB back before the pad code
+    // is fetched (release_menu_usb_for_game), so a RiftWii run from the
+    // drive loads its plugin here, while the drive is still mounted
+    // (CodeRabbit CLI on #593).
+    const bool plugins_off_sd = plugin::Directory().rfind("sd:", 0) != 0;
+    const bool storage_goes =
+        source.kind != LaunchSource::Kind::Disc || (usb_packs && MenuCiosSlot() == 0) || plugins_off_sd;
     if (storage_goes && !pads_plugin) pads_plugin = std::make_shared<PadsPluginForLaunch>(LaunchMayTakePadCode());
     if (source.kind != LaunchSource::Kind::Disc) {
         bool active = false;
