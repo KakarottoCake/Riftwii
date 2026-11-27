@@ -6,6 +6,7 @@
 #include "d2xsd.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
+#include "riftwii/patch.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/wfstitle.hpp"
 #include "riftwii/imagevolume.hpp"
@@ -114,8 +115,15 @@ std::string basename_of(const std::string& disc_path) {
 // card. Returns false, with `error` set, when a virtual disc's changed file
 // cannot be written: the channel would then run its own IOS exploit, which
 // can hang under d2x.
-bool SetCtgpDefaults(const std::string& app, bool virtual_disc, std::string& error) {
+bool SetCtgpDefaults(const std::string& given_app, bool virtual_disc, std::string& error) {
     const std::string folder = "sd:/apps/ctgpr/";
+    // Compared as the card resolves it: "sd:/apps/ctgpr/./boot.dol" or a
+    // doubled slash is still the channel, and must not skip the check of
+    // an interrupted update below.
+    std::string app = given_app;
+    std::string resolved;
+    if (app.size() > 3 && strncasecmp(app.c_str(), "sd:", 3) == 0 && resolve_path("/", app.substr(3), resolved))
+        app = "sd:" + resolved;
     if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
         app.find('/', folder.size()) != std::string::npos)
         return true;

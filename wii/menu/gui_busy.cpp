@@ -72,14 +72,20 @@ void DrawPill(float x, float y, float width, int height, GXColor colour) {
     }
 }
 
-void DrawPillStart(float x, float y, float width, float shown, int height, GXColor colour) {
-    if (width <= 0 || shown <= 0 || colour.a == 0) return;
+void DrawPillFill(float x, float y, float width, float filled, int height, GXColor colour) {
+    if (width <= 0 || filled <= 0 || colour.a == 0) return;
+    if (filled > width) filled = width;
     const float radius = std::min(width / 2.0f, height / 2.0f);
+    const float end = 2.0f * radius;
+    // 0 while the fill is no longer than the track's end, 1 one end later.
+    // A row's right edge is filled - inset * round; its rate of change is
+    // 1 - inset / end, above 0 because an inset is at most the radius.
+    const float round = end > 0 ? std::min(1.0f, std::max(0.0f, (filled - end) / end)) : 1.0f;
     for (int row = 0; row < height; ++row) {
         const float edge = std::min(row + 0.5f, height - row - 0.5f);
         const float t = std::max(0.0f, 1.0f - edge / radius);
         const float inset = radius * t * t;
-        const float right = std::min(width - inset, shown);
+        const float right = std::min(width - inset, filled - inset * round);
         if (right > inset) Menu_DrawRectangle(x + inset, y + row, right - inset, 1, colour, 1);
     }
 }

@@ -10879,6 +10879,25 @@ FR.update({
     'Home order: {1}': "Ordre de l'accueil : {1}",
 })
 
+# CTGP-R updates (review of #561): a card that can't say whether the update
+# is there, a failed check after an update went in, and an update file the
+# card would not remove.
+T.update({
+    'the SD card could not be read; try again': ('no se pudo leer la tarjeta SD; inténtalo de nuevo', 'SDカードを読み込めませんでした。もう一度お試しください', 'não foi possível ler o cartão SD; tente novamente', 'non è stato possibile leggere la scheda SD; riprova'),
+    'the update server could not be asked for the next one ({1})': ('no se pudo consultar al servidor de actualizaciones por la siguiente ({1})', '次の更新について更新サーバーに問い合わせできませんでした（{1}）', 'não foi possível perguntar ao servidor de atualizações pela seguinte ({1})', 'non è stato possibile chiedere al server degli aggiornamenti il successivo ({1})'),
+    "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again.": ('Su archivo, update.dif en la carpeta ctgpr de la tarjeta SD, no se pudo borrar: bórralo para que el canal de CTGP-R vuelva a descargar la actualización.', 'そのファイル（SDカードのctgprフォルダにあるupdate.dif）を削除できませんでした。CTGP-Rのチャンネルが更新をもう一度ダウンロードするように、削除してください。', 'O seu ficheiro, update.dif na pasta ctgpr do cartão SD, não pôde ser apagado: apague-o para que o canal do CTGP-R volte a transferir a atualização.', "Il suo file, update.dif nella cartella ctgpr della scheda SD, non è stato possibile eliminarlo: eliminalo, così il canale di CTGP-R scaricherà di nuovo l'aggiornamento."),
+})
+KO.update({
+    'the SD card could not be read; try again': 'SD 카드를 읽을 수 없었습니다. 다시 시도하세요',
+    'the update server could not be asked for the next one ({1})': '다음 업데이트를 업데이트 서버에 요청할 수 없었습니다 ({1})',
+    "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again.": 'SD 카드의 ctgpr 폴더에 있는 해당 파일 update.dif를 삭제할 수 없었습니다. CTGP-R 채널이 업데이트를 다시 다운로드하도록 직접 삭제하세요.',
+})
+FR.update({
+    'the SD card could not be read; try again': "la carte SD n'a pas pu être lue ; réessayez",
+    'the update server could not be asked for the next one ({1})': "le serveur de mises à jour n'a pas pu être interrogé pour la suivante ({1})",
+    "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again.": "Son fichier, update.dif dans le dossier ctgpr de la carte SD, n'a pas pu être supprimé : supprimez-le pour que la chaîne de CTGP-R télécharge à nouveau la mise à jour.",
+})
+
 
 if __name__ == "__main__":
     main()

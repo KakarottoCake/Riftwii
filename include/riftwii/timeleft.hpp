@@ -74,6 +74,10 @@ public:
     void update(double fraction, std::uint64_t ms) {
         if (fraction < 0) fraction = 0;
         if (fraction > 1) fraction = 1;
+        // The stall check below measures from the progress before this
+        // call: after a silent gap, the call that brings progress again
+        // holds the figure rather than counting the whole gap down.
+        const std::uint64_t last_progress_ms = progress_ms_;
         if (fraction > fraction_) progress_ms_ = ms;
         if (fraction < fraction_) fraction = fraction_;
         fraction_ = fraction;
@@ -105,7 +109,7 @@ public:
         }
         const double elapsed = double(ms - shown_at_);
         shown_at_ = ms;
-        if (ms - progress_ms_ >= kStallMs) {
+        if (ms - last_progress_ms >= kStallMs) {
             // Nothing came in for a while (a long write): the figure holds
             // rather than counting down past the work or growing without end.
             outside_since_ = 0;

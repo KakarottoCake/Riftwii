@@ -371,6 +371,10 @@ bool recover_jelly_journal(std::string& error) {
     // so they tell this copy from one installed since.
     io.identity = ctgp_pack_identity(jelly.entry, true);
     std::size_t restored = 0;
+    // No sync to do: the restored chunks go to the card's sectors through
+    // the SD driver (write_blocks, past libfat and its cache), which returns
+    // once they are written, and the journal reads every one back from the
+    // card (read_card) before it removes itself.
     const CtgpJournalRecovery result = ctgp_journal_recover(
         kCtgpJellyJournalPath, io, jelly.entry.size & ~std::uint64_t(511), [] { return true; }, restored, error);
     if (result == CtgpJournalRecovery::Failed) {

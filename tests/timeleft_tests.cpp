@@ -267,6 +267,18 @@ int main() {
         for (std::uint64_t s = 602; s <= 605; ++s) t.update(0.201 + 0.0005 * double(s - 601), s * 1000);
         EXPECT_TRUE(t.seconds() + 8 >= held && t.text().wording == TimeLeftWording::AboutMinutes);
     }
+    // The same stall with no calls at all in between (the bar was not drawn):
+    // the call that brings progress again must hold the figure, not count
+    // the nine silent minutes down (CodeRabbit, #561 review of 015dfc3a).
+    {
+        TimeLeft t;
+        for (std::uint64_t s = 0; s <= 60; ++s) t.update(0.2 * double(s) / 60.0, s * 1000);
+        const std::uint64_t before = t.seconds();
+        EXPECT_TRUE(t.ready() && before >= 200 && before <= 260);
+        t.update(0.201, 601000);
+        EXPECT_TRUE(t.seconds() + 2 >= before);
+        EXPECT_TRUE(t.text().wording == TimeLeftWording::AboutMinutes);
+    }
 
     // The wording's edges and steps.
     EXPECT_TRUE(time_left_text(0).wording == TimeLeftWording::UnderAMinute);

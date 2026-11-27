@@ -5339,3 +5339,12 @@ msgstr "Diseño y orden"
 
 msgid "Home order: {1}"
 msgstr "Orden de Inicio: {1}"
+
+msgid "the SD card could not be read; try again"
+msgstr "no se pudo leer la tarjeta SD; inténtalo de nuevo"
+
+msgid "the update server could not be asked for the next one ({1})"
+msgstr "no se pudo consultar al servidor de actualizaciones por la siguiente ({1})"
+
+msgid "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again."
+msgstr "Su archivo, update.dif en la carpeta ctgpr de la tarjeta SD, no se pudo borrar: bórralo para que el canal de CTGP-R vuelva a descargar la actualización."

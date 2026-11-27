@@ -101,6 +101,18 @@ int main() {
         // An empty one that can't be removed is still not an update.
         card["update.dif"] = 0;
         EXPECT_TRUE(!ctgp_update_waiting("update.dif", size_of, [](const char*) { return -1; }));
+        // No file is "not there"; a card that can't say is a probe failure,
+        // so the caller never downloads over a file that may be waiting.
+        card.clear();
+        bool probe_failed = true;
+        EXPECT_TRUE(!ctgp_update_waiting("update.dif", size_of, drop, &probe_failed));
+        EXPECT_TRUE(!probe_failed);
+        const auto unreadable = [](const char*, std::uint64_t*) { return -2; };
+        EXPECT_TRUE(!ctgp_update_waiting("update.dif", unreadable, drop, &probe_failed));
+        EXPECT_TRUE(probe_failed);
+        card["update.dif"] = 5;
+        EXPECT_TRUE(ctgp_update_waiting("update.dif", size_of, drop, &probe_failed));
+        EXPECT_TRUE(!probe_failed);
     }
 
     // How a download ends: checked → update.dif; found unusable → kept as

@@ -45,15 +45,24 @@ inline bool ctgp_move_aside(const std::string& from, const std::string& to,
     return rename(from.c_str(), to.c_str()) == 0;
 }
 
-// Whether an update waits at `path`. `size_of` gives a file's length (0 on
-// success, as stat). An empty file is not an update: CTGP-R's own channel
-// leaves a 0-byte update.dif when it starts, so one is removed quietly (no
-// notice, nothing set aside) and the server is asked as if none were there.
+// Whether an update waits at `path`. `size_of` gives a file's length: 0 on
+// success, -1 when the file is not there, anything else when the card could
+// not say (a read error). An empty file is not an update: CTGP-R's own
+// channel leaves a 0-byte update.dif when it starts, so one is removed
+// quietly (no notice, nothing set aside) and the server is asked as if none
+// were there. `probe_failed` (may be null) is set when the card could not
+// say: false is then not "no update", and the caller must not download one
+// over a file that may be there.
 inline bool ctgp_update_waiting(const std::string& path,
                                 const std::function<int(const char*, std::uint64_t*)>& size_of,
-                                const std::function<int(const char*)>& remove) {
+                                const std::function<int(const char*)>& remove, bool* probe_failed = nullptr) {
+    if (probe_failed != nullptr) *probe_failed = false;
     std::uint64_t size = 0;
-    if (size_of(path.c_str(), &size) != 0) return false;
+    const int found = size_of(path.c_str(), &size);
+    if (found != 0) {
+        if (found != -1 && probe_failed != nullptr) *probe_failed = true;
+        return false;
+    }
     if (size != 0) return true;
     remove(path.c_str());
     return false;

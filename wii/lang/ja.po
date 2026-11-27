@@ -5339,3 +5339,12 @@ msgstr "レイアウトと並び順"
 
 msgid "Home order: {1}"
 msgstr "ホームの並び順：{1}"
+
+msgid "the SD card could not be read; try again"
+msgstr "SDカードを読み込めませんでした。もう一度お試しください"
+
+msgid "the update server could not be asked for the next one ({1})"
+msgstr "次の更新について更新サーバーに問い合わせできませんでした（{1}）"
+
+msgid "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again."
+msgstr "そのファイル（SDカードのctgprフォルダにあるupdate.dif）を削除できませんでした。CTGP-Rのチャンネルが更新をもう一度ダウンロードするように、削除してください。"
