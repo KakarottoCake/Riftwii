@@ -36,6 +36,17 @@ int rtslot_on(const struct rtslot* s, uint32_t channel) {
     return ((s->present & ~s->real) >> channel) & 1u;
 }
 
+uint32_t rtslot_shaped(const struct rtslot* s) { return (s->present & ~s->real) | s->told | s->home_shaped; }
+
+void rtslot_home_took(struct rtslot* s, uint32_t channel) {
+    s->home_shaped = 0;
+    if (channel < RTSLOT_SLOTS) s->home_shaped = rtslot_shaped(s) & (1u << channel);
+}
+
+int rtslot_home_keeps_shape(const struct rtslot* s, uint32_t channel) {
+    return channel < RTSLOT_SLOTS && ((s->home_shaped >> channel) & 1u);
+}
+
 void rtslot_connect_change(struct rtslot* s, uint32_t* leave, uint32_t* join) {
     const uint32_t now_on = s->present & ~s->real;
     *join = now_on & ~s->told;
@@ -130,9 +141,14 @@ enum rtslot_owner rtslot_owner(const struct rtslot* s, uint32_t slot, uint32_t h
 
 uint32_t rtslot_standin_slots(const struct rtslot* s) { return s->present & ~s->real; }
 
-int rtslot_next_tell(struct rtslot* s, uint32_t home, uint32_t skip, uint32_t* slot, int32_t* reason) {
+int rtslot_next_tell(struct rtslot* s, uint32_t home, int remote_shapes, uint32_t skip, uint32_t* slot,
+                     int32_t* reason) {
     const uint32_t keep = home < RTSLOT_SLOTS ? 1u << home : 0u;
-    return rtslot_next_change(s, skip, keep, slot, reason);
+    /* A HOME Menu stand-in holding the slot in another shape: the permanent
+     * stand-in's "connected" there waits until it ends (the "gone" for the
+     * HOME stand-in's own shape is told first, by its end). */
+    const uint32_t held = remote_shapes && keep != 0 && !rtslot_home_keeps_shape(s, home) ? keep : 0u;
+    return rtslot_next_change(s, skip | held, keep, slot, reason);
 }
 
 enum rtslot_after rtslot_told(struct rtslot* s, uint32_t slot, int32_t reason, int delivered) {
@@ -158,9 +174,14 @@ void rtslot_rechecked(struct rtslot* s, uint32_t slot, int32_t result, uint32_t 
     if (rtslot_probe_count(s, slot) == begun) rtslot_probed(s, slot, result);
 }
 
-uint32_t rtslot_home_announced(const struct rtslot* s, uint32_t home) {
+uint32_t rtslot_home_announced(const struct rtslot* s, uint32_t home, int remote_shapes) {
+    uint32_t covered;
     if (home >= RTSLOT_SLOTS) return RTSLOT_NO_SLOT;
-    if (((rtslot_standin_slots(s) | s->told | s->real) >> home) & 1u) return RTSLOT_NO_SLOT;
+    covered = ((rtslot_standin_slots(s) | s->told) >> home) & 1u;
+    /* A real Wii Remote there: its library tells the game of it
+     * (CodeRabbit, fork #22). */
+    if ((s->real >> home) & 1u) return RTSLOT_NO_SLOT;
+    if (covered && (!remote_shapes || rtslot_home_keeps_shape(s, home))) return RTSLOT_NO_SLOT;
     return home;
 }
 

@@ -127,12 +127,16 @@ endef
 PADNOHOME := $(OUT)/riftwii_padn.bin $(OUT)/riftwii_padan.bin $(OUT)/riftwii_padpn.bin
 
 # The HOME Menu builds again with the Wii controller stand-ins (#587,
-# runtime/rtgcwii.c: GameCube controllers as Classic Controllers), built with
-# RT_PAD_STANDIN: the full one and the adapter-only one. Only a game whose
+# runtime/rtgcwii.c), built with RT_PAD_STANDIN: the full one and the
+# adapter-only one, for each form (GameCube controllers as Classic
+# Controllers, padc and padac; as a Wii Remote + Nunchuk, padw and padaw; as a sideways Wii
+# Remote, padsw and padasw; as a pointing Wii Remote, padpt and padapt). Only a game whose
 # GameCube controllers setting is on takes one (padhook.cpp picks); every
 # other game keeps the builds above, byte for byte as before the stand-ins.
 # $(1): its folder and name, $(2): its defines, $(3): rthid.o for the one
-# with other USB pads.
+# with other USB pads, $(4): the form's (none for the Classic Controller,
+# -DRT_PAD_FORM_NUNCHUK for the Wii Remote + Nunchuk, -DRT_PAD_FORM_SIDEWAYS for the sideways
+# Wii Remote, -DRT_PAD_FORM_POINTING for the pointing Wii Remote).
 # The stand-in's layer headers (rtgcwii.h includes them): every object that
 # includes rtgcwii.h depends on these too, or a field moved in one of them
 # leaves an object reading the old layout.
@@ -142,10 +146,10 @@ $(OUT)/$(1):
 	@mkdir -p $$@
 
 $(OUT)/$(1)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h runtime/rthome.h runtime/rtrestart.h | $(OUT)/$(1)
-	$(CC) $(CFLAGS) $(2) -DRT_PAD_STANDIN -I$(PADSRC) -c -o $$@ $$<
+	$(CC) $(CFLAGS) $(2) -DRT_PAD_STANDIN $(4) -I$(PADSRC) -c -o $$@ $$<
 
 $(OUT)/$(1)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h runtime/rtleave.h runtime/rthome.h runtime/rtgcwii.h $(STANDIN_HEADERS) runtime/rtsiprobe.h runtime/rtrestart.h | $(OUT)/$(1)
-	$(CC) $(CFLAGS) $(2) -DRT_PAD_STANDIN -I$(PADSRC) -c -o $$@ $$<
+	$(CC) $(CFLAGS) $(2) -DRT_PAD_STANDIN $(4) -I$(PADSRC) -c -o $$@ $$<
 
 $(OUT)/$(1)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rtpadcal.h runtime/rthid.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) $(2) -c -o $$@ $$<
@@ -157,7 +161,7 @@ $(OUT)/$(1)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -c -o $$@ $$<
 
 $(OUT)/$(1)/rthome.o: runtime/rthome.c runtime/rthome.h | $(OUT)/$(1)
-	$(CC) $(CFLAGS) -DRT_PAD_STANDIN -c -o $$@ $$<
+	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
 $(OUT)/$(1)/rtslot.o: runtime/rtslot.c runtime/rtslot.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
@@ -172,7 +176,7 @@ $(OUT)/$(1)/rtdeliver.o: runtime/rtdeliver.c runtime/rtdeliver.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
 $(OUT)/$(1)/rtgcwii.o: runtime/rtgcwii.c runtime/rtgcwii.h $(STANDIN_HEADERS) runtime/rthome.h | $(OUT)/$(1)
-	$(CC) $(CFLAGS) -DRT_PAD_STANDIN -c -o $$@ $$<
+	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
 $(OUT)/$(1)/rtrestart.o: runtime/rtrestart.c runtime/rtrestart.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -c -o $$@ $$<
@@ -193,7 +197,8 @@ $(OUT)/riftwii_$(1).bin: $(OUT)/$(1)/riftwii_$(1).elf $(OUT)/$(1)/riftwii_$(1)_a
 	@cmp $$@ $(OUT)/$(1)/riftwii_$(1)_alt.bin || { echo "runtime: $(1) pad blob differs between link bases; not position independent"; rm -f $$@; exit 1; }
 	@echo "$(1) pad blob (with the stand-ins): $$$$(stat -c %s $$@) bytes"
 endef
-PADSTANDIN := $(OUT)/riftwii_padc.bin $(OUT)/riftwii_padac.bin
+PADSTANDIN := $(OUT)/riftwii_padc.bin $(OUT)/riftwii_padac.bin $(OUT)/riftwii_padw.bin $(OUT)/riftwii_padaw.bin \
+              $(OUT)/riftwii_padsw.bin $(OUT)/riftwii_padasw.bin               $(OUT)/riftwii_padpt.bin $(OUT)/riftwii_padapt.bin
 
 
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
@@ -521,6 +526,12 @@ $(eval $(call PAD_NOHOME_BLOB,padan,-DGCAD_ADAPTER_ONLY,rtrestart.o))
 $(eval $(call PAD_NOHOME_BLOB,padpn,-DGCAD_PADS_ONLY,rthid.o))
 $(eval $(call PAD_STANDIN_BLOB,padc,,rthid.o))
 $(eval $(call PAD_STANDIN_BLOB,padac,-DGCAD_ADAPTER_ONLY,))
+$(eval $(call PAD_STANDIN_BLOB,padw,,rthid.o,-DRT_PAD_FORM_NUNCHUK))
+$(eval $(call PAD_STANDIN_BLOB,padaw,-DGCAD_ADAPTER_ONLY,,-DRT_PAD_FORM_NUNCHUK))
+$(eval $(call PAD_STANDIN_BLOB,padsw,,rthid.o,-DRT_PAD_FORM_SIDEWAYS))
+$(eval $(call PAD_STANDIN_BLOB,padasw,-DGCAD_ADAPTER_ONLY,,-DRT_PAD_FORM_SIDEWAYS))
+$(eval $(call PAD_STANDIN_BLOB,padpt,,rthid.o,-DRT_PAD_FORM_POINTING))
+$(eval $(call PAD_STANDIN_BLOB,padapt,-DGCAD_ADAPTER_ONLY,,-DRT_PAD_FORM_POINTING))
 
 
 

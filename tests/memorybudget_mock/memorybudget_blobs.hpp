@@ -28,7 +28,13 @@ inline const auto* riftwii_vsd_bin = reinterpret_cast<const std::uint8_t*>(&budg
 // The pad builds' sizes (Makefile.runtime's riftwii_pad_sizes.h): the full
 // one first, budget_pad's size.
 inline const auto budget_pad = budget_blob<rt_pad_header>(8192);
-#define RIFTWII_PAD_BUILD_BYTES {8192u, 8192u, 8192u, 8192u, 8192u, 8192u, 8192u, 8192u}
+// Each build its own size (multiples of 32, so aligning keeps them), so a
+// wrong build index shows in the figures (CodeRabbit on #610): the full
+// Classic Controller, Wii Remote + Nunchuk and sideways stand-ins are the
+// seventh, ninth, eleventh and thirteenth.
+#define RIFTWII_PAD_BUILD_BYTES {8192u, 7168u, 6144u, 7680u, 6656u, 5632u, 8448u, 7424u, 8704u, 7936u, 8960u, 8000u, 9216u, 8064u}
+inline constexpr std::uint32_t kBudgetClassicFull = 8448u, kBudgetNunchukFull = 8704u, kBudgetSidewaysFull = 8960u,
+                                 kBudgetPointingFull = 9216u;
 
 // Single-segment frames with four-byte content sizes: 96 KiB and 160 KiB.
 inline const std::uint8_t riftwii_rt_zst[] = {0x28, 0xB5, 0x2F, 0xFD, 0xA0, 0, 0x80, 1, 0};

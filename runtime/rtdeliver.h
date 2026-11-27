@@ -35,4 +35,9 @@ void rtdeliver_gone(struct rtdeliver* d, uint32_t slot);
 void rtdeliver_take(struct rtdeliver* d, uint32_t slot, uint32_t sample, uint32_t hold, uint32_t* trig,
                     uint32_t* release);
 
+/* A numerator over RTHOME_AXIS_FULL as a float's bits, as rthome_float_bits
+ * but with no cap at 1: the Wii Remote's shake swings past 3 g, and the
+ * pointer's distance at rest is about 1.95 (the form's KPAD status). */
+uint32_t rtdeliver_float_bits(int32_t numerator);
+
 #endif

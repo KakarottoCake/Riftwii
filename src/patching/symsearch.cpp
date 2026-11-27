@@ -692,6 +692,225 @@ std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std
     return near >= 2 ? found : 0;
 }
 
+namespace {
+
+// KPAD's camera setter at `address` (riftwii/symsearch.hpp), storing
+// `value`: its block's base, stride and the switch's offset, or false. Its
+// words are read by address, so a setter the packs' patches split across
+// touching entries of the code's view is still read whole; a word in no
+// entry is no setter (CodeRabbit, fork #23).
+bool kpad_dpd_setter(const std::vector<CodeRange>& text, std::uint32_t address, std::uint32_t value, KpadDpd& out) {
+    for (std::uint32_t k = 0; k < 7; ++k)
+        if (!inside(text, address + 4 * k)) return false;
+    const auto w = [&](std::uint32_t k) { return word_at(text, address + 4 * k); };
+    if ((w(0) & 0xFFFF0000u) != 0x1C030000u || (w(1) & 0xFFFF0000u) != 0x3C600000u || w(2) != (0x38800000u | value) ||
+        (w(3) & 0xFFFF0000u) != 0x38630000u || w(4) != 0x7C630214u || (w(5) & 0xFFFF0000u) != 0x98830000u ||
+        w(6) != kBlr)
+        return false;
+    const std::int32_t stride = static_cast<std::int16_t>(w(0) & 0xFFFFu);
+    if (stride <= 0) return false;
+    out.enable = address;
+    out.base = ((w(1) & 0xFFFFu) << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(w(3) & 0xFFFFu));
+    out.stride = static_cast<std::uint32_t>(stride);
+    // Signed, as stb takes it (every KPAD dumped has it positive).
+    out.offset = static_cast<std::uint32_t>(static_cast<std::int16_t>(w(5) & 0xFFFFu));
+    return true;
+}
+
+}  // namespace
+
+KpadDpd find_kpad_enable_dpd(const std::vector<CodeRange>& text) {
+    KpadDpd found;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        if (r.bytes == nullptr) continue;
+        for (std::size_t i = 0; i < words; ++i) {
+            // Its first word, `mulli r0,r3,stride`, from this entry: only
+            // such a word is read across the view (a game's code and its
+            // packs' patches can be thousands of entries; CodeRabbit).
+            if ((be32(r.bytes + i * 4) & 0xFFFF0000u) != 0x1C030000u) continue;
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            KpadDpd on;
+            if (!kpad_dpd_setter(text, at, 1u, on)) continue;
+            // KPADDisableDPD just before it, on the same switch (padding
+            // between them allowed: seven to nine words back).
+            bool twin = false;
+            for (std::uint32_t back = 7; back <= 9 && !twin; ++back) {
+                KpadDpd off;
+                twin = at >= 4 * back && kpad_dpd_setter(text, at - 4 * back, 0u, off) && off.base == on.base &&
+                       off.stride == on.stride && off.offset == on.offset;
+            }
+            if (!twin) continue;
+            if (found.enable != 0) return KpadDpd{};  // two: not guessed
+            found = on;
+        }
+    }
+    return found;
+}
+
+namespace {
+
+// WPADIsDpdEnabled: a framed function of at most 24 words that indexes a
+// table by the channel (`slwi rX,r3,2`, `lwzx rB,rT,rX` with rT from
+// `lis`/`addi`) and returns the block's word at +2104 (+1912 in late 2006):
+// loaded into r3, or into a register then copied to r3. 0 unless exactly one.
+std::uint32_t find_wpad_is_dpd_enabled(const std::vector<CodeRange>& text) {
+    constexpr std::size_t kMaxWords = 24;
+    std::uint32_t found = 0;
+    unsigned matches = 0;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t start = 0; start < words; ++start) {
+            if ((be32(r.bytes + 4 * start) & 0xFFFF0000u) != 0x94210000u) continue;  // stwu r1
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(4 * start);
+            std::uint32_t high[32] = {}, address[32] = {};
+            bool indexed[32] = {};
+            int block = -1, camera = -1;
+            bool returns = false;
+            bool r3_camera = false;  // r3 holds the camera word now
+            // Its words by address, so one a pack's patch splits across
+            // touching entries of the view is read whole; a gap ends it
+            // (CodeRabbit, fork #23).
+            for (std::uint32_t k = 1; k <= kMaxWords; ++k) {
+                if (!inside(text, at + 4 * k)) break;
+                const std::uint32_t insn = word_at(text, at + 4 * k);
+                const std::uint32_t op = insn >> 26, d = (insn >> 21) & 31u, a = (insn >> 16) & 31u;
+                if (insn == 0x4E800020u) {  // blr: it returns the camera word only if r3 still holds it
+                    returns = r3_camera;
+                    break;
+                }
+                if ((insn & 0xFFFF0000u) == 0x94210000u) break;  // the next function
+                if (op == 15 && a == 0) high[d] = (insn & 0xFFFFu) << 16;
+                if (op == 14 && a != 0 && high[a] != 0) address[d] = high[a] + static_cast<std::uint32_t>(static_cast<std::int16_t>(insn & 0xFFFFu));
+                if ((insn & 0xFC00FFFFu) == 0x5400103Au && ((insn >> 21) & 31u) == 3) indexed[a] = true;  // slwi rA,r3,2
+                const bool lwzx = op == 31 && ((insn >> 1) & 0x3FFu) == 23;
+                if (lwzx && address[a] != 0 && indexed[(insn >> 11) & 31u]) block = static_cast<int>(d);
+                const std::uint32_t disp = insn & 0xFFFFu;
+                const bool camera_load =
+                    op == 32 && block >= 0 && static_cast<int>(a) == block && (disp == 2104 || disp == 1912);
+                if (camera_load) camera = static_cast<int>(d);
+                const bool mr = op == 31 && ((insn >> 1) & 0x3FFu) == 444 && d == ((insn >> 11) & 31u);
+                // r3 as the return value: the camera word loaded into it or
+                // copied into it; any other write to r3 replaces it.
+                const bool to_r3 = (camera_load && d == 3) || (mr && a == 3 && camera >= 0 && static_cast<int>(d) == camera);
+                const bool d_form_r3 = (op == 7 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+                                        (op >= 40 && op <= 43)) && d == 3;
+                const bool a_form_r3 = ((op >= 20 && op <= 29 && op != 22) || op == 31) && a == 3;
+                if (to_r3) {
+                    r3_camera = true;
+                } else if (d_form_r3 || a_form_r3 || (op == 31 && d == 3 && !mr)) {
+                    r3_camera = false;
+                }
+            }
+            if (!returns) continue;
+            found = at;
+            ++matches;
+        }
+    }
+    return matches == 1 ? found : 0;
+}
+
+}  // namespace
+
+KpadDpd find_kpad_dpd_switch(const std::vector<CodeRange>& text) {
+    constexpr unsigned kReadWithin = 8;  // words from the switch's read to the call
+    constexpr std::uint32_t kMinOffset = 0x400, kMaxOffset = 0x1000, kMaxStride = 0x4000;
+    const std::uint32_t is_dpd = find_wpad_is_dpd_enabled(text);
+    KpadDpd found;
+    if (is_dpd == 0) return found;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t call = 0; call < words; ++call) {
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(4 * call);
+            const std::uint32_t insn = be32(r.bytes + 4 * call);
+            if (!is_bl(insn) || bl_target(at, insn) != is_dpd) continue;
+            // The calling function: back to its `stwu r1` (function_start:
+            // a bounded look back, no `blr` between, every word in the
+            // view); a call found outside a framed function isn't the read.
+            // Its words are read by address, so a function a pack's patch
+            // splits across touching entries of the view is read whole
+            // (CodeRabbit, fork #23).
+            const std::uint32_t function = function_start(text, at);
+            if (function == 0 || function >= at) continue;
+            const std::size_t before_call = (at - function) / 4;
+            // Its channel blocks: base (lis/addi, or a copy by `addi rD,rA,0`) plus a `mulli` of the channel.
+            std::uint32_t high[32] = {}, address[32] = {}, stride_of[32] = {};
+            std::uint32_t block_base[32] = {}, block_stride[32] = {};
+            KpadDpd here;
+            bool two_reads = false;
+            for (std::size_t k = 0; k < before_call; ++k) {
+                const std::uint32_t w = word_at(text, function + static_cast<std::uint32_t>(4 * k));
+                const std::uint32_t op = w >> 26, d = (w >> 21) & 31u, a = (w >> 16) & 31u, b = (w >> 11) & 31u;
+                const std::int32_t imm = static_cast<std::int16_t>(w & 0xFFFFu);
+                // A register written here no longer holds a channel block,
+                // unless the cases below say it does: an `addi rD,rA,0` copy
+                // or an `mr` keeps it, any other change (`addi rD,rA,4`, a
+                // load into it) loses it.
+                // The block a load reads through, as it was before this word.
+                const std::uint32_t read_base = block_base[a], read_stride = block_stride[a];
+                const bool mr = op == 31 && ((w >> 1) & 0x3FFu) == 444 && d == b;  // or rA,rS,rS
+                const bool writes_d = op == 7 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+                                      op == 40 || op == 41 || op == 42 || op == 43 || (op == 31 && !mr);
+                const std::uint32_t copied = block_base[op == 14 && imm == 0 ? a : 0];
+                const std::uint32_t copied_stride = block_stride[op == 14 && imm == 0 ? a : 0];
+                // What the sources held, before this word's destination
+                // loses what it held (a source may be the destination).
+                const std::uint32_t high_a = high[a], address_a = address[a], address_b = address[b];
+                const std::uint32_t stride_a = stride_of[a], stride_b = stride_of[b];
+                if (mr) {
+                    block_base[a] = block_base[d];
+                    block_stride[a] = block_stride[d];
+                    high[a] = high[d];
+                    address[a] = address[d];
+                    stride_of[a] = stride_of[d];
+                } else if (writes_d) {
+                    block_base[d] = block_stride[d] = 0;
+                    high[d] = address[d] = stride_of[d] = 0;  // `li r6,0` after a `mulli r6`: no stride any more
+                    if (op == 14 && imm == 0 && copied != 0) {
+                        block_base[d] = copied;
+                        block_stride[d] = copied_stride;
+                    }
+                }
+                if (op == 15 && a == 0) {
+                    high[d] = (w & 0xFFFFu) << 16;
+                } else if (op == 14 && a != 0 && (high_a != 0 || address_a != 0)) {
+                    address[d] = (address_a != 0 ? address_a : high_a) + static_cast<std::uint32_t>(imm);
+                } else if (op == 7 && imm > 0 && static_cast<std::uint32_t>(imm) <= kMaxStride) {
+                    stride_of[d] = static_cast<std::uint32_t>(imm);  // mulli rD,rA,stride
+                } else if (op == 31 && ((w >> 1) & 0x1FFu) == 266) {  // add rD,rA,rB
+                    const std::uint32_t base = address_a != 0 ? address_a : address_b;
+                    const std::uint32_t stride = stride_a != 0 ? stride_a : stride_b;
+                    if (base != 0 && stride != 0) {
+                        block_base[d] = base;
+                        block_stride[d] = stride;
+                    }
+                }
+                // The switch, read from the block within the last words before the call.
+                if (op == 34 && before_call - k <= kReadWithin && read_base != 0 && static_cast<std::uint32_t>(imm) >= kMinOffset &&
+                    static_cast<std::uint32_t>(imm) < kMaxOffset) {
+                    // Two different bytes read before the one call: which is
+                    // the switch can't be told.
+                    if (here.enable != 0 && (here.base != read_base || here.stride != read_stride ||
+                                             here.offset != static_cast<std::uint32_t>(imm)))
+                        two_reads = true;
+                    here.enable = function;
+                    here.base = read_base;
+                    here.stride = read_stride;
+                    here.offset = static_cast<std::uint32_t>(imm);
+                }
+            }
+            if (two_reads) return KpadDpd{};
+            if (here.enable == 0) continue;
+            if (found.enable != 0 && (found.base != here.base || found.stride != here.stride || found.offset != here.offset))
+                return KpadDpd{};  // two different switches: not guessed
+            if (found.enable == 0) found = here;
+        }
+    }
+    return found;
+}
+
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
     out = PadSymbols{};
     std::map<std::uint32_t, std::set<std::uint32_t>> read_memsets;  // function -> memset targets

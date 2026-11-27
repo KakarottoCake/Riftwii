@@ -1554,6 +1554,24 @@ msgstr "Una compilación de código no lo usa."
 msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
 msgstr "Los mandos de GameCube solo funcionan en los juegos hechos para ellos. Las otras opciones los hacen jugar como un mando de Wii."
 
+msgid "Wii Remote + Nunchuk"
+msgstr "Mando de Wii + Nunchuk"
+
+msgid "Each GameCube controller plays as a Wii Remote with a Nunchuk (port 1 as Wii Remote 1 and so on): X shakes it, the C-stick moves the pointer."
+msgstr "Cada mando de GameCube juega como un mando de Wii con Nunchuk (el puerto 1 como el mando de Wii 1, y así sucesivamente): X lo agita, la palanca C mueve el puntero."
+
+msgid "Sideways Wii Remote"
+msgstr "Mando de Wii de lado"
+
+msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it."
+msgstr "Cada mando de GameCube juega como un mando de Wii en horizontal (el puerto 1 como el mando de Wii 1, y así sucesivamente): A es 2, B es 1, la palanca de control es su cruceta, la palanca C lo inclina, R lo agita."
+
+msgid "Pointing Wii Remote"
+msgstr "Mando de Wii apuntando"
+
+msgid "Each GameCube controller plays as a Wii Remote pointed at the screen (port 1 as Wii Remote 1 and so on): the control stick moves the pointer, X is 1, Y is 2, the C-stick tilts it, R shakes it."
+msgstr "Cada mando de GameCube juega como un mando de Wii apuntando a la pantalla (el puerto 1 como el mando de Wii 1, y así sucesivamente): la palanca de control mueve el puntero, X es 1, Y es 2, la palanca C lo inclina, R lo agita."
+
 msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
 msgstr "Para un juego de otra región (importado): el juego ve los nombres de país de su región donde busca los de la consola."
 

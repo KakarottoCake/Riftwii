@@ -408,22 +408,24 @@ each again without the HOME Menu). A game takes one of them, but all six
 were embedded in the DOL. They are the `pads` plugin's now
 (`plugins/pads/`), and the DOL keeps only their sizes.
 
-The Wii controller stand-ins (#587: GameCube controllers as Classic
-Controllers, `runtime/rtgcwii.c`) are two more builds there: the full and
-adapter-only HOME Menu builds again with `RT_PAD_STANDIN`. Only a game
-whose GameCube controllers setting is on takes one (`kind_of` in
-`padhook.cpp`); every other game takes one of the six, whose bytes the
-stand-ins don't change (their code is in `#ifdef RT_PAD_STANDIN` blocks).
-The pad context starts the same in all eight: the builds without the
-HOME Menu have only that common start (`RT_PAD_CONTEXT_BASE_BYTES`), the
-others the whole context (`RT_PAD_CONTEXT_BYTES`; `context_bytes` in
-`padhook.cpp`). More forms can
-come the same way without the DOL or other games growing.
+The Wii controller stand-ins (#587, `runtime/rtgcwii.c`) are six more
+builds there: the full and adapter-only HOME Menu builds again with
+`RT_PAD_STANDIN`, once for each form (GameCube controllers as Classic
+Controllers, with `RT_PAD_FORM_NUNCHUK` as a Wii Remote + Nunchuk, and
+with `RT_PAD_FORM_SIDEWAYS` as a sideways Wii Remote).
+Only a game whose GameCube controllers setting is on takes one, of its
+form (`kind_of` in `padhook.cpp`); every other game takes one of the six,
+whose bytes the stand-ins don't change (their code is in `#ifdef
+RT_PAD_STANDIN` blocks). The pad context starts the same in all twelve:
+the builds without the HOME Menu have only that common start
+(`RT_PAD_CONTEXT_BASE_BYTES`), the others the whole context
+(`RT_PAD_CONTEXT_BYTES`; `context_bytes` in `padhook.cpp`). More forms
+can come the same way without the DOL or other games growing.
 
 | Piece | Where |
 | --- | --- |
 | The request | `include/riftwii/plugin_pads.h`: `rwp_pads_request` (which build, the DOL's buffer and its size in; the bytes copied and a reason out) |
-| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the eight builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
+| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the twelve builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
 | The DOL's side | `wii/hooks/padhook.cpp`: `PadsPluginForLaunch` loads the plugin while the card is RiftWii's; `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` loads it before a disc launch's IOS reload and before a channel's tries, and calls `fetch_pad_build` right after `prepare_gc_pads` |
 | The sizes | `build-runtime/riftwii_pad_sizes.h` (`Makefile.runtime`), for the copy's buffer and the game page's memory budget (`wii/menu/memorybudget.cpp`) |
 | Out of the DOL | `Makefile.wii`: the `riftwii_pad*.bin` builds out of `BINFILES` |

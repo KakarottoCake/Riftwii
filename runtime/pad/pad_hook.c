@@ -514,6 +514,32 @@ static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = 
 #define PAD_KPAD_CL_AXES 0x6Cu  /* left stick x/y, right stick x/y, L, R: six floats */
 #define PAD_KPAD_END 0x84u
 #define PAD_DEV_CLASSIC 2u
+/* The permanent stand-in's device as WPADProbe reports it: a Classic
+ * Controller, with RT_PAD_FORM_NUNCHUK a Wii Remote with a Nunchuk
+ * (WPAD_DEV_FREESTYLE), with RT_PAD_FORM_SIDEWAYS a bare Wii Remote
+ * (WPAD_DEV_CORE); and its KPAD data format (with acceleration, the pointer
+ * shown by dpd_valid). RT_PAD_FORM_REMOTE: either Wii Remote form. The HOME
+ * Menu's stand-in is a Classic Controller in every build, but on a channel
+ * one of the Wii Remote forms holds. */
+#define PAD_DEV_CORE 0u
+#define PAD_DEV_FREESTYLE 1u
+#define PAD_FORMAT_CORE_ACC 1u
+#define PAD_FORMAT_CORE_ACC_DPD 2u
+#define PAD_FORMAT_FREESTYLE_ACC 4u
+#define PAD_FORMAT_FREESTYLE_ACC_DPD 5u
+#if defined(RT_PAD_FORM_NUNCHUK)
+#define RT_PAD_FORM_REMOTE 1
+#define PAD_DEV_STANDIN PAD_DEV_FREESTYLE
+#define PAD_FORMAT_STANDIN PAD_FORMAT_FREESTYLE_ACC
+#define PAD_FORMAT_STANDIN_DPD PAD_FORMAT_FREESTYLE_ACC_DPD  /* with the camera on (KPADEnableDPD sets it) */
+#elif defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+#define RT_PAD_FORM_REMOTE 1
+#define PAD_DEV_STANDIN PAD_DEV_CORE
+#define PAD_FORMAT_STANDIN PAD_FORMAT_CORE_ACC
+#define PAD_FORMAT_STANDIN_DPD PAD_FORMAT_CORE_ACC_DPD
+#else
+#define PAD_DEV_STANDIN PAD_DEV_CLASSIC
+#endif
 /* The format KPAD reports for a Classic Controller: with the pointer (8)
  * while the HOME Menu is open, without (7) otherwise (seen in Naruto, Mario
  * Kart Wii and Brawl, 23 Oct). A game may check it: Ranger Cross waited
@@ -582,12 +608,39 @@ struct pad_classic {
 };
 
 static void pad_classic_status(const struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p);
+#ifdef RT_PAD_FORM_REMOTE
+static void pad_gcwii_home_status(struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p);
+/* Whether the HOME Menu's stand-in on `chan` keeps this stand-in's shape:
+ * as it was when the stand-in took the channel (w->slot.home_shaped), not as
+ * the controllers are now, so a GameCube controller plugged into that port
+ * while the HOME Menu is open doesn't turn its Classic Controller into a
+ * Wii Remote with no disconnect between (Cake's review of #610). */
+static int pad_home_keeps_shape(const struct rt_pad_context* c, uint32_t chan) {
+    return c->gcwii && rtgcwii_home_keeps_shape((const struct rtgcwii*)(uintptr_t)c->gcwii, chan);
+}
+
+/* The channel the game last heard the HOME Menu's stand-in on, by its own
+ * record (kpad_connect_info's told byte), or RTHOME_NO_CHANNEL. */
+static uint32_t pad_home_told(const struct rt_pad_context* c) {
+    const uint32_t told_byte = (c->kpad_connect_info >> 16) & 0xFFu;
+    return c->kpad_connect == 0 || told_byte == 0 ? RTHOME_NO_CHANNEL : told_byte - 1u;
+}
+#endif
 
 static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t t) {
     struct pad_classic p;
     p.menu_open = rthome_menu_open(&c->home);
     rthome_classic(&c->home, t, &p.hold, &p.trig, &p.release, p.axes);
     rthome_remote(&c->home, &p.remote_hold, &p.remote_trig, &p.remote_release, p.pointer);
+#ifdef RT_PAD_FORM_REMOTE
+    /* On its own player's channel (rthome_pads_own) the game knows a Wii
+     * Remote with a Nunchuk there: the same shape, not a Classic Controller. */
+    if (pad_home_keeps_shape(c, c->home.channel)) {
+        pad_gcwii_home_status(c, status, &p);
+        ++c->home_writes;
+        return;
+    }
+#endif
     pad_classic_status(c, status, &p);
     ++c->home_writes;
 }
@@ -662,17 +715,128 @@ static void pad_gcwii_read_pads(struct rt_pad_context* c) {
     w->reading = 0;
 }
 
+#ifdef RT_PAD_FORM_REMOTE
+/* KPADStatus beyond the Classic form's offsets: the Wii Remote's whole
+ * acceleration and its speed, the distance, and the Nunchuk's stick and
+ * acceleration (WPAD's FS fields, in the union the Classic's use). */
+#define PAD_KPAD_ACC_X 0x0Cu
+#define PAD_KPAD_ACC_SPEED 0x1Cu
+#define PAD_KPAD_DIST 0x48u
+#define PAD_KPAD_FS_STICK 0x60u
+#define PAD_KPAD_FS_ACC 0x68u
+#define PAD_KPAD_FS_ACC_VALUE 0x74u
+#define PAD_KPAD_FS_ACC_SPEED 0x78u
+#define PAD_DIST_AT_REST 498  /* 1.947 over RTHOME_AXIS_FULL, as Dolphin's emulated Remote gives it */
+
+/* The permanent stand-in's status on `chan`: a Wii Remote with a Nunchuk
+ * (rtgcwii_nunchuk), its stick, both accelerometers (still, or the Wii
+ * Remote shaking while X is held) and the pointer, shown while the C-stick
+ * moves it and for a while after; or a sideways Wii Remote
+ * (rtgcwii_sideways), tilted or shaking, its pointer while the game has
+ * the camera on. Every other field 0, as pad_classic_status. */
+/* KPAD's camera switch for `chan`, as the game set it, noted in the
+ * stand-in (rtgcwii_camera): before the KPAD status and the raw status
+ * alike, so their format doesn't depend on which the game reads first
+ * (CodeRabbit on #610). */
+static void pad_gcwii_camera_now(struct rt_pad_context* c, uint32_t chan) {
+    struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
+    if (w->kpad_dpd != 0 && chan < RTGCWII_CHANNELS) {
+        const uint8_t* wants = (const uint8_t*)(uintptr_t)(w->kpad_dpd + chan * w->kpad_dpd_stride + w->kpad_dpd_offset);
+        if (pad_in_ram(wants)) {
+            rtgcwii_camera(w, chan, *(const volatile uint8_t*)wants);
+            return;
+        }
+    }
+#ifdef RT_PAD_FORM_POINTING
+    /* KPAD's camera switch not found, or this channel's isn't in RAM: a
+     * pointing game wants its pointer, so the camera counts as on. */
+    rtgcwii_camera(w, chan, 1u);
+#endif
+}
+
+static void pad_gcwii_status(struct rt_pad_context* c, uint32_t chan, uint8_t* status, uint32_t takes) {
+    struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
+    struct rtshape_out f;
+    uint32_t i;
+    pad_gcwii_camera_now(c, chan);
+    rtgcwii_wii_remote(w, chan, now(), &f, takes);
+    for (i = 0; i + 4 <= c->kpad_status_bytes; i += 4) pad_put32(status + i, 0);
+    pad_put32(status + PAD_KPAD_HOLD, f.hold);
+    pad_put32(status + PAD_KPAD_TRIG, f.trig);
+    pad_put32(status + PAD_KPAD_RELEASE, f.release);
+    for (i = 0; i < 3; ++i) pad_put32(status + PAD_KPAD_ACC_X + 4 * i, rtgcwii_float_bits(f.acc[i]));
+    pad_put32(status + PAD_KPAD_ACC_VALUE, rtgcwii_float_bits(f.acc_value));
+    pad_put32(status + PAD_KPAD_ACC_SPEED, rtgcwii_float_bits(f.acc_speed));
+    pad_put32(status + PAD_KPAD_POS_X, rthome_float_bits(f.pointer[0] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
+    pad_put32(status + PAD_KPAD_POS_Y, rthome_float_bits(f.pointer[1] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
+#ifdef RT_PAD_FORM_POINTING
+    /* The pointing form's horizon turns with its roll (rtshape_pointing). */
+    pad_put32(status + PAD_KPAD_HORIZON_X, rthome_float_bits(f.horizon[0]));
+    pad_put32(status + PAD_KPAD_HORIZON_X + 4, rthome_float_bits(f.horizon[1]));
+#else
+    pad_put32(status + PAD_KPAD_HORIZON_X, PAD_FLOAT_ONE);
+#endif
+    pad_put32(status + PAD_KPAD_DIST, rtgcwii_float_bits(PAD_DIST_AT_REST));
+    pad_put32(status + PAD_KPAD_VERTICAL_Y, PAD_FLOAT_ONE);
+    status[PAD_KPAD_DEV_TYPE] = PAD_DEV_STANDIN;
+    status[PAD_KPAD_WPAD_ERR] = 0;
+    status[PAD_KPAD_DPD_VALID] = (uint8_t)(f.pointer_shown ? PAD_DPD_SEEN : 0u);
+    /* The camera's format only while the stand-in is on there, as the
+     * unified report has it (a HOME claim kept after its GameCube controller
+     * left; CodeRabbit, fork #23). */
+    status[PAD_KPAD_DATA_FORMAT] = (uint8_t)(rtslot_on(&w->slot, chan) && ((w->shape.camera >> chan) & 1u)
+                                                 ? PAD_FORMAT_STANDIN_DPD
+                                                 : PAD_FORMAT_STANDIN);
+#ifdef RT_PAD_FORM_NUNCHUK
+    pad_put32(status + PAD_KPAD_FS_STICK, rthome_float_bits(f.stick[0]));
+    pad_put32(status + PAD_KPAD_FS_STICK + 4, rthome_float_bits(f.stick[1]));
+    for (i = 0; i < 3; ++i) pad_put32(status + PAD_KPAD_FS_ACC + 4 * i, rtgcwii_float_bits(f.fs_acc[i]));
+    pad_put32(status + PAD_KPAD_FS_ACC_VALUE, rtgcwii_float_bits(f.fs_acc_value));
+    pad_put32(status + PAD_KPAD_FS_ACC_SPEED, rtgcwii_float_bits(f.fs_acc_speed));
+#endif
+}
+
+/* The HOME Menu's stand-in on a channel this stand-in holds: the game knows
+ * a Wii Remote (with a Nunchuk, or sideways) there, so the status keeps that shape
+ * (pad_gcwii_status) and carries the HOME stand-in's Wii Remote words (its
+ * HOME press, then the menu's buttons) and, while the menu is open, its
+ * pointer; the Nunchuk's stick rests. Interrupts off, at its callers. */
+static void pad_gcwii_home_status(struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p) {
+    /* The shape only: the controller's own buttons aren't the game's while
+     * the HOME stand-in is, so a press under it (L held as the menu
+     * closes) is still new at the game's next read. */
+    const uint32_t chan = c->home.channel;
+    pad_gcwii_status(c, chan, status, RTGCWII_TAKE_STEP);
+    pad_put32(status + PAD_KPAD_HOLD, p->remote_hold);
+    pad_put32(status + PAD_KPAD_TRIG, p->remote_trig);
+    pad_put32(status + PAD_KPAD_RELEASE, p->remote_release);
+#ifdef RT_PAD_FORM_NUNCHUK
+    pad_put32(status + PAD_KPAD_FS_STICK, 0);
+    pad_put32(status + PAD_KPAD_FS_STICK + 4, 0);
+#endif
+    if (p->menu_open) {
+        pad_put32(status + PAD_KPAD_POS_X, rthome_float_bits(p->pointer[0] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
+        pad_put32(status + PAD_KPAD_POS_Y, rthome_float_bits(p->pointer[1] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
+        status[PAD_KPAD_DPD_VALID] = PAD_DPD_SEEN;
+        /* The HOME Menu's pointer comes in the camera's format, as the raw
+         * status gives it (CodeRabbit on #610). */
+        status[PAD_KPAD_DATA_FORMAT] = PAD_FORMAT_STANDIN_DPD;
+    }
+}
+#else
 /* The permanent stand-in's status on `chan` (rtgcwii.h): the Classic
  * Controller alone, the Wii Remote's own buttons and pointer at rest. */
-static void pad_gcwii_status(struct rt_pad_context* c, uint32_t chan, uint8_t* status) {
+static void pad_gcwii_status(struct rt_pad_context* c, uint32_t chan, uint8_t* status, uint32_t takes) {
     struct pad_classic p;
     uint32_t i;
+    (void)takes;  /* the Classic Controller's KPAD read takes its words; it has no shake */
     rtgcwii_classic((struct rtgcwii*)(uintptr_t)c->gcwii, chan, &p.hold, &p.trig, &p.release, p.axes);
     p.remote_hold = p.remote_trig = p.remote_release = 0;
     for (i = 0; i < 2; ++i) p.pointer[i] = 0;
     p.menu_open = 0;
     pad_classic_status(c, status, &p);
 }
+#endif
 
 static void pad_classic_status(const struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p) {
     uint32_t i;
@@ -740,6 +904,12 @@ static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint
         c->home_buffer = 0;
         c->home_fresh = 0;
         c->home_judged = 0;
+#ifdef RT_PAD_FORM_REMOTE
+        /* The shape it takes the channel in stays its own until it next
+         * takes one (rtgcwii_home_took: the channels the game knows as this
+         * stand-in's, rtgcwii_shaped, held now or told of and not yet told gone). */
+        if (c->gcwii) rtgcwii_home_took((struct rtgcwii*)(uintptr_t)c->gcwii, c->home.channel);
+#endif
     }
 }
 
@@ -804,7 +974,7 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     if (owner != RTSLOT_HOME) {
         /* The permanent stand-in's channel, where no real controller is. */
         if (owner == RTSLOT_STANDIN) {
-            pad_gcwii_status(c, (uint32_t)chan, status);
+            pad_gcwii_status(c, (uint32_t)chan, status, RTGCWII_TAKE_WORDS | RTGCWII_TAKE_STEP);
             if (c->kpad_takes_error && pad_in_ram(error)) *error = 0;
             interrupts_restore(msr);
             return 1;
@@ -894,7 +1064,7 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
      * (CodeRabbit on #609): the stand-in answers from the next probe. */
     if (!c->home_on) {
         if (chan >= 0 && result != 0 && pad_owner(c, (uint32_t)chan, 0) == RTSLOT_STANDIN) {
-            if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
+            if (pad_in_ram(type)) *type = PAD_DEV_STANDIN;
             return 0;
         }
         return result;
@@ -932,7 +1102,7 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
     if (owner != RTSLOT_HOME) {
         if (chan >= 0) rthome_probed(&c->home, (uint32_t)chan, result);
         if (owner == RTSLOT_STANDIN && result != 0) {
-            if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
+            if (pad_in_ram(type)) *type = PAD_DEV_STANDIN;
             interrupts_restore(msr);
             return 0;
         }
@@ -948,7 +1118,14 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         interrupts_restore(msr);
         return result;
     }
+
+#ifdef RT_PAD_FORM_REMOTE
+    /* On a channel the permanent stand-in holds, the HOME Menu's stand-in
+     * keeps its shape (pad_home_status). */
+    if (pad_in_ram(type)) *type = pad_home_keeps_shape(c, (uint32_t)chan) ? PAD_DEV_STANDIN : PAD_DEV_CLASSIC;
+#else
     if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
+#endif
     /* The buffer the KPAD read last filled, when the game keeps it (not
      * on a stack, pad_on_running_stack): else nothing is written, and the
      * stand-in waits for the game's next KPAD read. */
@@ -1004,6 +1181,61 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     interrupts_restore(msr);
 }
 #else
+#ifdef RT_PAD_FORM_REMOTE
+/* A Wii Remote (with a Nunchuk: WPADFSStatus) as KPADGetUnifiedWpadStatus
+ * gives one, in rthome_wpad_status's layout: the Wii Remote's buttons at 0
+ * (the Nunchuk's Z and C among them), the device type at 40, the data
+ * format at 54; accelerometers and the stick at rest, as the Classic form's
+ * raw status carries buttons only. */
+static void pad_put_dot(uint8_t* o, int32_t x, int32_t y, uint32_t size, uint32_t trace) {
+    o[0] = (uint8_t)((uint32_t)x >> 8);
+    o[1] = (uint8_t)x;
+    o[2] = (uint8_t)((uint32_t)y >> 8);
+    o[3] = (uint8_t)y;
+    o[4] = (uint8_t)(size >> 8);
+    o[5] = (uint8_t)size;
+    o[6] = (uint8_t)trace;
+    o[7] = 0;
+}
+
+/* The camera's two sensor-bar dots for a pointer (over RTHOME_POINTER_FULL):
+ * centred on (512, 384) when it points at the screen's centre, moving
+ * against it by up to 384 x 288 at the edge, 137 apart, size 3 (Dolphin's
+ * emulated Wii Remote at rest); the other two seen nowhere (size 0). */
+/* `horizon`: the line between the dots (RTHOME_AXIS_FULL long), as the
+ * KPAD read reports it; 0 for level. The camera sees the screen mirrored on
+ * both axes, so the turn is mirrored with the midpoint (CodeRabbit, fork
+ * #23: a game that takes the roll from the dots). */
+static void pad_put_dots(uint8_t* obj, const int32_t* pointer, const int32_t* horizon) {
+    const int32_t mid_x = 512 - pointer[0] * 384 / RTHOME_POINTER_FULL;
+    const int32_t mid_y = 384 - pointer[1] * 288 / RTHOME_POINTER_FULL;
+    const int32_t hx = horizon ? horizon[0] : RTHOME_AXIS_FULL, hy = horizon ? horizon[1] : 0;
+    pad_put_dot(obj, mid_x + (137 / 2 + 1) * hx / RTHOME_AXIS_FULL, mid_y + (137 / 2 + 1) * hy / RTHOME_AXIS_FULL, 3u, 0);
+    pad_put_dot(obj + 8, mid_x - (137 / 2) * hx / RTHOME_AXIS_FULL, mid_y - (137 / 2) * hy / RTHOME_AXIS_FULL, 3u, 1);
+    pad_put_dot(obj + 16, 0, 767, 0u, 2);
+    pad_put_dot(obj + 24, 0, 767, 0u, 3);
+}
+
+/* `pointer`: where the KPAD read on this channel points, for the dots (the
+ * permanent stand-in's own with the camera on; while the HOME Menu is open
+ * on it, the HOME Menu's pointer); 0 for no dots, in the format without the
+ * camera's. `horizon`: their line (pad_put_dots), 0 for level. */
+static void pad_gcwii_wpad_status(uint8_t* entry, uint32_t hold, const int32_t* pointer, const int32_t* horizon) {
+    uint32_t i;
+    for (i = 0; i < RTHOME_WPAD_STATUS_BYTES; ++i) entry[i] = 0;
+    entry[0] = (uint8_t)(hold >> 8);
+    entry[1] = (uint8_t)hold;
+    /* The same data format the KPAD read reports on this channel (with the
+     * camera on, its camera format), and with it the dots it promises, the
+     * pointer as the KPAD read has it (Cake's review of #610). */
+    if (pointer) pad_put_dots(entry + 8, pointer, horizon);
+    entry[40] = PAD_DEV_STANDIN;
+    /* With dots, the camera's format they come in (the HOME Menu open on a
+     * channel whose camera the game left off too: its pointer is seen). */
+    entry[54] = (uint8_t)(pointer ? PAD_FORMAT_STANDIN_DPD : PAD_FORMAT_STANDIN);
+}
+#endif
+
 void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count) {
     uint32_t msr, t, hold, trig, release, remote_hold, remote_trig, remote_release;
     int32_t axes[6], pointer[2], i;
@@ -1016,15 +1248,55 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     t = now();
     owner = pad_owner(c, (uint32_t)chan, t);
     if (owner != RTSLOT_HOME) {
+        /* The permanent stand-in's raw status, in its form's shape. */
         if (owner == RTSLOT_STANDIN) {
             hold = rtgcwii_hold((const struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan);
+#ifdef RT_PAD_FORM_REMOTE
+            const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
+            pad_gcwii_camera_now(c, (uint32_t)chan);
+            const int32_t* own = (uint32_t)chan < RTGCWII_CHANNELS && ((w->shape.camera >> (uint32_t)chan) & 1u)
+                                     ? w->shape.pointer[chan]
+                                     : 0;
+            const int32_t* level = 0;
+#ifdef RT_PAD_FORM_POINTING
+            /* The pointing form's roll, as the KPAD read has it (looked at,
+             * nothing taken: the KPAD read takes its words and steps). */
+            struct rtshape_out turned;
+            rtgcwii_wii_remote((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, t, &turned, 0);
+            level = turned.horizon;
+#endif
+            for (i = 0; i < count; ++i)
+                pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, hold, own, level);
+#else
             for (i = 0; i < count; ++i) rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, 0, hold);
+#endif
         }
         interrupts_restore(msr);
         return;
     }
     rthome_classic(&c->home, t, &hold, &trig, &release, axes);
     rthome_remote(&c->home, &remote_hold, &remote_trig, &remote_release, pointer);
+#ifdef RT_PAD_FORM_REMOTE
+    /* The HOME Menu's stand-in on a channel the game knows as this one's
+     * keeps its shape (pad_home_status). */
+    if (pad_home_keeps_shape(c, (uint32_t)chan)) {
+        /* The dots where the KPAD read points (pad_gcwii_home_status): the
+         * HOME Menu's pointer while it is open, else the stand-in's own. */
+        const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
+        pad_gcwii_camera_now(c, (uint32_t)chan);
+        /* Not the stand-in's while it is off there (its GameCube
+         * controller gone under the HOME claim): KPAD's status hides the
+         * pointer then too (CodeRabbit, fork #23). */
+        const int32_t* at =
+            rthome_menu_open(&c->home) ? pointer
+            : (rtslot_on(&w->slot, (uint32_t)chan) && ((w->shape.camera >> (uint32_t)chan) & 1u)) ? w->shape.pointer[chan]
+                                                                                                   : 0;
+        for (i = 0; i < count; ++i)
+            pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, at, 0);
+        interrupts_restore(msr);
+        return;
+    }
+#endif
     for (i = 0; i < count; ++i) rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, hold);
     interrupts_restore(msr);
 }
@@ -1082,12 +1354,27 @@ static void pad_gcwii_tell(struct rt_pad_context* c) {
      * of this pass (each channel tried once), not left blocking the others;
      * it is tried again at the next PADRead. */
     uint32_t skip = 0;
+#ifdef RT_PAD_FORM_REMOTE
+    const int remote_shapes = 1;
+#else
+    const int remote_shapes = 0;
+#endif
     for (;;) {
         int told;
         /* What to tell is rtslot's to decide (the HOME Menu's rule
-         * included). */
+         * included); the slot is looked at again before each change: a
+         * callback (and the PADReads it may make) can start or end the HOME
+         * Menu's stand-in. */
         home_channel = c->home_on ? rthome_stand_in(&c->home, now()) : RTHOME_NO_CHANNEL;
-        if (!rtslot_next_tell(&w->slot, home_channel, skip, &chan, &reason)) break;
+#ifdef RT_PAD_FORM_REMOTE
+        /* The HOME Menu's stand-in has ended but its "gone" isn't told yet
+         * (it ended in a PADRead nested in this telling, which leaves the
+         * HOME change to a later read): its record still names the
+         * channel, so a "connected" there in another shape waits for that
+         * "gone", which then comes first (CodeRabbit, fork #23). */
+        if (home_channel == RTHOME_NO_CHANNEL) home_channel = pad_home_told(c);
+#endif
+        if (!rtslot_next_tell(&w->slot, home_channel, remote_shapes, skip, &chan, &reason)) break;
         interrupts_restore(msr);
         told = pad_tell_connect(c, chan, reason);
         msr = interrupts_off();
@@ -1191,6 +1478,12 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
          * (one nested in a callback the hook makes, too) fills the game's
          * (CodeRabbit on #609). */
         rtgcwii_read_by(w, t, status == c->pad_scratch);
+#ifdef RT_PAD_FORM_REMOTE
+        /* The game's camera switch as it is now, before these samples move
+         * the pointer (a switch turned on or off since the last KPAD read
+         * counts from this sample; CodeRabbit, fork #23). */
+        for (i = 0; i < RTGCWII_CHANNELS; ++i) pad_gcwii_camera_now(c, i);
+#endif
         rtgcwii_pads(w, status, t);
     }
 #endif
@@ -1202,10 +1495,20 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
          * that reads only the channels its connect callback heard of; on a
          * channel the permanent stand-in holds, the game already has it. */
         uint32_t now_channel = c->home_on ? rthome_stand_in(&c->home, t) : RTHOME_NO_CHANNEL;
-        /* Not on a channel the permanent stand-in holds or has told the game
-         * of: rtslot's to decide. */
+        /* Where the game hears of it is rtslot's to decide: not on a
+         * channel the permanent stand-in holds or has told the game of (the
+         * game has it already; the permanent stand-in's telling covers its
+         * end), with the Wii Remote forms' rule for a HOME stand-in that
+         * keeps its Classic shape (pad_gcwii_tell holds the Wii Remote's
+         * "connected" back until it ends). */
+#ifdef RT_PAD_FORM_REMOTE
+        const int remote_shapes = 1;
+#else
+        const int remote_shapes = 0;
+#endif
         if (c->gcwii && now_channel != RTHOME_NO_CHANNEL)
-            now_channel = rtslot_home_announced(&((const struct rtgcwii*)(uintptr_t)c->gcwii)->slot, now_channel);
+            now_channel = rtslot_home_announced(&((const struct rtgcwii*)(uintptr_t)c->gcwii)->slot, now_channel,
+                                                remote_shapes);
 #else
         /* The stand-in comes and goes as a Wii Remote would, for a game
          * that reads only the channels its connect callback heard of. */
@@ -1227,7 +1530,7 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         /* A real Wii Remote took the channel the HOME Menu's stand-in held:
          * its record is cleared, but the game isn't told "gone" for a
          * controller that is there (WPAD tells it when that one leaves;
-         * CodeRabbit, fork #22). */
+         * CodeRabbit on #610 and fork #22). */
         if (leave != RTHOME_NO_CHANNEL && c->gcwii &&
             !rtslot_home_may_leave(&((const struct rtgcwii*)(uintptr_t)c->gcwii)->slot, leave))
             leave = RTHOME_NO_CHANNEL;

@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The eight in-game pad builds (runtime/pad) in the plugin's constants.
+/* The ten in-game pad builds (runtime/pad) in the plugin's constants.
  * Makefile.plugin assembles this with -Wa,-I<build-runtime>, the folder
  * Makefile.runtime writes them to, where .incbin finds them. Each is
  * 32-byte aligned; the table after them gives each one's start and size,
@@ -48,6 +48,36 @@ riftwii_padac_bin:
     .incbin "riftwii_padac.bin"
 riftwii_padac_bin_end:
 
+    .balign 32
+riftwii_padw_bin:
+    .incbin "riftwii_padw.bin"
+riftwii_padw_bin_end:
+
+    .balign 32
+riftwii_padaw_bin:
+    .incbin "riftwii_padaw.bin"
+riftwii_padaw_bin_end:
+
+    .balign 32
+riftwii_padsw_bin:
+    .incbin "riftwii_padsw.bin"
+riftwii_padsw_bin_end:
+
+    .balign 32
+riftwii_padasw_bin:
+    .incbin "riftwii_padasw.bin"
+riftwii_padasw_bin_end:
+
+    .balign 32
+riftwii_padpt_bin:
+    .incbin "riftwii_padpt.bin"
+riftwii_padpt_bin_end:
+
+    .balign 32
+riftwii_padapt_bin:
+    .incbin "riftwii_padapt.bin"
+riftwii_padapt_bin_end:
+
     .balign 4
     .global pads_builds
 pads_builds:
@@ -59,3 +89,9 @@ pads_builds:
     .long riftwii_padpn_bin, riftwii_padpn_bin_end - riftwii_padpn_bin
     .long riftwii_padc_bin, riftwii_padc_bin_end - riftwii_padc_bin
     .long riftwii_padac_bin, riftwii_padac_bin_end - riftwii_padac_bin
+    .long riftwii_padw_bin, riftwii_padw_bin_end - riftwii_padw_bin
+    .long riftwii_padaw_bin, riftwii_padaw_bin_end - riftwii_padaw_bin
+    .long riftwii_padsw_bin, riftwii_padsw_bin_end - riftwii_padsw_bin
+    .long riftwii_padasw_bin, riftwii_padasw_bin_end - riftwii_padasw_bin
+    .long riftwii_padpt_bin, riftwii_padpt_bin_end - riftwii_padpt_bin
+    .long riftwii_padapt_bin, riftwii_padapt_bin_end - riftwii_padapt_bin

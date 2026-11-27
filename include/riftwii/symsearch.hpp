@@ -135,6 +135,30 @@ bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<Cod
 // reach, or from anywhere outside it.
 std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std::uint32_t wpad_probe);
 
+// KPADEnableDPD(chan), which sets KPAD's camera switch for a channel, and
+// where that switch is: it is `mulli r0,r3,stride; lis r3,hi; li r4,1;
+// addi r3,r3,lo; add r3,r3,r0; stb r4,offset(r3); blr`, right after
+// KPADDisableDPD (the same with li r4,0), in every KPAD from 2008 to 2010
+// dumped (19 of 21 games; 2006's have neither). The switch is the byte at
+// base + chan * stride + offset. All 0 when there's no such pair, or two.
+struct KpadDpd {
+    std::uint32_t enable = 0;  // KPADEnableDPD, or the function found reading the switch: where it was found (0: not)
+    std::uint32_t base = 0;    // KPAD's per-channel blocks
+    std::uint32_t stride = 0;  // one channel's
+    std::uint32_t offset = 0;  // the switch's, in one (signed, as stb takes it: added with wrap-around)
+};
+KpadDpd find_kpad_enable_dpd(const std::vector<CodeRange>& text);
+
+// The same switch in a game that never links KPADEnableDPD (Super Mario
+// Galaxy 2: KPAD sets the switch at its start and nothing changes it),
+// found where KPAD reads it: the `lbz rX,offset(rBlock)` within 8 words
+// before a call to WPADIsDpdEnabled (the one short function that takes a
+// channel's WPAD block from its table and returns the word at +2104, or
+// +1912 in late 2006), where rBlock is KPAD's channel block, `base`
+// (`lis`/`addi`) plus the channel times `stride` (`mulli`). `enable` is
+// that reading function. All 0 unless every such read agrees.
+KpadDpd find_kpad_dpd_switch(const std::vector<CodeRange>& text);
+
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the
 // command's two low bits (`rlwinm rX, rY, 0, 30, 31`), ORs them into the

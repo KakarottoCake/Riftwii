@@ -1,10 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* GameCube controllers as Classic Controllers (#587): with the game's own
+/* GameCube controllers as Wii controllers (#587): with the game's own
  * setting on (off by default), each GameCube controller in port N stands in
- * on Wii Remote channel N-1 as a Classic Controller for as long as it is
- * plugged in, so a game that takes a Classic Controller plays from it. The
- * HOME Menu's stand-in (rthome.h) does the same for a moment; this one stays.
+ * on Wii Remote channel N-1, as a Classic Controller, a Wii Remote + Nunchuk
+ * or a sideways Wii Remote (the build's form), for as long as it is plugged
+ * in. The HOME Menu's stand-in (rthome.h) does the same for a moment; this
+ * one stays.
  *
  * The stand-in is four layers (notes in #587): sources (rtsrc.h: each
  * controller, one sample per report), shapes (rtshape.h: a sample as the
@@ -40,14 +41,59 @@ struct rtgcwii {
     uint32_t game_read;  /* when the game itself last called PADRead (low bit set), 0: never */
     uint32_t own_read;   /* when the blob last called it (low bit set), 0: never */
     uint32_t reading;    /* the blob's own PADRead call is under way */
+    struct rtshape shape;  /* each slot's shape's motion: shake, pointer, camera (rtshape.h) */
+    /* Where KPAD keeps each channel's camera switch (KPADEnableDPD's
+     * code): the byte at kpad_dpd + channel * kpad_dpd_stride +
+     * kpad_dpd_offset, 0: not found (the pointer shows only after the
+     * C-stick moves). Loader-filled. */
+    uint32_t kpad_dpd, kpad_dpd_stride, kpad_dpd_offset;
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
  * will see them (the adapter's already in): a port with a controller keeps
- * its status and its Classic buttons move on one sample; a port with none
- * for `grace` ticks loses its channel's stand-in. A short gap (a wireless
- * pad's dropped report) never unplugs the player. */
+ * its status and its buttons move on one sample; a port with none for
+ * `grace` ticks loses its channel's stand-in. A short gap (a wireless pad's
+ * dropped report) never unplugs the player. */
 void rtgcwii_pads(struct rtgcwii* w, const uint8_t* status, uint32_t now);
+
+/* The Wii Remote + Nunchuk and sideways forms' buttons for a PADStatus
+ * (rtshape_nunchuk_buttons, rtshape_sideways_buttons): in every build;
+ * the forms' builds take theirs. */
+uint32_t rtgcwii_map_nunchuk(const uint8_t* pad);
+uint32_t rtgcwii_map_sideways(const uint8_t* pad);
+uint32_t rtgcwii_map_pointing(const uint8_t* pad);
+
+/* The game wants `channel`'s Wii Remote camera on (`mode` not 0) or off,
+ * as KPAD's switch says (KPADEnableDPD, KPADDisableDPD): a game turns it on
+ * for its pointer menus (Batman: The Brave and the Bold from its title
+ * screen on), so the stand-in's pointer is shown while it is on, as well as
+ * after the C-stick moves. */
+void rtgcwii_camera(struct rtgcwii* w, uint32_t channel, uint32_t mode);
+
+/* The stand-in's Wii Remote on `channel` in the build's shape (with a
+ * Nunchuk, or sideways) at `now`, into `out`. The game's own KPAD read
+ * takes the words (RTGCWII_TAKE_WORDS: newly pressed and let go against
+ * what it last got) and the shake's step (RTGCWII_TAKE_STEP: its jump in
+ * speed); a look takes neither and leaves them for that read: a raw report
+ * (it has neither) takes 0, and the HOME Menu's stand-in's status in this
+ * shape, whose buttons are its own, takes the step alone. Where the
+ * stand-in isn't on, the buttons, stick and pointer are 0 (pointer hidden)
+ * and both accelerometers read a still controller: 1 g along -Y. */
+#define RTGCWII_TAKE_WORDS 1u
+#define RTGCWII_TAKE_STEP 2u
+void rtgcwii_wii_remote(struct rtgcwii* w, uint32_t channel, uint32_t now, struct rtshape_out* out, uint32_t takes);
+
+/* The same as the game's KPAD read takes them, in the Nunchuk shape
+ * (rtshape_nunchuk) or the sideways one (rtshape_sideways), whatever the
+ * build's form: the host tests take each. */
+void rtgcwii_nunchuk(struct rtgcwii* w, uint32_t channel, uint32_t now, struct rtshape_out* out);
+void rtgcwii_sideways(struct rtgcwii* w, uint32_t channel, struct rtshape_out* out);
+#ifdef RT_PAD_FORM_POINTING
+/* The pointing Wii Remote on `channel` for the game's KPAD read (the words
+ * taken, the shake's step too): rtshape_pointing's state, all 0 where the
+ * stand-in isn't on. Built only with RT_PAD_FORM_POINTING. */
+void rtgcwii_pointing(struct rtgcwii* w, uint32_t channel, struct rtshape_out* out);
+#endif
 
 /* The stand-in's Classic Controller on `channel`, for the game's KPAD read:
  * its hold, trig (newly pressed since the game last got it) and release
@@ -75,17 +121,33 @@ int rtgcwii_should_read(struct rtgcwii* w, uint32_t now, uint32_t ticks_per_ms);
  * else the game's. */
 void rtgcwii_read_by(struct rtgcwii* w, uint32_t now, int own);
 
-/* Slot ownership's decisions (rtslot.h) by their old names. */
+/* --- The layers' names as the hooks and tests knew them before the
+ * restructure. */
 #define RTGCWII_NO_ERROR RTSLOT_NO_ERROR
 #define RTGCWII_EMPTY_READS RTSLOT_EMPTY_READS
 #define rtgcwii_probed(w, channel, result) rtslot_probed(&(w)->slot, (channel), (result))
 #define rtgcwii_probe_count(w, channel) rtslot_probe_count(&(w)->slot, (channel))
 #define rtgcwii_real_check_due(w, now, ticks_per_ms) rtslot_real_check_due(&(w)->slot, (now), (ticks_per_ms))
 #define rtgcwii_on(w, channel) rtslot_on(&(w)->slot, (channel))
+#define rtgcwii_shaped(w) rtslot_shaped(&(w)->slot)
+#define rtgcwii_home_took(w, channel) rtslot_home_took(&(w)->slot, (channel))
+#define rtgcwii_home_keeps_shape(w, channel) rtslot_home_keeps_shape(&(w)->slot, (channel))
 #define rtgcwii_connect_change(w, leave, join) rtslot_connect_change(&(w)->slot, (leave), (join))
 #define rtgcwii_not_told(w, channel) rtslot_not_told(&(w)->slot, (channel))
 #define rtgcwii_still_told(w, channel) rtslot_still_told(&(w)->slot, (channel))
 #define rtgcwii_next_change(w, skip, keep, channel, reason) rtslot_next_change(&(w)->slot, (skip), (keep), (channel), (reason))
 #define rtgcwii_kpad_read(w, channel, result, error, now) rtslot_kpad_read(&(w)->slot, (channel), (result), (error), (now))
+#define RTGCWII_SHAKE_G RTSHAPE_SHAKE_G
+#define RTGCWII_SHAKE_VALUE RTSHAPE_SHAKE_VALUE
+#define RTGCWII_SHAKE_FLIP RTSHAPE_SHAKE_FLIP
+#define RTGCWII_SHAKE_PERIOD RTSHAPE_SHAKE_PERIOD
+#define RTGCWII_SHAKE_SPEED RTSHAPE_SHAKE_SPEED
+#define RTGCWII_SHAKE_TOP RTSHAPE_SHAKE_TOP
+#define RTGCWII_POINTER_STEP RTSHAPE_POINTER_STEP
+#define RTGCWII_POINTER_EDGE RTSHAPE_POINTER_EDGE
+#define RTGCWII_TILT_SIN RTSHAPE_TILT_SIN
+#define RTGCWII_TICKS_PER_FRAME RTSHAPE_TICKS_PER_FRAME
+#define RTGCWII_POINTER_GAP_FRAMES RTSHAPE_POINTER_GAP_FRAMES
+#define rtgcwii_float_bits rtdeliver_float_bits
 
 #endif

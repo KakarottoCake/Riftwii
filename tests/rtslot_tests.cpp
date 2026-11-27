@@ -37,11 +37,11 @@ void unplug(rtslot& s, std::uint32_t slot) { s.present &= ~(1u << slot); }
 struct Told {
     int joins = 0, leaves = 0;
 };
-Told tell_all(rtslot& s, std::uint32_t home = kNone) {
+Told tell_all(rtslot& s, std::uint32_t home = kNone, int remote_shapes = 1) {
     Told t;
     std::uint32_t skip = 0, slot = 0;
     std::int32_t reason = 0;
-    while (rtslot_next_tell(&s, home, skip, &slot, &reason)) {
+    while (rtslot_next_tell(&s, home, remote_shapes, skip, &slot, &reason)) {
         (reason == 0 ? t.joins : t.leaves) += 1;
         rtslot_told(&s, slot, reason, 1);
         skip |= 1u << slot;
@@ -102,12 +102,12 @@ void TestUndeliveredStaysToTell() {
     plug(s, 0);
     std::uint32_t slot = 0;
     std::int32_t reason = 1;
-    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 0, &slot, &reason));
+    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 1, 0, &slot, &reason));
     EXPECT_EQ(reason, 0);
     EXPECT_EQ(rtslot_told(&s, slot, reason, 0), RTSLOT_AFTER_NOTHING);
     EXPECT_EQ(tell_all(s).joins, 1);  // tried again
     unplug(s, 0);
-    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 0, &slot, &reason));
+    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 1, 0, &slot, &reason));
     EXPECT_EQ(reason, -1);
     rtslot_told(&s, slot, reason, 0);
     EXPECT_EQ(tell_all(s).leaves, 1);
@@ -122,7 +122,7 @@ void TestGoneThenRealConnected() {
     unplug(s, 3);
     std::uint32_t slot = 0;
     std::int32_t reason = 0;
-    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 0, &slot, &reason));
+    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 1, 0, &slot, &reason));
     EXPECT_EQ(reason, -1);
     rtslot_probed(&s, 3, 0);  // a real Wii Remote arrives while "gone" is told
     EXPECT_EQ(rtslot_told(&s, slot, reason, 1), RTSLOT_AFTER_CONNECTED);
@@ -186,18 +186,77 @@ void TestRecheckOlderAnswerLoses() {
 // there already, so the HOME one isn't announced.
 void TestHomeAnnounced() {
     rtslot s = fresh();
-    EXPECT_EQ(rtslot_home_announced(&s, 1), 1u);
-    EXPECT_EQ(rtslot_home_announced(&s, kNone), kNone);
+    EXPECT_EQ(rtslot_home_announced(&s, 1, 0), 1u);
+    EXPECT_EQ(rtslot_home_announced(&s, kNone, 1), kNone);
     plug(s, 1);
-    EXPECT_EQ(rtslot_home_announced(&s, 1), kNone);
+    EXPECT_EQ(rtslot_home_announced(&s, 1, 0), kNone);
     unplug(s, 1);
     s.told = 1u << 1;
-    EXPECT_EQ(rtslot_home_announced(&s, 1), kNone);
+    EXPECT_EQ(rtslot_home_announced(&s, 1, 0), kNone);
+    s.told = 0;
+    // Wii Remote forms (#610): a HOME stand-in that took slot 2 free (its
+    // Classic shape) keeps that claim though a GameCube controller plugs in.
+    rtslot_home_took(&s, 2);
+    plug(s, 2);
+    EXPECT_EQ(rtslot_home_announced(&s, 2, 1), 2u);
+    // Took a slot the Wii Remote stand-in already held: same shape, the game has it.
+    rtslot_home_took(&s, 2);
+    EXPECT_EQ(rtslot_home_announced(&s, 2, 1), kNone);
     // A real Wii Remote there: its library tells the game (fork #22).
     rtslot r = fresh();
     rtslot_probed(&r, 2, 0);
-    EXPECT_EQ(rtslot_home_announced(&r, 2), kNone);
-    EXPECT_EQ(rtslot_home_announced(&r, 3), 3u);
+    EXPECT_EQ(rtslot_home_announced(&r, 2, 0), kNone);
+    EXPECT_EQ(rtslot_home_announced(&r, 2, 1), kNone);
+    EXPECT_EQ(rtslot_home_announced(&r, 3, 0), 3u);
+}
+
+// #616 (CodeRabbit): while the HOME Menu's stand-in holds a slot in another
+// shape (a Classic Controller, in a Wii Remote form), the permanent
+// stand-in's "connected" there waits until it ends; then it's told.
+void TestHomeHoldsDifferentShape() {
+    rtslot s = fresh();
+    rtslot_home_took(&s, 0);  // nothing of the stand-in's there: Classic-shaped HOME
+    EXPECT_EQ(rtslot_home_keeps_shape(&s, 0), 0);
+    plug(s, 0);               // a GameCube controller plugged in under the menu
+    EXPECT_EQ(tell_all(s, 0).joins, 0);
+    EXPECT_EQ(tell_all(s, kNone).joins, 1);  // the menu ended
+    // The Classic form has no other shape to hold for: told at once.
+    rtslot c = fresh();
+    rtslot_home_took(&c, 0);
+    plug(c, 0);
+    EXPECT_EQ(tell_all(c, 0, 0).joins, 1);
+}
+
+// #12 (fork, CodeRabbit): the HOME stand-in keeps the shape it took the
+// slot in, though the permanent stand-in's pad unplugs under it.
+void TestHomeKeepsShapeAfterUnplug() {
+    rtslot s = fresh();
+    plug(s, 2);
+    EXPECT_EQ(tell_all(s).joins, 1);
+    rtslot_home_took(&s, 2);
+    EXPECT_EQ(rtslot_home_keeps_shape(&s, 2), 1);
+    unplug(s, 2);
+    EXPECT_EQ(rtslot_home_keeps_shape(&s, 2), 1);
+    EXPECT_EQ(tell_all(s, 2).leaves, 0);  // never "gone" while the menu has it
+    EXPECT_EQ(tell_all(s, kNone).leaves, 1);
+}
+
+// #610 (CodeRabbit): a real Wii Remote took the slot the HOME Menu's
+// stand-in held; the game isn't told "gone" for a controller that's there.
+void TestHomeLeaveNotForReal() {
+    rtslot s = fresh();
+    EXPECT_TRUE(rtslot_home_may_leave(&s, 0));
+    rtslot_probed(&s, 0, 0);
+    EXPECT_TRUE(!rtslot_home_may_leave(&s, 0));
+    EXPECT_TRUE(rtslot_home_may_leave(&s, kNone));
+    // A GameCube controller on the HOME Menu's slot, already told
+    // connected by the permanent stand-in: no "gone" from the HOME Menu's
+    // end (fork #22's second review).
+    rtslot t = fresh();
+    plug(t, 2);
+    EXPECT_TRUE(rtslot_home_may_leave(&t, 2));
+    EXPECT_EQ(tell_all(t).joins, 1);
+    EXPECT_TRUE(!rtslot_home_may_leave(&t, 2));
 }
 
 // #609 (Cake's review): while one telling runs, a nested PADRead leaves
@@ -240,24 +299,6 @@ void TestCorrectedAfterLeave() {
     EXPECT_EQ(tell_all(u).leaves, 1);
 }
 
-// Fork #22 (CodeRabbit): a real Wii Remote took the slot the HOME Menu's
-// stand-in held; the game isn't told "gone" for a controller that's there.
-void TestHomeLeaveNotForReal() {
-    rtslot s = fresh();
-    EXPECT_TRUE(rtslot_home_may_leave(&s, 0));
-    rtslot_probed(&s, 0, 0);
-    EXPECT_TRUE(!rtslot_home_may_leave(&s, 0));
-    EXPECT_TRUE(rtslot_home_may_leave(&s, kNone));
-    // A GameCube controller on the HOME Menu's slot, already told
-    // connected by the permanent stand-in: no "gone" from the HOME Menu's
-    // end (fork #22's second review).
-    rtslot t = fresh();
-    plug(t, 2);
-    EXPECT_TRUE(rtslot_home_may_leave(&t, 2));
-    EXPECT_EQ(tell_all(t).joins, 1);
-    EXPECT_TRUE(!rtslot_home_may_leave(&t, 2));
-}
-
 // Fork #22: a gap of exactly the grace between two empty reads keeps the
 // run counting; one tick more starts it over (from an even tick too).
 void TestEmptyGapExact() {
@@ -289,7 +330,7 @@ void TestConnectedToldAfterRealCameAndWent() {
     plug(s, 2);
     std::uint32_t slot = 0;
     std::int32_t reason = -1;
-    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 0, &slot, &reason));
+    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 1, 0, &slot, &reason));
     EXPECT_EQ(reason, 0);
     rtslot_probed(&s, 2, 0);   // a real Wii Remote during the callback
     rtslot_probed(&s, 2, -1);  // and gone again: the game heard "gone"
@@ -300,7 +341,7 @@ void TestConnectedToldAfterRealCameAndWent() {
     EXPECT_EQ(t.leaves, 0);
     rtslot u = fresh();
     plug(u, 1);
-    EXPECT_TRUE(rtslot_next_tell(&u, kNone, 0, &slot, &reason));
+    EXPECT_TRUE(rtslot_next_tell(&u, kNone, 1, 0, &slot, &reason));
     rtslot_probed(&u, 1, 0);
     rtslot_probed(&u, 1, -1);
     rtslot_told(&u, slot, reason, 1);
@@ -322,9 +363,11 @@ int main() {
     TestEmptyReads();
     TestRecheckOlderAnswerLoses();
     TestHomeAnnounced();
+    TestHomeHoldsDifferentShape();
+    TestHomeKeepsShapeAfterUnplug();
+    TestHomeLeaveNotForReal();
     TestTellingCount();
     TestCorrectedAfterLeave();
-    TestHomeLeaveNotForReal();
     TestConnectedToldAfterRealCameAndWent();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

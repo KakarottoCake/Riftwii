@@ -29,6 +29,9 @@ struct rtslot {
     uint32_t empty_reads[RTSLOT_SLOTS];
     uint32_t empty_last[RTSLOT_SLOTS];
     uint32_t real_checked;  /* when the real controllers' slots were last rechecked (low bit set), 0: never */
+    /* The HOME Menu's stand-in's slot (one bit) when the game knew it as the
+     * permanent stand-in's as the HOME stand-in took it, 0: a Classic one. */
+    uint32_t home_shaped;
     uint32_t probe_counts[RTSLOT_SLOTS];  /* answers each slot has had (rtslot_probe_count) */
 };
 
@@ -94,9 +97,13 @@ void rtslot_rechecked(struct rtslot* s, uint32_t slot, int32_t result, uint32_t 
 int rtslot_next_change(struct rtslot* s, uint32_t skip, uint32_t keep, uint32_t* slot, int32_t* reason);
 
 /* rtslot_next_change with the HOME Menu's rule applied: its slot (`home`) is
- * never told "gone" while it is up (its own end tells the game). `skip`:
- * slots passed over this pass. */
-int rtslot_next_tell(struct rtslot* s, uint32_t home, uint32_t skip, uint32_t* slot, int32_t* reason);
+ * never told "gone" while it is up, and where it holds the slot in another
+ * shape than the permanent stand-in's (`remote_shapes`: the Wii Remote
+ * forms, whose HOME stand-in may be a Classic Controller), the permanent
+ * stand-in's "connected" there waits until it ends (CodeRabbit on #610 and
+ * #616). `skip`: slots passed over this pass. */
+int rtslot_next_tell(struct rtslot* s, uint32_t home, int remote_shapes, uint32_t skip, uint32_t* slot,
+                     int32_t* reason);
 
 /* After the hook tried to tell `slot` `reason` (`delivered`: the game had a
  * callback to take it): what comes next. Not delivered: it stays to be told
@@ -127,24 +134,40 @@ void rtslot_connect_change(struct rtslot* s, uint32_t* leave, uint32_t* join);
  * (a PADRead nested in the game's callback leaves its own telling to the
  * one running). A count, not a flag: two threads telling at once each take
  * off only their own share. */
-/* Whether the HOME Menu's stand-in, ending, may tell the game "gone" for
- * `slot`: not while a real Wii Remote holds it (WPAD tells the game when
- * that one leaves), nor once the permanent stand-in has told the game it's
- * connected (a GameCube controller there while the HOME Menu was up: its
- * own "gone" comes when that one leaves; CodeRabbit, fork #22). */
-int rtslot_home_may_leave(const struct rtslot* s, uint32_t slot);
 int rtslot_tell_busy(const struct rtslot* s);
 void rtslot_tell_take(struct rtslot* s);
 void rtslot_tell_give(struct rtslot* s);
 
 /* --- The HOME Menu's stand-in. */
 
+/* The slots the game knows as the permanent stand-in's: held now, told of
+ * and not yet told gone, and the HOME stand-in's own when it took one of
+ * these. */
+uint32_t rtslot_shaped(const struct rtslot* s);
+
+/* The HOME Menu's stand-in takes `slot` (RTSLOT_SLOTS or more: none): the
+ * shape it takes it in (the permanent stand-in's, or a Classic
+ * Controller's) is kept until it next takes one, whatever is plugged in or
+ * unplugged meanwhile (Cake's review of #610); rtslot_home_keeps_shape:
+ * whether it has the permanent stand-in's shape on `slot`. */
+void rtslot_home_took(struct rtslot* s, uint32_t slot);
+int rtslot_home_keeps_shape(const struct rtslot* s, uint32_t slot);
+
 /* The slot the game should hear the HOME Menu's stand-in on (`home`, or
  * RTSLOT_NO_SLOT): not one the permanent stand-in holds or has told the
- * game of (its controller may have just been unplugged), which the game has
- * already; the permanent stand-in's telling covers its end. Nor one a real
- * Wii Remote holds, whose library tells the game of it (CodeRabbit, fork
- * #22). */
-uint32_t rtslot_home_announced(const struct rtslot* s, uint32_t home);
+ * game of, which the game has already. In the Wii Remote forms
+ * (`remote_shapes`) a HOME stand-in that took a free slot in its own
+ * Classic shape keeps that claim while it lasts, though a GameCube
+ * controller plugs in there: the game hears the Classic one gone only when
+ * the HOME Menu ends (CodeRabbit on #610). Nor one a real Wii Remote
+ * holds, whose library tells the game of it (CodeRabbit, fork #22). */
+uint32_t rtslot_home_announced(const struct rtslot* s, uint32_t home, int remote_shapes);
+
+/* The HOME Menu's stand-in leaving `slot`: "gone" is told unless a real
+ * controller is there now (CodeRabbit on #610), or the permanent stand-in
+ * has told the game it's connected (a GameCube controller there while the
+ * HOME Menu was up: its own "gone" comes when that one leaves; CodeRabbit,
+ * fork #22). */
+int rtslot_home_may_leave(const struct rtslot* s, uint32_t slot);
 
 #endif

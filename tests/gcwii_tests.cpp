@@ -449,6 +449,38 @@ static void TestRealCheckDue() {
     EXPECT_TRUE(!rtgcwii_real_check_due(&w, 1000 + 600 * ms, ms));
 }
 
+// The HOME Menu's stand-in keeps the shape it took its channel in (Cake's
+// review of #610): taken as a Classic Controller (no GameCube controller
+// there), a GameCube controller plugged into that port while the HOME Menu
+// is open doesn't make it a Wii Remote; taken as this stand-in's, an
+// unplug under the menu doesn't make it a Classic Controller. The next
+// take looks again.
+void TestHomeKeepsShapeAcrossPlug() {
+    rtgcwii w = fresh();
+    Pads pads;
+    rtgcwii_pads(&w, pads.s, 1000);
+    rtgcwii_home_took(&w, 0);
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 0), 0);
+    pads.plug(0);
+    rtgcwii_pads(&w, pads.s, 1016);
+    EXPECT_EQ(rtgcwii_on(&w, 0), 1);
+    EXPECT_TRUE((rtgcwii_shaped(&w) & 1u) != 0);  // the game would know it as the stand-in's now...
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 0), 0);  // ...but the open HOME Menu stays a Classic Controller
+
+    // The next HOME Menu takes it as the stand-in's; unplugged under it, it keeps that.
+    rtgcwii_home_took(&w, 0);
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 0), 1);
+    pads.unplug(0);
+    rtgcwii_pads(&w, pads.s, 1016 + 2 * kGrace);
+    EXPECT_EQ(rtgcwii_on(&w, 0), 0);
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 0), 1);
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 1), 0);
+
+    // No channel taken: none keeps a shape.
+    rtgcwii_home_took(&w, RTGCWII_CHANNELS);
+    EXPECT_EQ(rtgcwii_home_keeps_shape(&w, 0), 0);
+}
+
 // Each probe result counts (rtgcwii_probe_count), busy doesn't: a caller
 // that took the count before a slow probe applies its answer only if no
 // newer one came in between (CodeRabbit on #610).
@@ -468,6 +500,7 @@ void TestProbeCount() {
 int main() {
     TestProbeCount();
     TestComesAndGoes();
+    TestHomeKeepsShapeAcrossPlug();
     TestRealControllerWins();
     TestButtonsAndSticks();
     TestHomeOnOwnChannel();

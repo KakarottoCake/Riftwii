@@ -1554,6 +1554,24 @@ msgstr "코드 빌드에서는 사용되지 않습니다."
 msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
 msgstr "게임큐브 컨트롤러는 전용 게임에서만 작동합니다. 다른 선택지에서는 Wii 컨트롤러로 작동합니다."
 
+msgid "Wii Remote + Nunchuk"
+msgstr "Wii 리모컨 + 눈차크"
+
+msgid "Each GameCube controller plays as a Wii Remote with a Nunchuk (port 1 as Wii Remote 1 and so on): X shakes it, the C-stick moves the pointer."
+msgstr "각 게임큐브 컨트롤러가 눈차크를 연결한 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). X로 흔들기, C스틱으로 포인터 이동."
+
+msgid "Sideways Wii Remote"
+msgstr "가로로 든 Wii 리모컨"
+
+msgid "Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it."
+msgstr "각 게임큐브 컨트롤러가 가로로 든 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). A는 2, B는 1, 컨트롤 스틱은 십자 버튼, C 스틱으로 기울이고 R로 흔듭니다."
+
+msgid "Pointing Wii Remote"
+msgstr "화면을 가리키는 Wii 리모컨"
+
+msgid "Each GameCube controller plays as a Wii Remote pointed at the screen (port 1 as Wii Remote 1 and so on): the control stick moves the pointer, X is 1, Y is 2, the C-stick tilts it, R shakes it."
+msgstr "각 게임큐브 컨트롤러가 화면을 가리키는 Wii 리모컨으로 작동합니다(포트 1은 Wii 리모컨 1 등). 컨트롤 스틱으로 포인터를 움직이고, X는 1, Y는 2, C 스틱으로 기울이고 R로 흔듭니다."
+
 msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
 msgstr "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지역 정보를 확인해야 할 위치에서 자사 지역의 국가명을 인식합니다."
 
