@@ -341,6 +341,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         request.exec = 1;
         request.exec_dol = image.exec_dol;
         request.exec_restart = image.exec_restart;
+    }
+    // A game a bonus disc's menu started from a TGC image takes the
+    // arguments the menu gave it the same way.
+    if (image.exec || image.tgc_offset != 0) {
         for (const std::string& a : image.exec_args) exec_args.append(a).push_back('\0');
         request.exec_args = exec_args.empty() ? nullptr : exec_args.data();
         request.exec_args_bytes = static_cast<std::uint32_t>(exec_args.size());

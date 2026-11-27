@@ -2651,6 +2651,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "the program's arguments do not fit where the game reads them";
         ok = false;
     }
+    // A game from a TGC image gets the arguments its menu gave it
+    // (gc_on_tgc_read copies them), in the TGC's own BI2 where the game's
+    // start-up code reads them. Not when no TGC game started: the disc's
+    // menu takes none.
+    if (ok && tgc_offset != 0 && !image.exec_args.empty()) {
+        if (gc_pack_exec_args(bi2, image.exec_args)) {
+            logf("GameCube: the game packed in the TGC image gets the %u argument(s) its menu gave it\n",
+                 static_cast<unsigned>(image.exec_args.size()));
+        } else {
+            error = "the arguments the bonus disc's menu gave its game do not fit where the game reads them";
+            ok = false;
+        }
+    }
     // With packs, the header and FST are the plan's (the files moved to
     // its window), and the game reads that FST from memory.
     if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
@@ -3977,6 +3990,24 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                     logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
                          "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
                          static_cast<unsigned>(tgcs.size()), exec_sector);
+                    // A menu that hands the game it starts an argument list
+                    // (the Zelda Ocarina of Time / Master Quest disc: which
+                    // ROM, rumble, progressive scan, the memory card): its
+                    // start routine is hooked, and the list goes into
+                    // exec.txt with the TGC's offset.
+                    const GcTgcMenuStart menu = find_gc_tgc_menu_start(code.ranges());
+                    const unsigned menu_first = menu.start != 0 ? opcode(code.at(menu.start)) : 0;
+                    if (menu.start != 0 && menu_first != 16 && menu_first != 18) {
+                        replay_hook(menu.start, h.hook_tgc_start, h.replay_tgc_start, h.continue_tgc_start);
+                        static_cast<gc_rt_cold*>(staged(cold_addr))->tgc_start_hooked = 1;
+                        logf("GameCube: the menu's start routine 0x%08x is hooked, so the game it starts gets the "
+                             "arguments the menu gives it (its list at 0x%08x)\n",
+                             static_cast<unsigned>(menu.start), static_cast<unsigned>(menu.args));
+                    } else if (menu.start != 0) {
+                        logf("GameCube: the menu's start routine 0x%08x begins with a branch and is left alone; the "
+                             "game it starts gets no arguments\n",
+                             static_cast<unsigned>(menu.start));
+                    }
                 } else if (!tgcs.empty()) {
                     logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
                          why_not.c_str());

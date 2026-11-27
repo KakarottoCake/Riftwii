@@ -128,6 +128,11 @@ struct gc_rt_header {
      * words, hook, replay and continue, for the arcade SDK functions the
      * loader replaces. */
     uint32_t tri_hooks;
+    /* A bonus disc menu's start routine, start(file, args) (gctgc.hpp's
+     * find_gc_tgc_menu_start): gc_on_tgc_start, then the original. */
+    uint32_t hook_tgc_start;
+    uint32_t replay_tgc_start;
+    uint32_t continue_tgc_start;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -733,7 +738,8 @@ GC_FLAG_CHECK(gc_rt_context_fits, sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_
  * MEM1. None of it differs between the programs a game loads
  * (gc_programs.h), so it needs no part in their switch, and the loader
  * sets none of it but the MEM2 probe (mem2_code, written only with the
- * gc/test/mem2code switch, docs/GCMEM2.md). */
+ * gc/test/mem2code switch, docs/GCMEM2.md) and whether a bonus disc
+ * menu's start routine is hooked (tgc_start_hooked). */
 struct gc_rt_cold {
     uint32_t ipc[16] __attribute__((aligned(32)));      /* the IPC request */
     uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
@@ -774,6 +780,11 @@ struct gc_rt_cold {
      * ISI at this address). Zero words: no test. */
     uint32_t mem2_code[7] __attribute__((aligned(32)));
     uint32_t mem2_code_ran;
+    /* 1: a bonus disc menu's start routine is hooked (gc_on_tgc_start),
+     * so the game it starts goes back through RiftWii from there, with
+     * the arguments the menu hands it, and its reads of a TGC start
+     * nothing (gc_on_tgc_read). Read only then, so it waits here in MEM2. */
+    uint32_t tgc_start_hooked;
 };
 #define GC_MEM2_CODE_RAN 0x52554E21u /* "RUN!" */
 /* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
@@ -826,6 +837,7 @@ uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);
 void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args);
+void gc_on_tgc_start(struct gc_rt_context* ctx, uint32_t file, uint32_t args);
 void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);

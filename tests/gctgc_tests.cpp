@@ -274,6 +274,135 @@ void test_read_starts_game() {
     EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0, 0xFFFFFFFFu), 1);
 }
 
+using riftwii::CodeRange;
+using riftwii::find_gc_tgc_menu_start;
+using riftwii::GcTgcMenuStart;
+
+// PowerPC words for the menu argument tests: made up in the order a
+// menu's argument builder runs, not copied from any program.
+std::uint32_t lis(unsigned rd, std::uint32_t hi) { return 0x3C000000u | rd << 21 | (hi & 0xFFFFu); }
+std::uint32_t addi(unsigned rd, unsigned ra, std::int32_t imm) {
+    return 0x38000000u | rd << 21 | ra << 16 | (static_cast<std::uint32_t>(imm) & 0xFFFFu);
+}
+std::uint32_t stwx(unsigned rs, unsigned ra, unsigned rb) { return 0x7C00012Eu | rs << 21 | ra << 16 | rb << 11; }
+std::uint32_t stw(unsigned rs, unsigned ra, std::int32_t d) {
+    return 0x90000000u | rs << 21 | ra << 16 | (static_cast<std::uint32_t>(d) & 0xFFFFu);
+}
+constexpr std::uint32_t kNop = 0x60000000u;
+
+std::vector<std::uint8_t> code_bytes(const std::vector<std::uint32_t>& words) {
+    std::vector<std::uint8_t> out;
+    for (std::uint32_t w : words) {
+        out.push_back(static_cast<std::uint8_t>(w >> 24));
+        out.push_back(static_cast<std::uint8_t>(w >> 16));
+        out.push_back(static_cast<std::uint8_t>(w >> 8));
+        out.push_back(static_cast<std::uint8_t>(w));
+    }
+    return out;
+}
+
+// The end of an argument builder whose list is at 0x8014A424 (the high
+// half 0x8015 with -0x5BDC): the list's address into r4, the last option
+// from r13's data stored into it, then its 0.
+std::vector<std::uint32_t> menu_args_run(unsigned list_reg = 4) {
+    return {kNop,
+            lis(3, 0x8015),
+            addi(list_reg, 3, -0x5BDC),
+            addi(6, 0, 0),
+            kNop,
+            kNop,
+            addi(3, 13, -0x7F9C),  // the last option, "-C1"
+            stwx(3, list_reg, 0),
+            addi(3, 0, 0),         // li r3,0
+            kNop,
+            stw(5, 13, -0x72F8),   // the count
+            stwx(3, list_reg, 0),  // the list's 0
+            kNop,
+            lis(4, 0x8015),        // the list again, as start's argument
+            addi(3, 31, 0),
+            addi(4, 4, -0x5BDC),
+            0x48000011u,           // bl +0x10, the start routine
+            kNop};
+}
+
+// Where the start routine is: the bl's word (index 16, at 0x8000CCE0 + 0x40)
+// plus 0x10.
+constexpr std::uint32_t kRunStart = 0x8000CCE0u + 16 * 4 + 0x10;
+
+GcTgcMenuStart find_start_in(const std::vector<std::uint32_t>& words) {
+    const std::vector<std::uint8_t> bytes = code_bytes(words);
+    return find_gc_tgc_menu_start({CodeRange{0x8000CCE0u, bytes.data(), bytes.size()}});
+}
+std::uint32_t find_in(const std::vector<std::uint32_t>& words) { return find_start_in(words).args; }
+
+void test_menu_args() {
+    EXPECT_EQ(find_in(menu_args_run()), 0x8014A424u);
+    EXPECT_EQ(find_start_in(menu_args_run()).start, kRunStart);
+    EXPECT_EQ(find_in(menu_args_run(9)), 0x8014A424u);
+    // The call after the list takes another address, or there is none.
+    std::vector<std::uint32_t> other_call = menu_args_run();
+    other_call[15] = addi(4, 4, -0x5BD8);
+    EXPECT_EQ(find_start_in(other_call).start, 0u);
+    EXPECT_EQ(find_in(other_call), 0u);
+    std::vector<std::uint32_t> no_call = menu_args_run();
+    no_call[16] = kNop;
+    EXPECT_EQ(find_in(no_call), 0u);
+    // Other calls before it are passed over; a return ends the search.
+    std::vector<std::uint32_t> calls_between = menu_args_run();
+    calls_between.insert(calls_between.begin() + 13, {0x48001235u, kNop});  // bl elsewhere
+    EXPECT_EQ(find_start_in(calls_between).start, kRunStart + 8);
+    std::vector<std::uint32_t> returns = menu_args_run();
+    returns.insert(returns.begin() + 13, 0x4E800020u);
+    EXPECT_EQ(find_in(returns), 0u);
+    // A backwards call is followed too.
+    std::vector<std::uint32_t> back_call = menu_args_run();
+    back_call[16] = 0x4BFFFFF1u;  // bl -0x10
+    EXPECT_EQ(find_start_in(back_call).start, 0x8000CCE0u + 16 * 4 - 0x10);
+    // The same list found twice (two builders) is still the one.
+    std::vector<std::uint32_t> twice = menu_args_run();
+    std::vector<std::uint32_t> run = menu_args_run();
+    run[16] = 0x4BFFFFC9u;  // bl -0x38: the same start routine as the first
+    twice.insert(twice.end(), run.begin(), run.end());
+    EXPECT_EQ(find_in(twice), 0x8014A424u);
+    // Two different lists: not sure which, so none.
+    std::vector<std::uint32_t> two = menu_args_run();
+    std::vector<std::uint32_t> other = menu_args_run();
+    other[1] = lis(3, 0x8016);
+    other[13] = lis(4, 0x8016);
+    two.insert(two.end(), other.begin(), other.end());
+    EXPECT_EQ(find_in(two), 0u);
+    // No 0 stored just after the last option: not a list's end.
+    std::vector<std::uint32_t> no_zero = menu_args_run();
+    no_zero[8] = addi(3, 0, 1);
+    EXPECT_EQ(find_in(no_zero), 0u);
+    // The option not from r13's data.
+    std::vector<std::uint32_t> not_small_data = menu_args_run();
+    not_small_data[6] = addi(3, 31, 8);
+    EXPECT_EQ(find_in(not_small_data), 0u);
+    // The option stored into another array.
+    std::vector<std::uint32_t> other_array = menu_args_run();
+    other_array[7] = stwx(3, 5, 0);
+    EXPECT_EQ(find_in(other_array), 0u);
+    // The list's address set some other way (a register copied): none.
+    std::vector<std::uint32_t> no_address = menu_args_run();
+    no_address[1] = kNop;
+    no_address[2] = kNop;
+    EXPECT_EQ(find_in(no_address), 0u);
+    // An address outside MEM1, or not a word's.
+    std::vector<std::uint32_t> mem2 = menu_args_run();
+    mem2[1] = lis(3, 0x9000);
+    EXPECT_EQ(find_in(mem2), 0u);
+    std::vector<std::uint32_t> odd = menu_args_run();
+    odd[2] = addi(4, 3, -0x5BDB);
+    EXPECT_EQ(find_in(odd), 0u);
+    // Steps too far apart.
+    std::vector<std::uint32_t> far = menu_args_run();
+    far.insert(far.begin() + 8, {kNop, kNop, kNop});
+    EXPECT_EQ(find_in(far), 0u);
+    // No code at all.
+    EXPECT_EQ(find_gc_tgc_menu_start({}).args, 0u);
+}
+
 }  // namespace
 
 int main() {
@@ -282,6 +411,7 @@ int main() {
     test_dol_fits();
     test_rebase();
     test_find_files();
+    test_menu_args();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

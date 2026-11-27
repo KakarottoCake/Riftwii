@@ -786,6 +786,7 @@ static void gc_stream_fetch(struct gc_rt_context* ctx);
  * which the queuing code stores at 0x80020428 only after queuing the load
  * at 0x800203ec, and jumped to whatever the heap had there. */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length);
+static void gc_tgc_leave(struct gc_rt_context* ctx, uint32_t tgc, uint32_t args);
 static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset,
                               uint32_t cb, int disk_id) {
     gc_command_seen(ctx, disk_id);
@@ -2320,6 +2321,30 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     gc_irq_restore(msr);
 }
 
+/* The argument list a bonus disc's menu hands the game it starts
+ * (gc_on_tgc_start; gctgc.hpp says what it is), as gc_arg= lines:
+ * the Zelda Ocarina of Time / Master Quest disc's N64 emulator takes the
+ * ROM to run and the menu's options from it, and without them runs its
+ * default ROM, Master Quest, whichever game was picked. The list is the
+ * menu's, so it is checked here: entries until its 0, at most
+ * GC_TGC_ARGS, each pointing into MEM1 with room there for the longest
+ * argument kept; the first that doesn't ends the list. */
+#define GC_TGC_ARGS 8u
+#define GC_MEM1_START 0x80000000u
+#define GC_MEM1_END 0x81800000u
+static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
+    uint32_t i;
+    if (list == 0) return at;
+    for (i = 0; i < GC_TGC_ARGS; ++i) {
+        const uint32_t text = ((const volatile uint32_t*)(uintptr_t)list)[i];
+        if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) break;
+        at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
+        at = gc_exec_bytes(buf, at, 0x72673D00u, 3);
+        at = gc_exec_end_line(buf, gc_exec_text(buf, at, (const char*)(uintptr_t)text));
+    }
+    return at;
+}
+
 /* A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
  * the Wind Waker demo disc) does not switch programs through
  * __OSBootDolSimple: each game it offers is a whole disc packed in a TGC
@@ -2334,18 +2359,57 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * HOME does, before the read is served. RiftWii's next start launches the
  * image again with that TGC's game. Returns when that could not be done;
  * the watch then ends, the read is served, and the menu's own start runs
- * as it would have. */
+ * as it would have. A menu whose start routine is hooked starts its games
+ * from there instead (gc_on_tgc_start). */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length) {
-    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
-    uint32_t tgc = 0, at, i, msr;
-    int found = 0, read;
+    uint32_t tgc = 0, i;
+    int found = 0;
+    /* A menu whose start routine is hooked starts its games from there,
+     * with their arguments (gc_on_tgc_start): the Zelda disc's reads the
+     * TGC's header before it fills the list. */
+    if (gc_cold(ctx)->tgc_start_hooked) return;
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX && !found; ++i) {
         /* The TGC's header or its program (gc_tgc.h). */
         found = gc_tgc_read_starts_game(ctx->tgc_offset[i], ctx->tgc_dol_start[i], ctx->tgc_dol_end[i], offset, length);
         if (found) tgc = ctx->tgc_offset[i];
     }
     if (!found) return;
-    /* An SD request under way (this read broke into it): the read's first
+    gc_tgc_leave(ctx, tgc, 0);
+}
+
+/* A bonus disc menu's start routine (gctgc.hpp's find_gc_tgc_menu_start;
+ * the Zelda Ocarina of Time / Master Quest disc's), called with the chosen
+ * TGC's DVDFileInfo and the argument list for its game once Play is
+ * pressed. It loads the program with a disc driver of its own, so this is
+ * the start: the game goes back through RiftWii as gc_on_tgc_read has it,
+ * with the arguments. The file's start on the disc (DVDFileInfo's
+ * startAddr, at 0x30) must be one of the TGCs the loader found. Returns
+ * when that could not be done, and the menu's own start runs. */
+#define GC_DVD_FILE_START 0x30u
+void gc_on_tgc_start(struct gc_rt_context* ctx, uint32_t file, uint32_t args) {
+    uint32_t start, i;
+    /* As a program switch does (gc_on_boot_dol): IOS done with the
+     * blob's requests first, or the menu's own start runs. */
+    if (!gc_io_drain(ctx, 0)) return;
+    if (file < GC_MEM1_START || file > GC_MEM1_END - GC_DVD_FILE_START - 4u || (file & 3u) != 0) return;
+    if (args != 0 && (args < GC_MEM1_START || args > GC_MEM1_END - 4u * GC_TGC_ARGS || (args & 3u) != 0)) return;
+    start = ((const volatile uint32_t*)(uintptr_t)file)[GC_DVD_FILE_START / 4u];
+    for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX; ++i) {
+        if (ctx->tgc_offset[i] == start) {
+            gc_tgc_leave(ctx, start, args);
+            return;
+        }
+    }
+}
+
+/* Writes exec.txt as the launch of the game in the TGC at `tgc` with the
+ * menu's arguments from `args` (0: none), and leaves for RiftWii. Returns
+ * when that could not be done; the watch then ends. */
+static void gc_tgc_leave(struct gc_rt_context* ctx, uint32_t tgc, uint32_t args) {
+    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
+    uint32_t at, msr;
+    int read;
+    /* An SD request under way (a read broke into it): the read's first
      * piece (gc_read_step) asks again once the card is free. */
     if (ctx->storage_busy) return;
     if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
@@ -2367,7 +2431,8 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     }
     at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc=" */
     at = gc_exec_bytes(buf, at, 0x67633D00u, 3);
-    (void)gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
+    at = gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
+    (void)gc_tgc_menu_args(buf, at, args);
     if (gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf) < 0) {
         ctx->tgc_count = 0;
         ctx->storage_busy = 0;

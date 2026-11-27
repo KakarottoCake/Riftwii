@@ -51,7 +51,7 @@ struct HeadlessLaunch {
     // on its disc (runtime/gc's gc_on_tgc_read, the same exec.txt): the
     // TGC file's offset on the disc (gc_tgc=, in decimal; 0: none). The
     // loader starts the TGC's own program, with its files where the TGC
-    // has them.
+    // has them, and gc_args are then the arguments the menu gave it.
     std::uint32_t gc_tgc = 0;
     // The pack choices file to read instead of the game's own (a file name
     // in sd:/riftwii/choices, "SMNP01.txt" or a profile's): the choices the

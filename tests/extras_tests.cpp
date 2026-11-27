@@ -2402,6 +2402,21 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4294967296"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_dol=0"}, h, error));
     EXPECT_TRUE(error.find("gc_tgc") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_restart=1"}, h, error));
+    // With gc_tgc=, gc_arg= lines are the arguments the menu gave the game
+    // (the Zelda disc's emulator: its ROM and options), not a switch.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_arg=zle_f.n64", "gc_arg=-V1",
+                                       "gc_arg=-P0", "gc_arg=-C1"},
+                                      h, error));
+    EXPECT_FALSE(h.gc_exec);
+    EXPECT_EQ(h.gc_tgc, 4096u);
+    EXPECT_EQ(h.gc_args.size(), static_cast<std::size_t>(4));
+    EXPECT_EQ(h.gc_args[0], std::string("zle_f.n64"));
+    EXPECT_EQ(h.gc_args[3], std::string("-C1"));
+    // Without it, gc_arg= alone is still a switch to the disc's own program.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=G2XE8P", "gc_arg=cd"}, h, error));
+    EXPECT_TRUE(h.gc_exec);
+    EXPECT_EQ(h.gc_dol, 0u);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
     // An image by its path, a four-character ID, packs by file name or all.

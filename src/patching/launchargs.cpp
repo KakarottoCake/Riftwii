@@ -260,8 +260,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             ok = parse_decimal32(value, out.gc_restart);
         } else if (key == "gc_arg") {
             // As many as the SDK's argument block holds (8 KB, half of it
-            // the list): a game's own are a handful of short words.
-            out.gc_exec = true;
+            // the list): a game's own are a handful of short words. With
+            // gc_tgc= they are the arguments a bonus disc's menu gave the
+            // game it started (checked below), else a program switch's.
             ok = out.gc_args.size() < 32 && value.size() < 256;
             out.gc_args.push_back(value);
         } else if (key == "gc_tgc") {
@@ -297,11 +298,13 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         return false;
     }
     // A TGC's program is started as the menu starts it, not through
-    // OSExec: the two ways are not mixed.
+    // OSExec: the two ways are not mixed. Its arguments (gc_arg=) are the
+    // menu's; without gc_tgc= they are a program switch's.
     if (out.gc_tgc != 0 && out.gc_exec) {
-        error = "gc_tgc= cannot be given with gc_dol=, gc_restart= or gc_arg=";
+        error = "gc_tgc= cannot be given with gc_dol= or gc_restart=";
         return false;
     }
+    if (out.gc_tgc == 0 && !out.gc_args.empty()) out.gc_exec = true;
     return true;
 }
 
