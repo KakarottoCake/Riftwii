@@ -17,7 +17,7 @@ extern "C" {
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
-#define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_EQ(a, b) do { const auto expect_a_ = (a); const auto expect_b_ = (b); if (expect_a_ != expect_b_) { std::cerr << "FAILED: " #a " == " #b " (" << expect_a_ << " != " << expect_b_ << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 
 namespace {
 
@@ -374,7 +374,9 @@ void TestUnified() {
     constexpr std::uint32_t kBytes = 66, kCount = 16;
     std::uint8_t out[kBytes * kCount];
     w.format[0] = 3;
-    EXPECT_EQ(rtgcwii_unified(&w, 0, out, kBytes, kCount, 1100, 5, 0), kCount);
+    const std::uint32_t written = rtgcwii_unified(&w, 0, out, kBytes, kCount, 1100, 5, 0);
+    EXPECT_EQ(written, kCount);
+    if (written != kCount) return;  // nothing more to decode
     int plus = 0, minus = 0;
     for (std::uint32_t i = 0; i < kCount; ++i) {
         const std::uint8_t* e = out + i * kBytes;

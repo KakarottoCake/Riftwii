@@ -18,7 +18,7 @@ extern "C" {
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
-#define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_EQ(a, b) do { const auto expect_a_ = (a); const auto expect_b_ = (b); if (expect_a_ != expect_b_) { std::cerr << "FAILED: " #a " == " #b " (" << expect_a_ << " != " << expect_b_ << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 
 namespace {
 
@@ -336,6 +336,8 @@ void TestRetell() {
     rtgcwii_retell(&w, 400);
     rtgcwii_retell(&w, 1000);
     EXPECT_EQ(w.slot.told, 1u);
+    EXPECT_EQ(w.slot.retell, 0u);  // nothing due again once read
+    EXPECT_EQ(rtgcwii_next_change(&w, 0, 0, &chan, &reason), 0);
     // At most RTGCWII_RETELLS times while it stays.
     w.slot.heard = 0;
     std::uint32_t t = 2000;
