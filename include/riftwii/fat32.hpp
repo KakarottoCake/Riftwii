@@ -71,6 +71,11 @@ using BlockWriter = std::function<bool(std::uint64_t lba, std::uint32_t count, c
 // 512 and the range must end within the file's size, so nothing past its
 // last whole block is ever written and the file can never grow. CTGP-R's
 // jelly.bin needs this: its key is made from its entry's times.
+// The fragments are used as given, never looked up again: the caller passes
+// a map from a fresh lookup and keeps the file's layout unchanged until its
+// last write. A false return can follow blocks already written (the device
+// refused a later one); a caller that needs all or nothing arranges its own
+// undo (the CTGP-R updater's journal, riftwii/ctgpjournal.hpp).
 bool fat32_write_in_place(const Fat32File& file, const BlockWriter& write, std::uint64_t offset,
                           const std::uint8_t* data, std::size_t length, std::string& error);
 

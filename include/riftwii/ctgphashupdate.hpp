@@ -62,15 +62,20 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
 // Writes the lists into jelly.bin, each over its existing file, then sets
 // the HASH record of jelly's /PACKAGES.BIN to `version`. `jelly` must be
 // open on the undo journal's io: a failure partway leaves the journal to
-// undo it.
+// undo it. `written_packages` (may be null) gets the PACKAGES.BIN written,
+// for ctgp_hash_update_verify to compare with.
 bool ctgp_hash_update_write(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
-                            std::uint32_t version, std::string& error);
+                            std::uint32_t version, std::string& error,
+                            std::vector<std::uint8_t>* written_packages = nullptr);
 
 // Reads back what ctgp_hash_update_write left: each list byte for byte and
-// checked again as a signed list, and the HASH record. Run on a writer
+// checked again as a signed list, and the HASH record (its version and the
+// cleared 0x40000000 flag); with `expected_packages`, the whole PACKAGES.BIN
+// byte for byte, so the other records are checked too. Run on a writer
 // opened afresh over the card, so it reads what is really there.
 bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
-                             std::uint32_t version, std::string& error, const CtgpDsaKey* key = nullptr);
+                             std::uint32_t version, std::string& error, const CtgpDsaKey* key = nullptr,
+                             const std::vector<std::uint8_t>* expected_packages = nullptr);
 
 // Sets the version of record `component` in a PACKAGES.BIN ("PAK0", the
 // count at 12, 16-byte records from 16: name[8], version, flags), and clears
@@ -83,12 +88,14 @@ bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::strin
 //  1. reads jelly.bin (`raw`, its bytes as they lie on the card, `size` a
 //     multiple of 32 KiB) with its key and checks the lists fit
 //     (ctgp_hash_update_fits); nothing is written if they don't;
-//  2. writes jelly's first 512 bytes back unchanged, so a card that refuses
-//     writes (locked) stops the step before anything is journalled;
-//  3. starts the undo journal at `journal_path` and writes through it: each
+//  2. starts the undo journal at `journal_path` and writes through it: each
 //     32 KiB chunk is copied to the journal and synced before the first raw
-//     write to it;
-//  4. reads everything back through `raw` with a fresh reader and checks it
+//     write to it. Nothing is written to jelly.bin before the journal: a
+//     locked card stops at its creation, and a card that takes the journal
+//     but refuses raw writes fails on a chunk already journalled, which is
+//     rolled back (or, when that can't be written either, left to the
+//     journal's recovery at the next start);
+//  3. reads everything back through `raw` with a fresh reader and checks it
 //     (ctgp_hash_update_verify), and only then commits (removes the journal);
 //     any failure rolls jelly.bin back from the journal.
 // `raw.write` must write the bytes where jelly.bin already lies and nothing
