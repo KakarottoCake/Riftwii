@@ -5186,3 +5186,6 @@ msgstr "Esto escribe {1} en la memoria de la Wii. Antes se guarda una copia de l
 
 msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
 msgstr "{1} se quita de la NAND emulada. Antes se guarda una copia de sus Miis."
+
+msgid "Layout and order"
+msgstr "Diseño y orden"

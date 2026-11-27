@@ -3601,8 +3601,10 @@ private:
 static constexpr int kChoiceShortCard = 96;
 class HomeChoiceCards : public GuiElement {
 public:
-	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current)
-		: tiles_(tiles), choices_(choices), current_(current)
+	// `current` and `alsoCurrent` (-1 for none) are drawn as the ones in use:
+	// the Layout chooser has a layout and an order.
+	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current, int alsoCurrent = -1)
+		: tiles_(tiles), choices_(choices), current_(current), alsoCurrent_(alsoCurrent)
 	{
 		width = screenwidth;
 		height = screenheight;
@@ -3663,8 +3665,9 @@ public:
 			// Lit, a tile keeps its size (as GuiTiles' do): its ring shows it.
 			const float w = tile.w, h = tile.h;
 			const float x = tile.x, y = tile.y;
-			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
-			const skin::Tex& over = index == current_ ? skin::tile9PrimaryOver : skin::tile9Over;
+			const bool inUse = index == current_ || index == alsoCurrent_;
+			const skin::Tex& base = inUse ? skin::tile9Primary : skin::tile9;
+			const skin::Tex& over = inUse ? skin::tile9PrimaryOver : skin::tile9Over;
 			skin::DrawNine(base, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner);
 			if (lift > 0) {
 				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
@@ -3684,19 +3687,24 @@ private:
 	const std::vector<TileSpec>& tiles_;
 	GuiTiles& choices_;
 	int current_;
+	int alsoCurrent_;
 	std::vector<std::unique_ptr<GuiText>> labels_;
 	std::vector<std::unique_ptr<GuiText>> counts_;
 	std::vector<int> iconTops_;  // each card's picture, from the card's top
 };
 
-static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current)
+// `firstRow` > 0 ends the first row after that many cards, the rest
+// centred on a second row (the Layout chooser's layouts, then its orders).
+static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current, int firstRow = 0,
+	int alsoCurrent = -1)
 {
 	const int extra = PopupExtra();
 	const bool hasCounts = !tiles[0].value.empty();
 	// Up to six cards fit one row; more go in two rows of short cards.
 	const int count = static_cast<int>(tiles.size());
-	const bool twoRows = count > 6;
-	const int columns = twoRows ? (count + 1) / 2 : count;
+	const bool split = firstRow > 0 && firstRow < count;
+	const bool twoRows = split || count > 6;
+	const int columns = split ? std::max(firstRow, count - firstRow) : twoRows ? (count + 1) / 2 : count;
 	Dim dim;
 	// One row sits between the title band (ending at 146) and the bottom
 	// band (starting at 328), with equal room for its raised shadows. Two
@@ -3711,10 +3719,13 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	// of 130), leaving the shadows and their slight lift inside x 32..608
 	// on a 4:3 TV.
 	const int cardWidth = (544 + 2 * extra - (columns - 1) * 8) / columns;
-	const int rowWidth = columns * cardWidth + (columns - 1) * 8;
 	for (int index = 0; index < count; ++index) {
 		TileSpec& tile = tiles[index];
-		const int column = index % columns, row = index / columns;
+		const int row = split ? (index < firstRow ? 0 : 1) : index / columns;
+		const int column = split ? (row == 0 ? index : index - firstRow) : index % columns;
+		// Each row centred on its own: a shorter second row sits in the middle.
+		const int inRow = split ? (row == 0 ? firstRow : count - firstRow) : std::min(columns, count - row * columns);
+		const int rowWidth = inRow * cardWidth + (inRow - 1) * 8;
 		tile.x = 320 - rowWidth / 2 + column * (cardWidth + 8);
 		tile.y = twoRows ? 160 + row * (kChoiceShortCard + 16) : 164;
 		tile.w = cardWidth;
@@ -3724,7 +3735,7 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	GuiTiles choices;
 	choices.SetTiles(&tiles);
 	choices.Select(current);
-	HomeChoiceCards cards(tiles, choices, current);
+	HomeChoiceCards cards(tiles, choices, current, alsoCurrent);
 	SkinButton back(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
 		PAD_BUTTON_B | PAD_BUTTON_START, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
@@ -3765,18 +3776,64 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	return picked;
 }
 
+// Home's orders, as Settings > Home > Home order steps through them.
+static const char* const kHomeSorts[] = {"az", "recent", "most", "custom"};
+constexpr int kHomeSortCount = 4;
+
+// The Layout button's chooser: the six layouts on the first row and, as
+// uFlow's library sorts from its own screen, Home's four orders on the
+// second (they were only in Settings > Home). 0 to 5 a layout, 6 to 9 an
+// order, -1 none.
 static int PickHomeLayout()
 {
-	const int current = HomeLayoutIndex(riftwii::wii::Settings().home_tiles);
-	std::vector<TileSpec> tiles(6);
+	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	const int current = HomeLayoutIndex(settings.home_tiles);
+	int currentSort = 0;
+	for (int index = 0; index < kHomeSortCount; ++index)
+		if (settings.home_sort == kHomeSorts[index]) currentSort = index;
+	std::vector<TileSpec> tiles(6 + kHomeSortCount);
 	for (int index = 0; index < 6; ++index) {
 		tiles[index].label = HomeTilesName(kHomeLayouts[index]);
 		tiles[index].icon = &skin::layoutIcons[index];
 	}
-	logf("Home: Layout picker opened at %s\n", kHomeLayouts[current]);
-	const int picked = PickHomeChoice(tr("Layout"), tiles, current);
-	logf("Home: Layout picker closed, %s\n", picked < 0 ? "no change" : kHomeLayouts[picked]);
+	// The theme's own pictures for them: the Names layout's lines for A to
+	// Z, Play for the last played, the star for the most played, and Home
+	// for the order the player set by moving games on it.
+	const skin::Tex* sortIcons[kHomeSortCount] = {&skin::layoutIcons[5], &skin::iconPlay, &skin::iconStarOn, &skin::iconHome};
+	for (int index = 0; index < kHomeSortCount; ++index) {
+		tiles[6 + index].label = HomeSortName(kHomeSorts[index]);
+		tiles[6 + index].icon = sortIcons[index];
+	}
+	logf("Home: Layout picker opened at %s, ordered %s\n", kHomeLayouts[current], kHomeSorts[currentSort]);
+	const int picked = PickHomeChoice(tr("Layout and order"), tiles, current, 6, 6 + currentSort);
+	logf("Home: Layout picker closed, %s\n", picked < 0 ? "no change" : picked < 6 ? kHomeLayouts[picked] : kHomeSorts[picked - 6]);
 	return picked;
+}
+
+// Home's order picked on Home: saved as Settings > Home > Home order would.
+static bool ChangeHomeSort(const std::string& sort, int focus, bool sdGone, Toast& toast)
+{
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	const std::string before = settings.home_sort;
+	if (sort == before) return false;
+	if (sdGone) {
+		toast.Show(tr("Put the SD card back in first."), true);
+		return false;
+	}
+	settings.home_sort = sort;
+	if (!riftwii::wii::SaveSettings()) {
+		logf("Home: order not changed to %s, the settings could not be saved\n", sort.c_str());
+		settings.home_sort = before;
+		toast.Show(tr("Could not save the settings to the SD card."), true);
+		return false;
+	}
+	logf("Home: order %s (Layout button)\n", sort.c_str());
+	g_focusRestored = true;
+	g_homeFocus = focus;
+	SetHomeNotice(std::string(tr("Home order")) + ": " + HomeSortName(sort));
+	g_homeNoticeShown = true;
+	transition::Hold(transition::Kind::Fade);
+	return true;
 }
 
 static int PickHomeFilter(const FrontendState& state)
@@ -9027,8 +9084,10 @@ static int MenuSource(FrontendState& state)
 				continue;
 			}
 			const int picked = PickHomeLayout();
-			if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button",
-				grid.FocusedIndex(), g_sdGone, toast)) {
+			const bool changed = picked >= 6
+				? ChangeHomeSort(kHomeSorts[picked - 6], grid.FocusedIndex(), g_sdGone, toast)
+				: picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button", grid.FocusedIndex(), g_sdGone, toast);
+			if (changed) {
 				rebuildingHome = true;
 				menu = MENU_SOURCE;
 			}

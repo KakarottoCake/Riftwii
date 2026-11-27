@@ -10526,5 +10526,18 @@ FR.update({
 })
 
 
+
+# Home's Layout button: its chooser also sets Home's order.
+T.update({
+    'Layout and order': ('Diseño y orden', 'レイアウトと並び順', 'Layout e ordem', 'Layout e ordine'),
+})
+KO.update({
+    'Layout and order': '레이아웃과 순서',
+})
+FR.update({
+    'Layout and order': 'Disposition et ordre',
+})
+
+
 if __name__ == "__main__":
     main()
