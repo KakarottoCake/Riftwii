@@ -28,6 +28,14 @@ void rtslot_probed(struct rtslot* s, uint32_t channel, int32_t result) {
         s->told &= ~bit;
         s->empty_since[channel] = 0;
         s->empty_reads[channel] = 0;
+        /* Its "connected" retells start afresh too, as for a newly plugged
+         * GameCube controller: a real Wii Remote that came and went between
+         * two retell passes mustn't leave the new announcement with the old
+         * one's spent budget (CodeRabbit on #650). */
+        s->heard &= ~bit;
+        s->retell &= ~bit;
+        s->told_at[channel] = 0;
+        s->retells[channel] = 0;
     }
 }
 
