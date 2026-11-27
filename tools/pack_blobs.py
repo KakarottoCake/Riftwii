@@ -53,8 +53,16 @@ def main():
         raise SystemExit("pack_blobs: the zstd frame does not record its %d bytes; "
                          "packedblobs.cpp would refuse it" % total)
     sizes = struct.pack(">%dI" % len(blobs), *(len(blob) for blob in blobs))
-    with open(out, "wb") as f:
-        f.write(sizes + frame)
+    # Published whole or not at all: a truncated file at OUT would look current to make.
+    tmp = out + ".tmp"
+    try:
+        with open(tmp, "wb") as f:
+            f.write(sizes + frame)
+        os.replace(tmp, out)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
     print("%s: %d bytes in %d, packed" % (os.path.basename(out), total, len(sizes) + len(frame)))
 
 
