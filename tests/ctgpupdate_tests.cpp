@@ -258,9 +258,20 @@ void test_dia_parse() {
     const auto short_table = make_dia({section, second}, 1);
     EXPECT_TRUE(!ctgp_dia_parse(short_table.data(), short_table.size(), again, error));
     // Sections that overlap or leave a gap are refused too.
+    // The second section starts one byte late and is one byte shorter, so it
+    // still ends at the file's last byte: only the gap before it is wrong.
     auto gap = both;
-    gap[0x74 + 8 + 3] += 1;  // the second section starts one byte late
+    const auto set32 = [](std::vector<std::uint8_t>& v, std::size_t at, std::uint32_t value) {
+        v[at] = std::uint8_t(value >> 24);
+        v[at + 1] = std::uint8_t(value >> 16);
+        v[at + 2] = std::uint8_t(value >> 8);
+        v[at + 3] = std::uint8_t(value);
+    };
+    const std::size_t second_entry = 0x74 + 8;
+    set32(gap, second_entry, be32_at(gap, second_entry) + 1);
+    set32(gap, second_entry + 4, be32_at(gap, second_entry + 4) - 1);
     EXPECT_TRUE(!ctgp_dia_parse(gap.data(), gap.size(), again, error));
+    EXPECT_TRUE(error.find("follow") != std::string::npos);
 }
 
 void test_apply() {
@@ -312,6 +323,14 @@ void test_apply_distance() {
     EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
     output.clear();
     EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
+
+    // A four-byte literal length whose bias carries past 32 bits (FEFEFEEF +
+    // 1010111 = 2^32) is refused as given, not taken as a wrapped length of 0.
+    stream = {0x31, 0xFE, 0xFE, 0xFE, 0xEF, 0x40, 'h', 'e', 'l', 'l', 'o'};
+    section = make_section(5, stream, "NEW.SZS");
+    EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
+    output.clear();
+    EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
 }
 
 void test_apply_full_window() {
@@ -334,8 +353,12 @@ void test_apply_full_window() {
         EXPECT_TRUE(std::equal(output.begin(), output.begin() + 4, output.begin() + kCtgpUpdateWindowBytes));
     }
 
-    stream[literal_end + 2] = 0xFF;  // distance 8192: past the window
-    section = make_section(kCtgpUpdateWindowBytes + 4, stream, "NEW.SZS");
+    // Distance 8192: one byte past the window. One more byte of history goes
+    // first, so the copy is refused by the window's size alone, not by
+    // reaching before the start.
+    stream.insert(stream.begin() + std::ptrdiff_t(literal_end), {0x00, 0x5A});  // a 1-byte literal
+    stream[literal_end + 2 + 2] = 0xFF;
+    section = make_section(kCtgpUpdateWindowBytes + 1 + 4, stream, "NEW.SZS");
     EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
     output.clear();
     EXPECT_TRUE(!ctgp_dif_apply(section.data(), section.size(), dif, bases, collect, &output, error));
@@ -1116,6 +1139,38 @@ void test_update_plain_files() {
         EXPECT_TRUE(!apply(dia, target, failure));
         EXPECT_TRUE(failure == CtgpUpdateFailure::Unsupported);
         EXPECT_TRUE(target.stored.empty() && target.checked.empty() && target.base_packed.empty());
+    }
+    {
+        // An unknown flag in a later section whose header is also damaged:
+        // damaged, as the parse says, not a new feature.
+        MapTarget target;
+        auto second = make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/B.bin", 0x00020004u, {});
+        second[0x12] = 0x7F;  // header longer than the path table allows
+        second[0x13] = 0x10;
+        const auto dia = make_dia({make_section_flags(5, {0x40, 'w', 'o', 'r', 'l', 'd'}, "/A.bin", 0x00020000u, {}),
+                                   second});
+        EXPECT_TRUE(!apply_map(dia, target, failure));
+        EXPECT_TRUE(failure != CtgpUpdateFailure::Unsupported);
+    }
+    {
+        // A later section whose header can't be read before the install
+        // starts: Temporary, and nothing is stored, so a retry starts from
+        // the same files.
+        MemoryTarget target;
+        target.expected_path = "/x.bin";
+        const auto dia = make_dia({make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/x.bin", 0x00020000u, {}),
+                                   make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/x.bin", 0x00020000u, {})});
+        const std::uint32_t second_at = be32_at(dia, 0x74 + 8);
+        const CtgpUpdateRead read = [&dia, second_at](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset >= second_at || offset + length > dia.size()) return false;
+            std::memcpy(out, dia.data() + offset, length);
+            return true;
+        };
+        error.clear();
+        EXPECT_TRUE(!ctgp_update_apply(read, dia.size(), target, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(),
+                                       failure, error));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+        EXPECT_TRUE(target.stored.empty());
     }
 }
 

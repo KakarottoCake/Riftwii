@@ -115,9 +115,17 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     };
 
     // The unpacked file goes straight to the scratch file as it is made.
+    // A base larger than any file the update rebuilds is refused as it
+    // arrives, so a damaged or unexpected one can't fill the card's free
+    // space with scratch before the install fails.
     std::uint64_t written = 0;
     bool write_failed = false;
+    bool too_large = false;
     const auto put = [&](const std::uint8_t* data, std::size_t length) {
+        if (written + length > kCtgpUpdateMaxFileBytes) {
+            too_large = true;
+            return false;
+        }
         if (length != 0 && std::fwrite(data, 1, length, file) != length) {
             write_failed = true;
             return false;
@@ -181,6 +189,7 @@ bool CtgpPackUpdateTarget::load_base(const std::string& component, const std::st
     }
     if (!ok) {
         std::string reason = mismatch       ? "the pack stores it packed, and the update expects it unpacked"
+                             : too_large    ? "it is larger than any file the updater rebuilds"
                              : !why.empty() ? why
                              : write_failed ? "a scratch file could not be written"
                                             : read_error;

@@ -436,16 +436,17 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, st
     return ctgp_dif_parse(data, size, out, nullptr, error);
 }
 
-bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bool* unsupported,
-                    std::string& error) {
-    out = CtgpDif();
-    if (unsupported != nullptr) *unsupported = false;
+namespace {
+
+// The DIF0 header's layout, from its first 0x20 bytes and the section's
+// size: shared by the full parse and the flag check before an install, so
+// both call a damaged header damaged rather than a new feature.
+bool dif_layout_ok(const std::uint8_t* data, std::size_t size, std::string& error) {
     if (!need(size, 0, 0x20) || std::memcmp(data, "DIF0", 4) != 0) {
         error = "not a DIF0 section";
         return false;
     }
-    const std::uint32_t declared = be32(data + 4);
-    if (declared != size) {
+    if (be32(data + 4) != size) {
         error = "DIF0 size field does not match the section";
         return false;
     }
@@ -455,9 +456,7 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bo
     }
     const std::uint32_t path_table = be32(data + 0x0C);
     const std::uint32_t header_size = be32(data + 0x10);
-    const std::uint32_t flags = be32(data + 0x14);
-    const std::uint32_t unpacked = be32(data + 0x18);
-    if (unpacked > kCtgpUpdateMaxFileBytes) {
+    if (be32(data + 0x18) > kCtgpUpdateMaxFileBytes) {
         error = "DIF0 output is too large";
         return false;
     }
@@ -472,6 +471,24 @@ bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bo
         error = "DIF0 header is malformed";
         return false;
     }
+    return true;
+}
+
+}  // namespace
+
+bool ctgp_dif_parse(const std::uint8_t* data, std::size_t size, CtgpDif& out, bool* unsupported,
+                    std::string& error) {
+    out = CtgpDif();
+    if (unsupported != nullptr) *unsupported = false;
+    if (!dif_layout_ok(data, size, error)) {
+        return false;
+    }
+    const std::uint32_t declared = be32(data + 4);
+    const std::uint32_t path_table = be32(data + 0x0C);
+    const std::uint32_t header_size = be32(data + 0x10);
+    const std::uint32_t flags = be32(data + 0x14);
+    const std::uint32_t unpacked = be32(data + 0x18);
+    const std::uint32_t count = be32(data + 0x1C);
     // Checked after the layout, so a damaged header is never taken for a
     // new feature.
     if ((flags & ~kCtgpDifFlagsKnown) != 0) {
@@ -633,11 +650,13 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
             offset += 4;
             return true;
         };
-        auto literal = [&](std::uint32_t count) {
-            if (count > target - position || count > end - offset) {
+        // 64 bits: the four-byte length plus its bias can pass 32 bits, and
+        // must be checked as given, not wrapped.
+        auto literal = [&](std::uint64_t count) {
+            if (count > std::uint64_t(target) - position || count > std::uint64_t(end) - offset) {
                 return false;
             }
-            for (std::uint32_t i = 0; i < count; ++i) {
+            for (std::uint64_t i = 0; i < count; ++i) {
                 if (!put_byte(data[offset + i])) {
                     return false;
                 }
@@ -706,7 +725,7 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
             ok = literal(high + 1ull);
             break;
         case 0x1: {
-            std::uint32_t count = 0;
+            std::uint64_t count = 0;
             if (control == 0xF1) {
                 done = true;
                 break;
@@ -724,8 +743,8 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
             } else if (control == 0x31) {
                 std::uint8_t a = 0, b = 0, c = 0, d = 0;
                 ok = read_u8(a) && read_u8(b) && read_u8(c) && read_u8(d) &&
-                     (count = 0x1010111u + (std::uint32_t(a) << 24) + (std::uint32_t(b) << 16) +
-                                      (std::uint32_t(c) << 8) + d,
+                     (count = 0x1010111ull + (std::uint64_t(a) << 24) + (std::uint64_t(b) << 16) +
+                                      (std::uint64_t(c) << 8) + d,
                       true);
             } else {
                 ok = false;
@@ -954,12 +973,6 @@ constexpr double kBaseTimeShare = 1.99 / 9.11;
 // Worth about 0.12 MB of rebuilt file each.
 constexpr double kFileWeight = 120000.0;
 
-// For the callers that don't ask why an apply failed.
-CtgpUpdateFailure& ignored_failure() {
-    static CtgpUpdateFailure unused = CtgpUpdateFailure::None;
-    return unused;
-}
-
 // A base file whose reads are watched: a section's commands that fail with
 // every base read fine are the update's own fault.
 class WatchedBase : public CtgpBaseSource {
@@ -981,8 +994,9 @@ private:
 // read) uses a flag RiftWii doesn't know, in the section or one of its base
 // entries. Only what is there is looked at: a short or damaged header is
 // left to ctgp_dif_parse when the section is loaded.
-bool dif_head_unsupported(const std::uint8_t* head, std::size_t size, std::string& why) {
-    if (size < 0x20 || std::memcmp(head, "DIF0", 4) != 0) return false;
+bool dif_head_unsupported(const std::uint8_t* head, std::size_t size, std::size_t section_size, std::string& why) {
+    std::string layout_error;
+    if (size < 0x20 || !dif_layout_ok(head, section_size, layout_error)) return false;
     const std::uint32_t flags = be32(head + 0x14);
     if ((flags & ~kCtgpDifFlagsKnown) != 0) {
         char text[64];
@@ -992,6 +1006,8 @@ bool dif_head_unsupported(const std::uint8_t* head, std::size_t size, std::strin
     }
     const std::uint32_t count = be32(head + 0x1C);
     for (std::uint32_t i = 0; i < count && i < kCtgpDifMaxEntries && 0x30u + i * 16 <= size; ++i) {
+        // As the parse: an entry whose path lies outside is damage.
+        if (be32(head + 0x20 + i * 16 + 8) >= section_size) return false;
         const std::uint32_t entry_flags = be32(head + 0x20 + i * 16 + 12);
         if ((entry_flags & ~kCtgpDifFlagPacked) != 0) {
             char text[80];
@@ -1041,8 +1057,15 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
         for (const CtgpDiaSection& place : update.sections) {
             const std::size_t want = std::min<std::size_t>(place.size, sizeof head);
-            if (want < 0x20 || !peek(place.offset, head, want)) continue;
-            if (dif_head_unsupported(head, want, error)) {
+            if (want < 0x20) continue;
+            // A section that can't be read now stops the install before
+            // anything is written, so a retry starts from the same pack.
+            if (!peek(place.offset, head, want)) {
+                error = "the update file could not be read";
+                failure = CtgpUpdateFailure::Temporary;
+                return false;
+            }
+            if (dif_head_unsupported(head, want, place.size, error)) {
                 failure = CtgpUpdateFailure::Unsupported;
                 return false;
             }
@@ -1347,6 +1370,8 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
     if (!ctgp_dia_parse(dia, size, update, error) || !ctgp_dia_is_pack_update(update, error)) {
         return false;
     }
+    // This caller doesn't ask why an apply failed; each call keeps its own.
+    CtgpUpdateFailure unused_failure = CtgpUpdateFailure::None;
     return apply_sections(
         update,
         [dia](const CtgpDiaSection& place, std::vector<std::uint8_t>& out, std::string&) {
@@ -1358,7 +1383,7 @@ bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarg
             std::memcpy(out, dia + offset, length);
             return true;
         },
-        target, log, file_done, CtgpUpdateStep(), ignored_failure(), error);
+        target, log, file_done, CtgpUpdateStep(), unused_failure, error);
 }
 
 bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdateTarget& target,

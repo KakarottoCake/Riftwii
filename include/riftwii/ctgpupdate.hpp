@@ -281,7 +281,10 @@ public:
 
 // Applies every section of a downloaded DIA0, in order. `log` (may be empty)
 // gets one line per file. Stops at the first failure; files already stored
-// keep their new contents, which a retry writes again harmlessly.
+// keep their new contents. A later section can rebuild from a file an
+// earlier one replaced, so a retry must start from the original files: the
+// caller rolls back what was stored (the plugin's undo journal does) before
+// trying again.
 bool ctgp_update_apply(const std::uint8_t* dia, std::size_t size, CtgpUpdateTarget& target,
                        const std::function<void(const std::string&)>& log, std::string& error);
 
