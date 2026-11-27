@@ -59,7 +59,8 @@ Which one to pick: the one the game itself is played with. The back of the box, 
 | Start | + |
 | D-pad, control stick | D-pad, turned the way it reads held sideways (right is right on screen) |
 | R | Shake the Wii Remote |
-| C-stick | Tilt it like a steering wheel, or move the pointer while the game shows one |
+| C-stick | Tilt it like a steering wheel, or move the pointer while the game uses one |
+| L (tap) | Show the pointer and keep it up, or hide it again, in games that use one (a C-stick move also shows it for 2 seconds) |
 
 **Pointing Wii Remote** (aimed at the screen)
 
@@ -95,7 +96,7 @@ Games that already support GameCube controllers don't need the override at all: 
 
 ## A few things RiftWii does for you
 
-- The screen doesn't dim while you play: in most games, moving a GameCube controller counts as using the Wii Remote for the Wii's Screen Burn-In Reduction (the games where it doesn't yet are in the games list).
+- The screen doesn't dim while you play: moving a GameCube controller counts as using the Wii Remote for the Wii's Screen Burn-In Reduction (in every game checked so far).
 - Most games that ask the Wii Remote for its battery are told it's full; a few still show a low-battery message (they're in the games list).
 - If a game has no GameCube controller code of its own, RiftWii reads the adapter for it. On a Wii's own GameCube ports this needs the game to have that code (the ports can only be read through it); the log says so when it's missing.
 
