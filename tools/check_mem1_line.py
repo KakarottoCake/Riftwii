@@ -1,30 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fails the Wii build unless 0x81000000 lies where libogc's start leaves nothing.
+"""Fails the Wii build unless 0x81000000 lies well inside Home's scan stack.
 
-libogc's SYS_Init, which crt0 runs before main, boots the DSP by copying
-128 bytes of DSP code to 0x81000000 and copies the old bytes back
-afterwards. On a real Wii that code was still there when libogc next used
-the memory (Dolphin never shows it). 2611-239 died on every console: new
-code had moved libogc's list of reset handlers to 0x81000014, and
-SYS_RegisterResetFunc followed the DSP code's sixth word as a pointer.
-
-Home's scan stack was linked last, after every library, so that it covered
-the line. Since the program ends far below it, the line is in the heap,
-which is as safe: before the DSP code is copied, libogc puts only the
-command line (__CheckARGV) and its 64 KiB kernel workspace
-(__lwp_wkspace_init) at the heap's start, __Arena1Lo; nothing else there
-is written until main's first malloc, which takes the memory as it finds
-it. Checked with the workspace, a command line of up to ARGV_ROOM and the
-margin below the line.
-
-Should the program ever grow back that far, a buffer that nothing uses
-before main can cover the line instead, as Home's scan stack did: name it
-riftwii_mem1_line_cover and link it after every library (git history:
-wii/core/mem1tail.c). It passes when the line is MARGIN inside it.
-
-It names what is at the line when this does not hold.
+libogc's SYS_Init copies 128 bytes of DSP code to 0x81000000 at start-up
+(wii/core/mem1tail.h). 2611-239 died on every console because libogc's
+list of reset handlers had moved there. Makefile.wii links the stack
+last so it covers the line; this checks that it does, with room on both
+sides, and names what is there instead when it does not.
 
 Usage: check_mem1_line.py riftwii.elf
 """
@@ -33,21 +16,17 @@ import struct
 import sys
 
 LINE = 0x81000000
-# Room left below the line, and on both sides inside a covering buffer.
-# The DSP code takes 128 bytes from the line up; this is a wide margin.
+# Room the stack must leave on each side of the line. The DSP code takes
+# 128 bytes from the line up; this is a wide margin.
 MARGIN = 0x1000
-COVER = "riftwii_mem1_line_cover"
-# What libogc writes from __Arena1Lo before SYS_Init boots the DSP: the
-# command line and argv[] (libogc's argv.c, far below this from any
-# loader), then the kernel workspace (system.c's KERNEL_HEAP).
-ARGV_ROOM = 0x10000
-KERNEL_WORKSPACE = 0x10000
-ARENA = "__Arena1Lo"
+STACK = "riftwii_home_scan_stack"
+# Moved after the scan stack to give the line room (wii/core/mem1tail.c);
+# before it, it would push the scan stack up again.
+AFTER = "riftwii_music_stack"
 
 
-def symbols(path, sized=True):
-    """(address, size, name) of every data or code symbol of an ELF32 big-endian file:
-    the sized ones, or with sized=False every named one (linker symbols included)."""
+def symbols(path):
+    """(address, size, name) of every sized data or code symbol of an ELF32 big-endian file."""
     data = open(path, "rb").read()
     if data[:4] != b"\x7fELF" or data[4] != 1 or data[5] != 2:
         raise SystemExit("%s: not a 32-bit big-endian ELF file" % path)
@@ -64,9 +43,7 @@ def symbols(path, sized=True):
         for i in range(size // entsize):
             name, value, sym_size, info, _other, _shndx = struct.unpack_from(">IIIBBH", data, offset + i * entsize)
             kind = info & 0xF
-            if sized and (sym_size == 0 or kind not in (1, 2)):  # STT_OBJECT, STT_FUNC
-                continue
-            if name == 0:
+            if sym_size == 0 or kind not in (1, 2):  # STT_OBJECT, STT_FUNC
                 continue
             end = data.index(b"\0", str_offset + name)
             found.append((value, sym_size, data[str_offset + name:end].decode("ascii", "replace")))
@@ -79,32 +56,33 @@ def main():
     args = parser.parse_args()
 
     syms = symbols(args.elf)
-    low, high = LINE - MARGIN, LINE + MARGIN
-    for start, size, name in syms:
-        if name == COVER and start <= low and start + size >= high:
-            print("MEM1 line: 0x%08x is 0x%x bytes into %s (0x%08x-0x%08x)"
-                  % (LINE, LINE - start, COVER, start, start + size))
-            return 0
-    arena = [s for s in symbols(args.elf, sized=False) if s[2] == ARENA]
-    if not arena:
-        print("check_mem1_line: %s has no %s" % (args.elf, ARENA), file=sys.stderr)
+    stack = [s for s in syms if s[2] == STACK]
+    if not stack:
+        print("check_mem1_line: %s has no %s" % (args.elf, STACK), file=sys.stderr)
         return 1
-    arena_lo = (arena[0][0] + 31) & ~31
-    untouched = arena_lo + ARGV_ROOM + KERNEL_WORKSPACE
-    if untouched <= low:
-        print("MEM1 line: 0x%08x is in the heap, 0x%x bytes past what libogc's start writes "
-              "(the program ends at 0x%08x)" % (LINE, low + MARGIN - untouched, arena_lo))
+    start, size, _ = stack[0]
+    after = [s for s in syms if s[2] == AFTER]
+    if after and after[0][0] < start + size:
+        print("check_mem1_line: %s (0x%08x) must come after %s (0x%08x-0x%08x), or the scan stack "
+              "moves up and leaves the line less room (wii/core/mem1tail.c)"
+              % (AFTER, after[0][0], STACK, start, start + size), file=sys.stderr)
+        return 1
+    low, high = LINE - MARGIN, LINE + MARGIN
+    if start <= low and start + size >= high:
+        print("MEM1 line: 0x%08x is 0x%x bytes into Home's scan stack (0x%08x-0x%08x)"
+              % (LINE, LINE - start, start, start + size))
         return 0
     near = sorted(s for s in syms if s[0] < high and s[0] + s[1] > low)
-    print("check_mem1_line: the program ends at 0x%08x, too close to 0x%08x: libogc's start-up "
-          "writes 0x%x bytes from there, and its DSP boot code is copied to the line. There now:"
-          % (arena_lo, LINE, ARGV_ROOM + KERNEL_WORKSPACE), file=sys.stderr)
+    print("check_mem1_line: 0x%08x must be at least 0x%x bytes inside %s (0x%08x-0x%08x), "
+          "or libogc's start-up data lands where its DSP boot code is copied (wii/core/mem1tail.h). "
+          "There now:" % (LINE, MARGIN, STACK, start, start + size), file=sys.stderr)
     for address, sym_size, name in near:
         print("  0x%08x %6d %s" % (address, sym_size, name), file=sys.stderr)
-    print("Free MEM1, or link a buffer unused before main, named %s, last so that it covers "
-          "the line with 0x%x bytes to spare on each side (this script's notes)." % (COVER, MARGIN),
-          file=sys.stderr)
+    if start > low:
+        print("The .bss below the stack has grown past the line: make the stack's file bigger "
+              "or link more of RiftWii's start-up-free buffers after the libraries.", file=sys.stderr)
     return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

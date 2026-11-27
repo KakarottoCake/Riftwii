@@ -3,9 +3,7 @@
 #include "startupinput.hpp"
 
 #include <atomic>
-#include <cstdlib>
 #include <gccore.h>
-#include <malloc.h>
 #include <unistd.h>
 #include <wiiuse/wpad.h>
 
@@ -15,10 +13,7 @@
 namespace riftwii::wii {
 namespace {
 
-// The sampler runs only while the menu loads: its stack is taken then and
-// given back once it is joined.
-constexpr std::size_t kStackBytes = 8192;
-void* g_stack = nullptr;
+alignas(32) unsigned char g_stack[8192];
 lwp_t g_thread = LWP_THREAD_NULL;
 bool g_started = false;
 std::atomic<bool> g_running{false};
@@ -55,12 +50,8 @@ void BeginStartupInput() {
     // Catch an already-held controller before font and sound loading starts.
     SampleStartupB();
     g_running = true;
-    g_stack = memalign(32, kStackBytes);
-    if (g_stack == nullptr ||
-        LWP_CreateThread(&g_thread, SampleStartup, nullptr, g_stack, kStackBytes, 70) < 0) {
+    if (LWP_CreateThread(&g_thread, SampleStartup, nullptr, g_stack, sizeof(g_stack), 70) < 0) {
         g_thread = LWP_THREAD_NULL;
-        std::free(g_stack);
-        g_stack = nullptr;
         g_running = false;
         // Keep the first sample, and sample again before the menu opens.
         logf("Startup input: the button sampler could not start; B is checked before and after loading.\n");
@@ -75,8 +66,6 @@ bool FinishStartupInput() {
         LWP_JoinThread(g_thread, nullptr);
         g_thread = LWP_THREAD_NULL;
     }
-    std::free(g_stack);
-    g_stack = nullptr;
     SampleStartupB();
     return g_cancelled;
 }

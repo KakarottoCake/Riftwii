@@ -8,33 +8,38 @@
 #include "gcadapter.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
-#include "packedblobs.hpp"
 #include "resident.hpp"
 #include "riftwii/gxpatches.hpp"
-#include "riftwii_hooks_bin.h"
+#include "riftwii_fault_bin.h"
 #include "riftwii_pad_sizes.h"
-#include "riftwii_rts_bin.h"
+#include "riftwii_rt_rvz_zst.h"
+#include "riftwii_rt_zst.h"
+#include "riftwii_shot_bin.h"
+#include "riftwii_vsd_bin.h"
 #include "pad_hook.h"
 #include "rt_hook.h"
 #include "rtfs.h"
 #include "rtgcad.h"
 #include "shot_hook.h"
 #include "vsd_hook.h"
+#include "zstd.h"
 
 namespace riftwii::wii {
 namespace {
 
 std::uint32_t align(std::uint64_t n) { return static_cast<std::uint32_t>((n + 31) & ~31ull); }
 
-// A blob's size unpacked, from the big-endian sizes in front of its set's
-// zstd frame (wii/core/packedblobs.cpp), without unpacking it.
-std::uint32_t listed_bytes(const std::uint8_t* packed, int index) {
-    const std::uint8_t* p = packed + 4 * index;
-    return align((std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3]);
+// A runtime blob's size unpacked, from its zstd frame header.
+std::uint32_t frame_bytes(const std::uint8_t* packed, std::size_t size) {
+    const unsigned long long bytes = ZSTD_getFrameContentSize(packed, size);
+    if (bytes == ZSTD_CONTENTSIZE_UNKNOWN || bytes == ZSTD_CONTENTSIZE_ERROR) return 0;
+    return align(bytes);
 }
 
-// The runtime's set: the plain build, then the RVZ one (wii/launch/resident.cpp).
-std::uint32_t runtime_bytes(bool rvz) { return listed_bytes(riftwii_rts_bin, rvz ? 1 : 0); }
+template <typename Header>
+std::uint32_t blob_bytes(const std::uint8_t* blob) {
+    return align(reinterpret_cast<const Header*>(blob)->size);
+}
 
 // The pad code's full build (the pads plugin carries the builds; the DOL
 // keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h).
@@ -83,7 +88,8 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     const bool runtime = packs || saves || rvz;
     const bool code_to_mem2 = whole_mem1 || (game_needs_runtime_code_in_mem2(id) && !game_runs_no_mem2_code(id));
     if (runtime) {
-        const std::uint32_t code = runtime_bytes(rvz);
+        const std::uint32_t code = rvz ? frame_bytes(riftwii_rt_rvz_zst, riftwii_rt_rvz_zst_size)
+                                       : frame_bytes(riftwii_rt_zst, riftwii_rt_zst_size);
         std::uint32_t data = 0;
         if (packs) data += kTypicalTable + RT_MAX_PENDING * RT_BOUNCE_BYTES;
         if (saves) data += align(sizeof(rt_fs_state)) + 32;
@@ -101,15 +107,15 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     // is always the SD slot's (VSD_BACKEND_SLOT0), so its bounce buffer is the
     // SD card's size; a code build's image (SD or USB) is not counted here.
     if (runtime && !protected_game && !whole_mem1)
-        b.add(tr("SD card for the game"), listed_bytes(riftwii_hooks_bin, kHookVsd), align(vsd_state_bytes(false, 1, vsd_bounce_bytes_for(VSD_BACKEND_SLOT0))));
+        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(false, 1, vsd_bounce_bytes_for(VSD_BACKEND_SLOT0))));
     GcAdapterView view;
     const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
     const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged) ||
                          (settings.usb_input != "off" && view.hid_pads != 0);
     if (!protected_game && !whole_mem1) {
-        b.add(tr("crash recorder"), listed_bytes(riftwii_hooks_bin, kHookFault), align(sizeof(rt_fault_state)));
+        b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")
-            b.add(tr("screenshots"), listed_bytes(riftwii_hooks_bin, kHookShot), align(sizeof(rt_shot_state)));
+            b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
         if (adapter)
             b.add(tr("GameCube adapter"), pad_build_bytes(), align(sizeof(gcad_hub)));
     } else if (!protected_game && code_build && !clears_mem1_top && adapter) {

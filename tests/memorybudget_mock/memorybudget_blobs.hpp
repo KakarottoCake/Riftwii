@@ -9,24 +9,29 @@
 #include "shot_hook.h"
 #include "vsd_hook.h"
 
-// Only sizes are read by EstimateExtras: each set's big-endian size table
-// (wii/core/packedblobs.cpp).
+// Only sizes are read by EstimateExtras. Native headers avoid depending
+// on the host's byte order; synthetic Zstandard headers give known sizes.
+template <typename Header>
+Header budget_blob(std::uint32_t size) {
+    Header header{};
+    header.size = size;
+    return header;
+}
 
-// The sizes the tests expect.
-struct BudgetBlob {
-    std::uint32_t size;
-};
-inline const BudgetBlob budget_fault{2816};
-inline const BudgetBlob budget_pad{8192};
-
-// The hooks' set: the virtual SD card (9216), screenshots (4096), the crash
-// recorder (budget_fault).
-inline const std::uint8_t riftwii_hooks_bin[] = {0, 0, 0x24, 0, 0, 0, 0x10, 0, 0, 0, 0x0B, 0};
+inline const auto budget_fault = budget_blob<rt_fault_header>(2816);
+inline const auto budget_shot = budget_blob<rt_shot_header>(4096);
+inline const auto budget_vsd = budget_blob<vsd_header>(9216);
+inline const auto* riftwii_fault_bin = reinterpret_cast<const std::uint8_t*>(&budget_fault);
+inline const auto* riftwii_shot_bin = reinterpret_cast<const std::uint8_t*>(&budget_shot);
+inline const auto* riftwii_vsd_bin = reinterpret_cast<const std::uint8_t*>(&budget_vsd);
 
 // The pad builds' sizes (Makefile.runtime's riftwii_pad_sizes.h): the full
 // one first, budget_pad's size.
+inline const auto budget_pad = budget_blob<rt_pad_header>(8192);
 #define RIFTWII_PAD_BUILD_BYTES {8192u, 8192u, 8192u, 8192u, 8192u, 8192u}
 
-// The runtime builds' big-endian size table (wii/core/packedblobs.cpp):
-// the plain build 96 KiB, the RVZ one 160 KiB.
-inline const std::uint8_t riftwii_rts_bin[] = {0, 1, 0x80, 0, 0, 2, 0x80, 0};
+// Single-segment frames with four-byte content sizes: 96 KiB and 160 KiB.
+inline const std::uint8_t riftwii_rt_zst[] = {0x28, 0xB5, 0x2F, 0xFD, 0xA0, 0, 0x80, 1, 0};
+inline const std::uint8_t riftwii_rt_rvz_zst[] = {0x28, 0xB5, 0x2F, 0xFD, 0xA0, 0, 0x80, 2, 0};
+inline const auto riftwii_rt_zst_size = sizeof(riftwii_rt_zst);
+inline const auto riftwii_rt_rvz_zst_size = sizeof(riftwii_rt_rvz_zst);

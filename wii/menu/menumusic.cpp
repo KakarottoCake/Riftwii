@@ -5,6 +5,7 @@
 #include <asndlib.h>
 #include <dirent.h>
 #include <gccore.h>
+#include <mp3player.h>
 #include <ogc/lwp_watchdog.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -19,7 +20,6 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menutheme.hpp"
-#include "mp3stream.hpp"
 #include "oggplayer.h"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/musiclist.hpp"
@@ -70,6 +70,7 @@ bool g_playing = false;
 bool g_using_wii = false;
 bool g_using_pick = false;
 bool g_kept_for_launch = false;
+bool g_mp3_ready = false;
 u64 g_song_started = 0;  // when the player was last started, for PlayerEnded
 s32 g_resume_at_ms = -1;  // where the track was when a cIOS reload paused it
 
@@ -247,7 +248,7 @@ bool PickLoops() { return g_songs.size() == 1; }
 
 void PlayerStop() {
     if (g_format == MusicFormat::Mp3) {
-        Mp3Stop();
+        if (g_mp3_ready) MP3Player_Stop();
     } else {
         StopOgg();
     }
@@ -255,10 +256,14 @@ void PlayerStop() {
 
 bool PlayerStart(s32 at_ms) {
     if (g_format == MusicFormat::Mp3) {
-        // The MP3 player cannot start part way: a song paused for a cIOS
-        // reload starts again from the top.
+        if (!g_mp3_ready) {
+            MP3Player_Init();
+            g_mp3_ready = true;
+        }
+        // libogc's MP3 player cannot start part way: a song paused for a
+        // cIOS reload starts again from the top.
         g_song_started = gettime();
-        return Mp3Start(g_music, static_cast<std::size_t>(g_bytes));
+        return MP3Player_PlayBuffer(g_music, g_bytes, nullptr) == 0;
     }
     const int mode = g_using_pick && !PickLoops() ? OGG_ONE_TIME : OGG_INFINITE_TIME;
     g_song_started = gettime();
@@ -270,7 +275,7 @@ bool PlayerEnded() {
     // The MP3 player says it plays only once its thread has begun, so a
     // song just started is not taken for one that ended.
     if (ticks_to_millisecs(gettime() - g_song_started) < 1000) return false;
-    if (g_format == MusicFormat::Mp3) return !Mp3Playing();
+    if (g_format == MusicFormat::Mp3) return g_mp3_ready && !MP3Player_IsPlaying();
     // The Ogg decoder is done at the end of the file; the mixer still has
     // its last piece to play.
     return StatusOgg() == OGG_STATUS_EOF && ASND_StatusVoice(0) == SND_UNUSED;
@@ -278,7 +283,7 @@ bool PlayerEnded() {
 
 void MusicVolume(int volume) {
     if (g_using_wii) WiiMenuMusicVolume(volume);
-    else if (g_format == MusicFormat::Mp3) Mp3Volume(volume);
+    else if (g_format == MusicFormat::Mp3) MP3Player_Volume(static_cast<u32>(volume));
     else SetVolumeOgg(volume);
 }
 
@@ -618,6 +623,7 @@ void LaunchMusicResumeAfterReload() {
     g_resume_at_ms = -1;
     InitAudio();
     // The MP3 player was stopped with the audio; it starts afresh.
+    g_mp3_ready = false;
     const bool resumed = g_using_wii ? WiiMenuMusicStart() : PlayerStart(at_ms);
     if (!resumed) {
         ShutdownAudio();

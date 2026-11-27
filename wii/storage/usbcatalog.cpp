@@ -476,18 +476,14 @@ class UsbRawDisc final : public ByteSource {
 public:
     std::uint64_t size() const override { return 0x230480000ull; }  // a dual-layer Wii disc
     bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
-        // Taken at the first read and kept: only a disc in a USB DVD drive
-        // is read this way, so other menus never spend its 32 KiB.
-        constexpr std::size_t kBounceBytes = 32 * 1024;
-        static std::uint8_t* bounce = nullptr;
-        if (bounce == nullptr) bounce = static_cast<std::uint8_t*>(memalign(32, kBounceBytes));
+        static std::uint8_t bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
         const std::uint32_t bytes = __io_usbstorage_sector_size;
-        if (bounce == nullptr || bytes == 0 || bytes > kBounceBytes) return false;
+        if (bytes == 0 || bytes > sizeof(bounce)) return false;
         while (length > 0) {
             const std::uint64_t sector = offset / bytes;
             const std::size_t skip = static_cast<std::size_t>(offset % bytes);
             const std::uint32_t count = static_cast<std::uint32_t>(
-                std::min<std::uint64_t>((skip + length + bytes - 1) / bytes, kBounceBytes / bytes));
+                std::min<std::uint64_t>((skip + length + bytes - 1) / bytes, sizeof(bounce) / bytes));
             if (sector > 0xFFFFFFFFull || !usb_read_sectors(static_cast<sec_t>(sector), count, bounce)) return false;
             const std::size_t take = std::min<std::size_t>(length, count * bytes - skip);
             std::memcpy(destination, bounce + skip, take);
@@ -596,11 +592,9 @@ bool ensure_usb(std::string& error) {
     bool wbfs_drive = false;
     if (!g_libfat_mounted && __io_usbstorage_sector_size == 512) {
         // Room for a 4 KiB sector all the same: the size is the driver's
-        // word until libfat has asked the drive. Only for this look.
-        std::unique_ptr<std::uint8_t, decltype(&std::free)> block0(
-            static_cast<std::uint8_t*>(memalign(32, 4096)), &std::free);
-        wbfs_drive = block0 && usb_read(0, 1, block0.get()) &&
-                     classify_drive_block0(block0.get()) == DriveBlock0::Wbfs;
+        // word until libfat has asked the drive.
+        static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
+        wbfs_drive = usb_read(0, 1, block0) && classify_drive_block0(block0) == DriveBlock0::Wbfs;
         if (wbfs_drive) logf("USB: a WBFS drive; read raw without trying libfat\n");
     }
     if (!g_libfat_mounted && !wbfs_drive) {
@@ -1206,7 +1200,7 @@ bool post_reload_failure(const char* log_path, std::string& error) {
 // TMD view costs one IPC call on the *current* IOS and tells us the title
 // really is there, so a bad slot is skipped instead of stranding the
 // console. Only positive evidence of a bad slot rejects it.
-constexpr std::size_t kTmdViewBytes = ((4096 + sizeof(tmd_view)) / sizeof(tmd_view)) * sizeof(tmd_view);
+tmd_view g_tmd_view[(4096 + sizeof(tmd_view)) / sizeof(tmd_view)] ATTRIBUTE_ALIGN(32);
 
 bool slot_title_is_launchable(int slot, std::string& why) {
     const u64 title = 0x100000000ull | static_cast<u64>(slot);
@@ -1221,26 +1215,22 @@ bool slot_title_is_launchable(int slot, std::string& why) {
         why = "installed ticket but no title (ES " + std::to_string(sized) + ")";
         return false;
     }
-    if (size < sizeof(tmd_view) || size > kTmdViewBytes) {
+    if (size < sizeof(tmd_view) || size > sizeof(g_tmd_view)) {
         // An implausible size is not evidence the title is broken; let the
         // existing post-reload checks judge it.
         return true;
     }
-    // Taken for the check (MEM1 heap) instead of 4 KiB of MEM2 for the whole run.
-    std::unique_ptr<tmd_view, void (*)(void*)> g_tmd_view(static_cast<tmd_view*>(memalign(32, kTmdViewBytes)),
-                                                         std::free);
-    if (!g_tmd_view) return true;  // no evidence the slot is bad
-    std::memset(g_tmd_view.get(), 0, kTmdViewBytes);
-    const s32 got = ES_GetTMDView(title, g_tmd_view.get(), size);
+    std::memset(g_tmd_view, 0, sizeof(g_tmd_view));
+    const s32 got = ES_GetTMDView(title, g_tmd_view, size);
     if (got < 0) {
         why = "title metadata unreadable (ES " + std::to_string(got) + ")";
         return false;
     }
-    if (g_tmd_view->num_contents == 0) {
+    if (g_tmd_view[0].num_contents == 0) {
         why = "title has no contents";
         return false;
     }
-    if (cios_revision_is_stub(g_tmd_view->title_version)) {
+    if (cios_revision_is_stub(g_tmd_view[0].title_version)) {
         why = "holds a stub, not a cIOS";
         return false;
     }
@@ -1689,17 +1679,12 @@ bool usb_d2x_nand_partition(const std::string& usb_folder, std::int32_t& index, 
     std::uint64_t lba = 0;
     if (!usb_fat32_volume(usb_folder, lba, why)) return false;
     // A 4 KiB sector's room: d2x's FatFs reads the drive's own sector size.
-    std::unique_ptr<std::uint8_t, decltype(&std::free)> block0(
-        static_cast<std::uint8_t*>(memalign(32, 4096)), &std::free);
-    if (!block0) {
-        why = "there is no memory to read the USB drive's first block";
-        return false;
-    }
-    if (!usb_read(0, 1, block0.get())) {
+    static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
+    if (!usb_read(0, 1, block0)) {
         why = "the USB drive's first block could not be read";
         return false;
     }
-    return d2x_usb_partition(block0.get(), lba, index, why);
+    return d2x_usb_partition(block0, lba, index, why);
 }
 
 bool mount_usb_nand_folder(const std::string& usb_folder, std::string& writable, std::string& why) {
@@ -2603,19 +2588,7 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
     if (list.entries.empty()) return true;  // nothing to read; d2x's own probe judges it
-    // One sector of any size, only for this check: a launch from USB looks
-    // once. Without the memory the launch stops: nothing later compares the
-    // game's first sector, so it could start from a drive not yet ready or
-    // from another drive. Not a drive failure, so no other cIOS is tried.
-    constexpr std::size_t kSectorBufferBytes = 32 * 1024;
-    std::unique_ptr<std::uint8_t, decltype(&std::free)> sector_buffer(
-        static_cast<std::uint8_t*>(memalign(32, kSectorBufferBytes)), &std::free);
-    if (!sector_buffer) {
-        logf("USB (d2x): no memory to read the game's first sector, so the launch stops\n");
-        error = "there was not enough memory to check the game's USB drive; restart RiftWii and try again";
-        return false;
-    }
-    std::uint8_t* const first = sector_buffer.get();
+    static std::uint8_t first[32 * 1024] ATTRIBUTE_ALIGN(32);  // one sector of any size
     const std::uint32_t first_sector = list.entries[0].sector;
     bool read = false;
     std::string last_why;

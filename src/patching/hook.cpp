@@ -22,7 +22,7 @@ bool slot_fits(std::uint32_t offset, std::uint32_t bytes, std::uint32_t size) {
 constexpr std::uint32_t kMem1Low = 0x80004000;         // below: the SDK's globals and vectors
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
-constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // the loader's own MEM2 starts here: nothing of a game's goes at or above it before the jump
+constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never stage below 8 MiB into MEM2 (the loader's own data)
 constexpr std::uint32_t kMem2End = 0x94000000;
 constexpr std::uint32_t kReserveGranule = 32;  // every MEM2 byte counts: the game's heaps live in this arena
 
@@ -291,14 +291,6 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
         const std::uint32_t stage = static_cast<std::uint32_t>(arena2_end - bytes) & ~31u;
         if (stage < kMem2ArenaFloor || (!mem2_top && stage < end)) {
             error = "resident data does not fit in the MEM2 arena";
-            return false;
-        }
-        // Copied to the arena's bottom just before the jump, while this
-        // loader still runs on its stack and code at kMem2ArenaFloor and up
-        // (wii/core/memlimits.hpp): the copy must end below them.
-        if (!mem2_top && end > kMem2ArenaFloor) {
-            error = "resident data (" + std::to_string(bytes) + " bytes) would reach the loader's own MEM2 at " +
-                    hex32(kMem2ArenaFloor);
             return false;
         }
         p.data_bytes = static_cast<std::uint32_t>(bytes);

@@ -11,13 +11,12 @@
 #include <sys/stat.h>
 
 #include "log.hpp"
-#include "packedblobs.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii/vsdbuild.hpp"
 #include "riftwii/vsdparts.hpp"
-#include "riftwii_hooks_bin.h"
+#include "riftwii_vsd_bin.h"
 #include "sdfile.hpp"
 #include "textfile.hpp"
 #include "umsdev.hpp"
@@ -52,9 +51,7 @@ static_assert(kReadAheadSectors == 0 ||
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
-// The blob's header, read where it lies: unpacked while planning, staged
-// with the game after.
-const vsd_header& header(const std::uint8_t* blob) { return *reinterpret_cast<const vsd_header*>(blob); }
+const vsd_header& header() { return *reinterpret_cast<const vsd_header*>(riftwii_vsd_bin); }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
     volatile std::uint32_t* p = reinterpret_cast<volatile std::uint32_t*>(address);
@@ -297,16 +294,9 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
                    const std::vector<MemoryPatch>& patches, VsdHook& out, std::string& why, bool after_runtime,
                    std::uint32_t runtime_stage, const std::uint32_t* known_functions) {
     out = VsdHook{};
-    PackedBlobs blobs;
-    if (!blobs.unpack(riftwii_hooks_bin, riftwii_hooks_bin_size, kHookBlobs)) {
-        why = "the embedded virtual SD card blob is damaged or there is no memory to unpack it";
-        return false;
-    }
-    const std::uint8_t* blob_image = blobs.blob(kHookVsd);
-    const std::uint32_t blob_image_bytes = blobs.size(kHookVsd);
-    const vsd_header& h = header(blob_image);
-    if (blob_image_bytes < sizeof(vsd_header) || h.magic != VSD_MAGIC || h.version != VSD_VERSION ||
-        h.size > blob_image_bytes || h.context_offset + VSD_CONTEXT_BYTES > h.size) {
+    const vsd_header& h = header();
+    if (riftwii_vsd_bin_size < sizeof(vsd_header) || h.magic != VSD_MAGIC || h.version != VSD_VERSION ||
+        h.size > riftwii_vsd_bin_size || h.context_offset + VSD_CONTEXT_BYTES > h.size) {
         why = "the embedded virtual SD card blob is damaged";
         return false;
     }
@@ -437,7 +427,7 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     // 3. The blob, its context and its state, built where they are staged.
     const std::uint32_t code_now = now(out, out.code_base);
     std::memset(reinterpret_cast<void*>(code_now), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(code_now), blob_image, h.size);
+    std::memcpy(reinterpret_cast<void*>(code_now), riftwii_vsd_bin, h.size);
     vsd_context* ctx = reinterpret_cast<vsd_context*>(code_now + h.context_offset);
     if (ctx->magic != VSD_CONTEXT_MAGIC) {
         why = "the blob's context is not where its header says";
@@ -526,7 +516,7 @@ std::uint32_t link_vsd_with_runtime(const VsdHook& hook, std::uint32_t runtime_b
 
 bool install_vsd_hook(VsdHook& hook, std::string& why) {
     if (!hook.active) return false;
-    const vsd_header& h = header(reinterpret_cast<const std::uint8_t*>(now(hook, hook.code_base)));
+    const vsd_header& h = header();
     // The replays: the displaced first instruction and the jump back, or,
     // where another hook's branch already sits, a jump to that hook.
     for (unsigned e = 0; e < VSD_ENTRIES; ++e) {

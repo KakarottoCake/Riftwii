@@ -10,11 +10,6 @@ to the other regions by dcx2, container12345 and blackb0x), as data.
 Each word GX stores becomes one u32: the index of its value in a shared table
 in the top byte, the low 24 bits of its address below (every address is in
 0x80000000-0x80FFFFFF). The words are kept in GX's order.
-
-Only SUKE01's words are stored whole. The other regions store the same
-values at the same places in their code, moved: each is SUKE01's words with
-every address shifted by a constant over runs of words (37 to 47 runs), plus
-the few words whose value differs. That keeps 6 KiB of MEM1 instead of 22.
 """
 import re
 import sys
@@ -58,64 +53,17 @@ def main(source, out):
     for i in range(0, len(values), 6):
         lines.append("    " + " ".join("0x%08Xu," % v for v in values[i:i + 6]))
     lines.append("};")
-    packed_regions = []
     for gid, words in regions:
+        lines.append("")
+        lines.append("const std::uint32_t kKirby%s[] = {  // %d words" % (gid, len(words)))
         packed = []
         for address, value in words:
             if address & 0xFF000000 != 0x80000000 or address & 3:
                 sys.exit("address out of range: %08X" % address)
             packed.append((index[value] << 24) | (address & 0x00FFFFFF))
-        packed_regions.append((gid, packed))
-    base_id, base = packed_regions[0]
-    lines.append("")
-    lines.append("const std::uint32_t kKirby%s[] = {  // %d words" % (base_id, len(base)))
-    for i in range(0, len(base), 8):
-        lines.append("    " + " ".join("0x%08Xu," % p for p in base[i:i + 8]))
-    lines.append("};")
-    lines += [
-        "",
-        "// Another region's word i: kKirby" + base_id + "[i] with its address moved by the",
-        "// shift of the last run starting at or before i, unless kKirbyWords has it.",
-        "struct KirbyRun {",
-        "    std::uint16_t first;",
-        "    std::int32_t shift;",
-        "};",
-        "struct KirbyWord {",
-        "    std::uint8_t region;  // 1 SUKP01, 2 SUKJ01, 3 SUKK01",
-        "    std::uint16_t index;",
-        "    std::uint32_t word;",
-        "};",
-    ]
-    differing = []
-    for region, (gid, packed) in enumerate(packed_regions[1:], start=1):
-        if len(packed) != len(base):
-            sys.exit("%s has %d words, %s %d" % (gid, len(packed), base_id, len(base)))
-        runs = []
-        for i, (b, w) in enumerate(zip(base, packed)):
-            shift = (w & 0x00FFFFFF) - (b & 0x00FFFFFF)
-            if not runs or runs[-1][1] != shift:
-                runs.append((i, shift))
-        # Rebuilt as gxpatches.cpp does; any word that comes out different
-        # (its value moved to another index) is stored whole.
-        run = 0
-        for i, (b, w) in enumerate(zip(base, packed)):
-            while run + 1 < len(runs) and runs[run + 1][0] <= i:
-                run += 1
-            rebuilt = (b & 0xFF000000) | ((b + runs[run][1]) & 0x00FFFFFF)
-            if rebuilt != w:
-                differing.append((region, i, w))
-        lines.append("")
-        lines.append("const KirbyRun kKirby%sRuns[] = {  // %d runs" % (gid, len(runs)))
-        for i in range(0, len(runs), 4):
-            lines.append("    " + " ".join("{%d, %d}," % r for r in runs[i:i + 4]))
+        for i in range(0, len(packed), 8):
+            lines.append("    " + " ".join("0x%08Xu," % p for p in packed[i:i + 8]))
         lines.append("};")
-    lines.append("")
-    lines.append("const KirbyWord kKirbyWords[] = {")
-    # The array may not be empty: a placeholder in region 4, which kirby()
-    # never asks for (0 to 3 are SUKE01, SUKP01, SUKJ01, SUKK01).
-    for region, i, w in differing or [(4, 0, 0)]:
-        lines.append("    {%d, %d, 0x%08Xu}," % (region, i, w))
-    lines.append("};")
     lines.append("")
     open(out, "w", encoding="utf-8", newline="\n").write("\n".join(lines))
     print("%d values; %s" % (len(values), ", ".join("%s %d" % (g, len(w)) for g, w in regions)))

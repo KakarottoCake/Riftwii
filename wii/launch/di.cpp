@@ -9,9 +9,7 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
-#include <malloc.h>
 
 namespace riftwii::di {
 namespace {
@@ -39,7 +37,7 @@ std::uint32_t g_stop_in[8] ATTRIBUTE_ALIGN(32);
 std::uint32_t g_stop_out[8] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bca[64] ATTRIBUTE_ALIGN(32);
 ioctlv g_vectors[5] ATTRIBUTE_ALIGN(32);
-constexpr std::size_t kBounceBytes = 32 * 1024;
+std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
 s32 g_fd = -1;
 int g_last_reply = 0;
 std::uint32_t g_frag_device = 0;
@@ -117,39 +115,26 @@ bool read_command(std::uint32_t cmd, const char* what, void* buffer, std::uint32
 // Bounces an arbitrary byte range through aligned DI reads.
 bool bounced_read(bool partition, std::uint64_t offset, std::uint8_t* destination, std::size_t length,
                   std::string& error) {
-    if (length == 0) return true;
-    // Taken for the read (MEM1 heap) instead of 32 KiB of MEM2 for the whole run.
-    std::uint8_t* bounce = static_cast<std::uint8_t*>(memalign(32, kBounceBytes));
-    if (!bounce) {
-        error = "out of memory for the disc read buffer";
-        return false;
-    }
-    bool done = true;
     while (length > 0) {
         const std::uint64_t start = offset & ~std::uint64_t(31);
         std::uint64_t end = (offset + length + 31) & ~std::uint64_t(31);
-        if (end - start > kBounceBytes) end = start + kBounceBytes;
+        if (end - start > sizeof(g_bounce)) end = start + sizeof(g_bounce);
         if (end > (std::uint64_t(1) << 34)) {  // the last word must fit the drive's 32-bit offset
             error = "disc offset beyond the drive's 32-bit word range";
-            done = false;
-            break;
+            return false;
         }
         const std::uint32_t chunk = static_cast<std::uint32_t>(end - start);
-        const bool ok = partition ? read(bounce, chunk, static_cast<std::uint32_t>(start >> 2), error)
-                                  : read_unencrypted(bounce, chunk, static_cast<std::uint32_t>(start >> 2), error);
-        if (!ok) {
-            done = false;
-            break;
-        }
+        const bool ok = partition ? read(g_bounce, chunk, static_cast<std::uint32_t>(start >> 2), error)
+                                  : read_unencrypted(g_bounce, chunk, static_cast<std::uint32_t>(start >> 2), error);
+        if (!ok) return false;
         const std::size_t skip = static_cast<std::size_t>(offset - start);
         const std::size_t take = std::min<std::size_t>(length, static_cast<std::size_t>(end - offset));
-        std::memcpy(destination, bounce + skip, take);
+        std::memcpy(destination, g_bounce + skip, take);
         offset += take;
         destination += take;
         length -= take;
     }
-    std::free(bounce);
-    return done;
+    return true;
 }
 
 }  // namespace

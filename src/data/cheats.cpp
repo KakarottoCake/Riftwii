@@ -603,12 +603,12 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
     return out;
 }
 
-bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
-                           const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out) {
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
+                           std::uint32_t keep_out_end) {
     if (!valid_gct(gct)) return false;
     const std::size_t end = gct.size() - 8;
     // Whether `bytes` written at `address` land in MEM1 or MEM2 and stay
-    // clear of every kept-out range (64-bit, so nothing wraps round). An
+    // clear of the kept-out range (64-bit, so nothing wraps round). An
     // uncached address (0xC0000000 up, 0xD0000000 up) is the same memory
     // as the cached one 0x40000000 below it; anything else is no memory,
     // and a write there would fault before the game starts.
@@ -618,10 +618,7 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
         const bool mem1 = address >= 0x80000000u && last <= 0x81800000u;
         const bool mem2 = address >= 0x90000000u && last <= 0x94000000u;
         if (!mem1 && !mem2) return false;
-        for (const auto& range : keep_out) {
-            if (last > range.first && address < range.second) return false;
-        }
-        return true;
+        return last <= keep_out_start || address >= keep_out_end;
     };
     // The handler's base address, which ba codes add to: 0x80000000 until
     // an E0 or E2 sets another. The handler keeps only its top seven bits
@@ -849,131 +846,6 @@ bool lines_after(std::uint32_t type, std::uint32_t value, std::size_t& extra) {
 }
 
 }  // namespace
-
-bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
-                        const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out) {
-    if (!valid_gct(gct)) return false;
-    const std::size_t end = gct.size() - 8;
-    // Whether `bytes` written at `address` miss every kept-out range (64-bit,
-    // so nothing wraps round). An uncached address is the same memory as
-    // the cached one 0x40000000 below it.
-    const auto misses = [&](std::uint64_t address, std::uint64_t bytes) {
-        if (address >= 0xC0000000u && address < 0xE0000000u) address -= 0x40000000u;
-        const std::uint64_t last = address + bytes;
-        for (const auto& range : keep_out) {
-            if (last > range.first && address < range.second) return false;
-        }
-        return true;
-    };
-    // The handler's base address and pointer, both 0x80000000 at the start;
-    // unknown once read from memory (where the game's own data is).
-    std::uint64_t ba = 0x80000000u, po = 0x80000000u;
-    bool ba_known = true, po_known = true;
-    std::size_t at = 8;
-    while (at < end) {
-        const std::uint32_t first = get32(gct, at);
-        const std::uint32_t value = get32(gct, at + 4);
-        // Without the bit that adds 0x01000000 to the address.
-        const std::uint32_t type = gct[at] & 0xFEu;
-        const std::size_t lines_left = (end - at) / 8 - 1;
-        // The lines after this one. D2 is C2 through the pointer; F2 and F4
-        // insert instructions with a checksum, NN lines (the value's low
-        // byte); F6 searches with NN lines of pattern (the first word's).
-        std::size_t extra = 0;
-        if ((first & 0xFFFF8000u) == 0x66200000u && value == 0) {
-            // A goto, always, forward over the lines after it: how
-            // switch_off_slot_b_codes switches a code off (a Wii U's REX
-            // and Project+ builds). Nothing in those lines runs.
-            extra = first & 0x7FFFu;
-            if (extra == 0) return false;
-        } else if (type == 0xD2) {
-            extra = value;
-        } else if (type == 0xF2 || type == 0xF4) {
-            extra = value & 0xFFu;
-        } else if (type == 0xF6) {
-            extra = first & 0xFFu;
-        } else if (type == 0xD6) {
-            extra = 0;
-        } else if (!lines_after(type, value, extra)) {
-            return false;
-        }
-        if (extra > lines_left) return false;
-        // Where a write of this code lands: through the pointer for the po
-        // forms (bit 0x10 below 0x40, and D2, D6, F4), else the base, of
-        // which the handler keeps only the top seven bits.
-        const bool through_po = (type < 0x40 && (type & 0x10u) != 0) || type == 0xD2 || type == 0xD6 || type == 0xF4;
-        const bool known = through_po ? po_known : ba_known;
-        const std::uint64_t address =
-            (through_po ? po : (ba & 0xFE000000u)) + (first & 0x01FFFFFFu);
-        const std::uint32_t plain = type < 0x40 ? (type & ~0x10u) : type;
-        bool writes = true;
-        bool word = false;  // written as a word, aligned down as the handler does
-        std::uint64_t bytes = 0;
-        if (plain == 0x00) {
-            bytes = (value >> 16) + 1u;
-        } else if (plain == 0x02) {
-            bytes = 2u * ((value >> 16) + 1u);
-        } else if (plain == 0x04) {
-            bytes = 4;
-            word = true;
-        } else if (plain == 0x06) {
-            bytes = value;
-        } else if (plain == 0x08) {
-            // The second line: TNNNZZZZ, a 1, 2 or 4-byte write (T) made
-            // NNN + 1 times, ZZZZ bytes apart.
-            const std::uint32_t second = get32(gct, at + 8);
-            const std::uint32_t size = (second >> 28) == 0 ? 1u : (second >> 28) == 1 ? 2u : 4u;
-            const std::uint64_t count = (second >> 16) & 0xFFFu;
-            bytes = count * (second & 0xFFFFu) + size;
-        } else if (type == 0xC2 || type == 0xD2 || type == 0xC6 || type == 0xD6 || type == 0xF2 || type == 0xF4) {
-            bytes = 4;  // the branch written at the address
-            word = true;
-        } else {
-            writes = false;
-        }
-        if (writes && known && !misses(word ? address & ~std::uint64_t(3) : address, bytes)) return false;
-        // 44 and 4C store the base or the pointer, a word at the base (its
-        // top seven bits, as for a write) plus the value, cut to 32 bits as
-        // the handler's stwx adds them (codehandleronly.s: 440Y0000 and
-        // 4C0Y0000). Only the plain form, the first word's low bits all
-        // zero; the one through the pointer (Y) isn't followed.
-        if ((type == 0x44 || type == 0x4C) && (first & 0x00FFFFFFu) == 0 && ba_known) {
-            const std::uint32_t store = static_cast<std::uint32_t>((ba & 0xFE000000u) + value);
-            if (!misses(store, 4)) return false;
-        }
-        // What sets the base or the pointer.
-        if (type == 0xE0 || type == 0xE2) {
-            // A nonzero top half sets the base, a nonzero low half the pointer.
-            if ((value >> 16) != 0) {
-                ba = value & 0xFFFF0000u;
-                ba_known = true;
-            }
-            if ((value & 0xFFFFu) != 0) {
-                po = (value & 0xFFFFu) << 16;
-                po_known = true;
-            }
-        } else if (type == 0x42 || type == 0x4A) {
-            // 42 sets the base, 4A the pointer; to the value when nothing is
-            // added to it (the first word's low bits all zero), else to a
-            // sum this doesn't follow.
-            const bool plain_set = (first & 0x00FFFFFFu) == 0;
-            if (type == 0x42) {
-                ba = value;
-                ba_known = plain_set;
-            } else {
-                po = value;
-                po_known = plain_set;
-            }
-        } else if (type == 0x40 || type == 0x46) {
-            ba_known = false;
-        } else if (type == 0x48 || type == 0x4E || type == 0xF6) {
-            // F6 points the pointer at what its search found.
-            po_known = false;
-        }
-        at += (1 + extra) * 8;
-    }
-    return at == end;
-}
 
 std::vector<SlotBCode> switch_off_slot_b_codes(std::vector<std::uint8_t>& gct, SlotBScan* scan) {
     std::vector<SlotBCode> switched_off;

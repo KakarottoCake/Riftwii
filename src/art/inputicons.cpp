@@ -86,19 +86,6 @@ static void paint_drawn_icon(const std::string& name, int size, Rgba color, Canv
     out = c;
 }
 
-// An icon's alpha mask out of its (count, value) pairs (inputicons_data.hpp).
-static bool unpack_alpha(const InputIconData& icon, std::vector<std::uint8_t>& alpha) {
-    const std::size_t pixels = static_cast<std::size_t>(kInputIconSource) * kInputIconSource;
-    alpha.clear();
-    alpha.reserve(pixels);
-    for (unsigned i = 0; i + 1 < icon.run_bytes; i += 2) {
-        const std::size_t count = icon.runs[i];
-        if (count > pixels - alpha.size()) return false;
-        alpha.insert(alpha.end(), count, icon.runs[i + 1]);
-    }
-    return alpha.size() == pixels;
-}
-
 bool paint_input_icon(const std::string& name, int size, Rgba color, Canvas& out) {
     if (size <= 0 || size > 256) return false;
     if (is_drawn_icon(name)) {
@@ -108,8 +95,7 @@ bool paint_input_icon(const std::string& name, int size, Rgba color, Canvas& out
     const InputIconData* icon = nullptr;
     for (unsigned i = 0; i < kInputIconCount; ++i)
         if (name == kInputIcons[i].name) icon = &kInputIcons[i];
-    std::vector<std::uint8_t> alpha;
-    if (!icon || !unpack_alpha(*icon, alpha)) return false;
+    if (!icon) return false;
     // Each target pixel's alpha: the source's over the area it covers
     // (area averaging, so a small badge keeps its letter's shape).
     const int src = kInputIconSource;
@@ -123,7 +109,7 @@ bool paint_input_icon(const std::string& name, int size, Rgba color, Canvas& out
                 const double hy = std::min<double>(sy + 1, y1) - std::max<double>(sy, y0);
                 for (int sx = static_cast<int>(x0); sx < src && sx < x1; ++sx) {
                     const double wx = std::min<double>(sx + 1, x1) - std::max<double>(sx, x0);
-                    sum += alpha[sy * src + sx] * wx * hy;
+                    sum += icon->alpha[sy * src + sx] * wx * hy;
                     area += wx * hy;
                 }
             }
