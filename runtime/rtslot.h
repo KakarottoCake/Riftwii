@@ -100,8 +100,10 @@ uint32_t rtslot_probe_count(const struct rtslot* s, uint32_t slot);
 void rtslot_kpad_read(struct rtslot* s, uint32_t slot, int32_t result, int32_t error, uint32_t now);
 
 /* The game's own WPADRead of `slot` answered `error` (0: a report, -1: no
- * controller), its report blank (all zeros) or not. Returns 1 when a real
- * Wii Remote holds the slot by that answer (its report stays). */
+ * controller), its report blank (all zeros) or not. Returns 1 when the
+ * game's own report stays: a real Wii Remote's, or, in connected-only mode,
+ * the pack's own report on a slot the stand-in still owns. It says nothing
+ * about who holds the slot: rtslot_owner does (CodeRabbit on #650). */
 int rtslot_wpad_read(struct rtslot* s, uint32_t slot, int32_t error, int blank);
 
 /* Whether the real controllers' slots are due a check of their own (the

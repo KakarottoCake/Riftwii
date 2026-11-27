@@ -89,7 +89,7 @@ A real Wii Remote that's turned on for the same player takes over from the GameC
 - **The Nunchuk can't be shaken** separately from the Wii Remote, so a game that wants both shaken in turn (Donkey Kong: Barrel Blast's racing) needs a pack.
 - **The pointer moves from a stick**, so pointing is slower and less exact than a real Wii Remote. Fine for menus and most aiming, harder for fast pointer games.
 
-Packs that bring their own GameCube controls (like quatric's controller patches, or packs made for one game) still work. When a pack you turned on brings its own controller code, it keeps the controls, and the launch screen says "A pack brings its own controls: 'Controllers act as' is off." You don't have to change the setting back.
+Packs that bring their own GameCube controls (like quatric's controller patches, or packs made for one game) still work. When a pack you turned on brings its own controller code, it keeps the controls, and the launch screen says "A pack brings its own controls: 'Controllers act as' is off." You don't have to change the setting back. One exception: a pack that uses the game's own GameCube controller code without adding any of its own (quatric's Sonic and the Secret Rings patch, for example) isn't recognised, so for a game with such a pack, leave **Controllers act as** on Default.
 
 Games that already support GameCube controllers don't need the override at all: leave them on Default.
 

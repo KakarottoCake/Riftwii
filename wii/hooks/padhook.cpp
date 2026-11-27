@@ -1543,7 +1543,9 @@ bool pack_wraps_wii_reads(const std::vector<MemoryPatch>& patches, const PackWri
                 const std::uint32_t old = *reinterpret_cast<const volatile std::uint32_t*>(static_cast<std::uint32_t>(at));
                 if (!is_bl(old) || !file_left(static_cast<std::uint32_t>(at))) continue;
                 const std::uint32_t target = bl_target(static_cast<std::uint32_t>(at), old);
-                if ((wpad_probe != 0 && target == wpad_probe) ||
+                // WPADRead too where the stand-in's form hooks it (CodeRabbit
+                // on #650).
+                if ((wpad_probe != 0 && target == wpad_probe) || (wpad_read != 0 && target == wpad_read) ||
                     (kpad_read != 0 && target <= kpad_read && kpad_read - target <= kReadEntry))
                     return true;
             }
@@ -1559,7 +1561,7 @@ bool pack_wraps_wii_reads(const std::vector<MemoryPatch>& patches, const PackWri
             const std::uint32_t old = *reinterpret_cast<const volatile std::uint32_t*>(at);
             if (!is_bl(old)) continue;
             const std::uint32_t target = bl_target(at, old);
-            if (!((wpad_probe != 0 && target == wpad_probe) ||
+            if (!((wpad_probe != 0 && target == wpad_probe) || (wpad_read != 0 && target == wpad_read) ||
                   (kpad_read != 0 && target <= kpad_read && kpad_read - target <= kReadEntry)))
                 continue;
             bool written = false;
@@ -1717,7 +1719,12 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
                                                  wpad_read_hooked, program_from_pack);
     const bool pack_ports =
         standin && !pack_reads_pad && !program_pad && !too_many && !pack_wraps && pack_reads_gc_ports(all_spans);
-    if (pack_reads_pad || program_pad || too_many || pack_wraps || (pack_ports && program_from_pack)) {
+    // With no adapter (the Wii's own ports), a pack that reads the ports
+    // itself has its GameCube controllers already, so the stand-in steps
+    // aside then too; with the adapter it keeps the controls, below
+    // (CodeRabbit on #650).
+    const bool pack_ports_own = pack_ports && (program_from_pack || !usb);
+    if (pack_reads_pad || program_pad || too_many || pack_wraps || pack_ports_own) {
         // (Its own code wins over the game's setting and over a pack's
         // riftwii-gc-controllers request alike: one input, never both.)
         logf("GameCube adapter: a pack brings its own controller code (%s), so the GameCube controllers' stand-in "
@@ -1726,7 +1733,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
              : program_pad  ? "the program file it brings has a PADRead"
              : too_many     ? "its memory patches write more than the checks follow"
              : pack_wraps   ? "it hooks or reroutes the game's Wii controller reads"
-                            : "it reads the GameCube ports, in the program file it brings");
+             : program_from_pack ? "it reads the GameCube ports, in the program file it brings"
+                                 : "it reads the Wii's own GameCube ports itself");
         // The menu can't know this before the game's code is in memory:
         // said on the launch screen too.
         // (Written out twice: tools/lang_source.py finds tr's literals.)
