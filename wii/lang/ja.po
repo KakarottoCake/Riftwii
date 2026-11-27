@@ -3654,6 +3654,78 @@ msgstr "RiftWiiの各部分の作者とライセンスです。"
 msgid "Your SteamGridDB key."
 msgstr "あなたのSteamGridDBのキーです。"
 
+msgid "The TV signal this game uses."
+msgstr "このゲームが使うテレビ信号です。"
+
+msgid "A picture for a game from another region."
+msgstr "ほかの地域のゲームの画面を映します。"
+
+msgid "Makes this game use 4:3 or widescreen."
+msgstr "このゲームを4:3かワイドにします。"
+
+msgid "Lets the Wii Remotes rumble in this game."
+msgstr "このゲームでWiiリモコンを振動させます。"
+
+msgid "Sound from the Wii Remotes' speakers."
+msgstr "Wiiリモコンのスピーカーの音です。"
+
+msgid "Country names for a game from another region."
+msgstr "ほかの地域のゲームの国名です。"
+
+msgid "The language this game is told to use."
+msgstr "このゲームに伝える言語です。"
+
+msgid "The system software this game runs under."
+msgstr "このゲームを動かすシステムソフトです。"
+
+msgid "Which copy of the Wii's memory starts it."
+msgstr "どのWii本体メモリーから起動するかです。"
+
+msgid "Downloads this game's box art now."
+msgstr "このゲームのパッケージ画像を今ダウンロードします。"
+
+msgid "Some games have a second GameTDB cover."
+msgstr "GameTDBに2つ目のパッケージがあるゲームもあります。"
+
+msgid "Pick any of GameTDB's covers."
+msgstr "GameTDBのパッケージから選べます。"
+
+msgid "Where this tile's cover and About page come from."
+msgstr "このタイルのパッケージと情報ページの元です。"
+
+msgid "How fast the game's disc is read."
+msgstr "ゲームのディスクを読む速さです。"
+
+msgid "Which memory card this game uses."
+msgstr "このゲームが使うメモリーカードです。"
+
+msgid "480p, 240p or the game's own picture."
+msgstr "480p、240p、またはゲーム本来の画面です。"
+
+msgid "Fills a widescreen TV with the game world."
+msgstr "ワイドテレビいっぱいにゲームの世界を映します。"
+
+msgid "60 Hz plays smoother on a TV that takes it."
+msgstr "対応テレビなら60 Hzでなめらかに動きます。"
+
+msgid "Makes a quiet game louder."
+msgstr "音の小さいゲームを大きくします。"
+
+msgid "The language this game plays in."
+msgstr "このゲームを遊ぶ言語です。"
+
+msgid "Which buttons act as the GameCube controller's."
+msgstr "ゲームキューブコントローラーの代わりになるボタンです。"
+
+msgid "What RiftWii's extras take from the game."
+msgstr "RiftWiiの追加機能がゲームから使う分です。"
+
+msgid "Puts this game's options back to Settings."
+msgstr "このゲームのオプションを設定の内容に戻します。"
+
+msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
+msgstr "ほとんどの人が使わないオプションを表示します: cIOS、地域の修正、読み込み速度。変更したものは常に表示されます。"
+
 msgid "Channel background"
 msgstr "チャンネルの背景"
 

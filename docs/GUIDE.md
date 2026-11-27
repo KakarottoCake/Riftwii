@@ -526,7 +526,11 @@ USB drive: choose another Saves option on its page.
   visits.
 - **Favourite** (under the box) puts the game in Home's Favourites view.
 - **Options** opens the game's own settings, a list of rows; the tile
-  says how many differ from Settings:
+  says how many differ from Settings. The rows look and work as on
+  Settings' pages: a short line under each, *Next game* on the ones read
+  when the game starts, A on a choice for its list of values, and
+  **Show advanced settings** at the end for the cIOS, the region fixes
+  and the loading speed (one you changed is shown either way):
 - **Picture width**, **Deflicker** and **Black borders** change how the
   game draws its picture, like USB Loader GX's video settings:
   - *Picture width*: 720 fills the TV from side to side; many games

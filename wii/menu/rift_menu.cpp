@@ -9757,7 +9757,7 @@ struct RowRef {
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs,
-		CoverSet, CoverPick, GameTdbEntry, GetMods } what = What::Note;
+		CoverSet, CoverPick, GameTdbEntry, GetMods, ShowAdvanced } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -16464,11 +16464,118 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 // none says so (and the first stays).
 static bool g_coverSecondAsked = false;
 
+// A game's own Settings page is made like Settings' pages
+// (MenuSettingsSection): a plain line under each row, "Next game" where a
+// change waits for the game to start, on and off as a switch, actions as
+// buttons, and the options most players never need behind Show advanced
+// settings, the same switch as Settings' (one a player changed stays in
+// sight, so nothing set is ever out of view).
+static bool AdvancedSettingsShown()
+{
+	const auto& other = riftwii::wii::Settings().other;
+	const auto it = other.find("settings_advanced");
+	return it != other.end() && it->second == "on";
+}
+
+static bool GameRowAdvanced(RowRef::What what)
+{
+	using W = RowRef::What;
+	return what == W::Cios || what == W::NandSource || what == W::RegionVideo || what == W::RegionStrings ||
+		what == W::GcDiscReads || what == W::Memory;
+}
+
+static std::string GameRowShortNote(RowRef::What what)
+{
+	using W = RowRef::What;
+	switch (what) {
+		case W::Width: case W::GcWidth: return tr("How wide the game's picture is drawn.");
+		case W::Deflicker: return tr("Softens the picture to hide flicker.");
+		case W::Borders: return tr("Removes black bars at the picture's edges.");
+		case W::VideoMode: return tr("The TV signal this game uses.");
+		case W::RegionVideo: return tr("A picture for a game from another region.");
+		case W::Aspect: return tr("Makes this game use 4:3 or widescreen.");
+		case W::Rumble: return tr("Lets the Wii Remotes rumble in this game.");
+		case W::Speaker: return tr("Sound from the Wii Remotes' speakers.");
+		case W::RegionStrings: return tr("Country names for a game from another region.");
+		case W::Language: return tr("The language this game is told to use.");
+		case W::Cios: return tr("The system software this game runs under.");
+		case W::NandSource: return tr("Which copy of the Wii's memory starts it.");
+		case W::Server: return tr("The online service that replaces Nintendo's.");
+		case W::Cover: return tr("Downloads this game's box art now.");
+		case W::CoverSet: return tr("Some games have a second GameTDB cover.");
+		case W::CoverPick: return tr("Pick any of GameTDB's covers.");
+		case W::GameTdbEntry: return tr("Where this tile's cover and About page come from.");
+		case W::GcDiscReads: return tr("How fast the game's disc is read.");
+		case W::GcCard: return tr("Which memory card this game uses.");
+		case W::GcProgressive: return tr("480p, 240p or the game's own picture.");
+		case W::GcWidescreen: return tr("Fills a widescreen TV with the game world.");
+		case W::GcSharp: return tr("Turns off the soft blur some games add.");
+		case W::GcSpeed: return tr("60 Hz plays smoother on a TV that takes it.");
+		case W::GcVolume: return tr("Makes a quiet game louder.");
+		case W::GcLanguage: return tr("The language this game plays in.");
+		case W::GcControls: return tr("Which buttons act as the GameCube controller's.");
+		case W::Memory: return tr("What RiftWii's extras take from the game.");
+		case W::ResetOptions: return tr("Puts this game's options back to Settings.");
+		case W::ShowAdvanced: return tr("Settings for experienced players.");
+		default: return "";
+	}
+}
+
+// BuildGameRows' rows for the game's Settings page, made as above.
+static void DecorateGameSettingRows(std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+{
+	using W = RowRef::What;
+	const bool showAdvanced = AdvancedSettingsShown();
+	bool anyAdvanced = false;
+	std::vector<FlowRow> kept;
+	std::vector<RowRef> keptRefs;
+	for (std::size_t i = 0; i < rows.size() && i < refs.size(); ++i) {
+		FlowRow row = rows[i];
+		const RowRef ref = refs[i];
+		// One list, as on Settings' pages: no group names.
+		if (row.heading) continue;
+		if (GameRowAdvanced(ref.what)) {
+			anyAdvanced = true;
+			if (!showAdvanced && !row.on) continue;
+		}
+		row.detail = GameRowShortNote(ref.what);
+		// Sharper picture is on or off: a switch, as Rumble's.
+		if (ref.what == W::GcSharp) {
+			row.kind = FlowRow::Kind::Toggle;
+			row.value = row.on ? tr("On") : tr("Off");
+		}
+		// Every option here is read when the game starts.
+		const bool setting = row.kind == FlowRow::Kind::Option || row.kind == FlowRow::Kind::Toggle;
+		if (setting && !row.dim) row.tag = tr("Next game");
+		if (ref.what == W::Cover && row.kind == FlowRow::Kind::Action) row.button = true;
+		if (ref.what == W::ResetOptions) {
+			row.value = tr("Reset");
+			row.button = true;
+		}
+		if (ref.what == W::GcControls || ref.what == W::CoverPick) row.opens = true;
+		kept.push_back(row);
+		keptRefs.push_back(ref);
+	}
+	if (anyAdvanced) {
+		FlowRow advanced;
+		advanced.kind = FlowRow::Kind::Toggle;
+		advanced.label = tr("Show advanced settings");
+		advanced.on = showAdvanced;
+		advanced.value = showAdvanced ? tr("On") : tr("Off");
+		advanced.detail = GameRowShortNote(W::ShowAdvanced);
+		kept.push_back(advanced);
+		keptRefs.push_back({W::ShowAdvanced});
+	}
+	rows.swap(kept);
+	refs.swap(keptRefs);
+}
+
 static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 {
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs, true, false);
+	DecorateGameSettingRows(rows, refs);
 
 	// As wide as the game page that opened it: at 16:9 the rows' names get
 	// the room the TV has past the 4:3 middle ("GameCube controllers" was
@@ -16488,10 +16595,13 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	const int titleEnd = page.left + 38 + titleTxt.GetTextWidth();
 	gameTxt.SetMaxWidth(page.right - titleEnd - 24);
 	NoteCard noteCard(page.left);
-	GuiFlowList list(page.left, 84, page.Width(), 5);
+	// Two lines a row, as Settings' pages: four rows to a page.
+	GuiFlowList list(page.left, 84, page.Width(), 4);
 	list.SetCards(true);
+	list.SetRowHeight(58);
+	list.SetNotesUnder(true);
 	list.SetRows(&rows);
-	list.Select(1);
+	list.Select(0);
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, page.left + 36, NoteCard::kTextY);
 	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
@@ -16529,6 +16639,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		std::vector<FlowRow> readyRows;
 		std::vector<RowRef> readyRefs;
 		BuildGameRows(state, readyRows, readyRefs, true);
+		DecorateGameSettingRows(readyRows, readyRefs);
 		HaltGui();
 		rows.swap(readyRows);
 		refs.swap(readyRefs);
@@ -16537,7 +16648,92 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	refreshRows();
 	ResumeGui();
 
-	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	// The text under the list, kept as said: a choice's list shows its row's.
+	std::string said;
+	const auto say = [&](const std::string& text) {
+		said = text;
+		noteTxt.SetText(text.c_str());
+	};
+	// A choice's values in the order its row steps through them, named as
+	// the row shows them, and which is set: -1 for a row with no list
+	// (picking value i steps the row i - set, as Settings' lists do).
+	const auto choicesOf = [&](RowRef::What what, std::vector<std::string>& labels) -> int {
+		using W = RowRef::What;
+		labels.clear();
+		const riftwii::GameSettings& game = state.model.game;
+		const riftwii::LoaderSettings& global = riftwii::wii::Settings();
+		const auto fromList = [&](const auto& list, const std::string& value, const std::string& globalValue,
+					  std::string (*name)(const std::string&)) {
+			int set = 0;
+			const std::size_t n = sizeof(list) / sizeof(list[0]);
+			for (std::size_t i = 0; i < n; ++i) {
+				if (value == list[i]) set = static_cast<int>(i);
+				labels.push_back(GameValue(list[i], globalValue, name));
+			}
+			return set;
+		};
+		const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
+		// The GameCube rows' Default, named as what it comes to now.
+		riftwii::GameSettings asDefault = game;
+		switch (what) {
+			case W::Width: return fromList(kWidths, game.video_width, global.video_width, WidthName);
+			case W::GcWidth: return fromList(kWidths, game.gc_width, global.video_width, WidthName);
+			case W::Deflicker: return fromList(kDeflickers, game.deflicker, global.deflicker, DeflickerName);
+			case W::Borders: {
+				const int set = fromList(kBorderModes, game.borders, global.borders, BordersName);
+				labels[0] = tr("Default ({1})", {BordersShortName(global.borders)});
+				return set;
+			}
+			case W::VideoMode: return fromList(kVideoModes, game.video_mode, global.video_mode, VideoModeName);
+			case W::Aspect: return fromList(kAspects, game.aspect, global.aspect, AspectName);
+			case W::Language: return fromList(kGameLanguages, game.language, global.game_language, GameLanguageName);
+			case W::Cios:
+				// The channel's IOS list is the console's own: stepped only.
+				if (state.use_channel) return -1;
+				return fromList(kCiosChoices, game.cios, global.game_cios, CiosName);
+			case W::Server: return fromList(kServers, game.server, global.wfc_server, ServerName);
+			case W::GcVolume: return fromList(kGcVolumeChoices, game.gc_volume, game.gc_volume, GcVolumeName);
+			case W::GcProgressive: {
+				asDefault.gc_progressive = "global";
+				const std::string now = riftwii::gc_progressive_on(asDefault, state.game_id, console) ? std::string(tr("On"))
+					: riftwii::gc_line240_on(asDefault, state.game_id, console) ? std::string("240p") : std::string(tr("Off"));
+				// kGcProgressiveChoices' order: global, 480p, 240p, game.
+				labels = {tr("Default ({1})", {now}), tr("On (480p)"), "240p", tr("Off")};
+				int set = 0;
+				for (std::size_t i = 0; i < sizeof(kGcProgressiveChoices) / sizeof(kGcProgressiveChoices[0]); ++i)
+					if (game.gc_progressive == kGcProgressiveChoices[i]) set = static_cast<int>(i);
+				return set;
+			}
+			case W::GcWidescreen: {
+				asDefault.gc_widescreen = "global";
+				const std::string now = riftwii::gc_widescreen_on(asDefault, state.game_id, console)
+					? std::string("16:9") : std::string(tr("Game's own"));
+				// kGcWidescreenChoices' order: global, 16:9, game.
+				labels = {tr("Default ({1})", {now}), "16:9", tr("Game's own")};
+				return game.gc_widescreen == "16:9" ? 1 : game.gc_widescreen == "game" ? 2 : 0;
+			}
+			case W::GcLanguage: {
+				asDefault.gc_language = "global";
+				const int number = riftwii::gc_language_number(asDefault, console);
+				const std::string now = GcLanguageName(number >= 0 ? riftwii::kGcLanguages[number] : "game");
+				int set = 0;
+				for (std::size_t i = 0; i < sizeof(kGcLanguageChoices) / sizeof(kGcLanguageChoices[0]); ++i) {
+					if (game.gc_language == kGcLanguageChoices[i]) set = static_cast<int>(i);
+					labels.push_back(i == 0 ? tr("Default ({1})", {now}) : GcLanguageName(kGcLanguageChoices[i]));
+				}
+				return set;
+			}
+			// Two each: the handler switches between them.
+			case W::GcSpeed:
+				labels = {tr("As made (50 Hz)"), tr("Smoother (60 Hz)")};
+				return game.gc_speed == "60" ? 1 : 0;
+			case W::GcDiscReads:
+				labels = {tr("Fast"), tr("As on a GameCube (slower)")};
+				return game.gc_disc_reads == "drive" ? 1 : 0;
+			default:
+				return -1;
+		}
+	};
 	int shownRow = -1;
 	bool done = false;
 	while (!done)
@@ -16655,6 +16851,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 			else if (ref.what == RowRef::What::ResetOptions)
 				say(tr("Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."));
+			else if (ref.what == RowRef::What::ShowAdvanced)
+				say(tr("Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."));
 			else say("");
 		}
 
@@ -16675,6 +16873,56 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(ProtectedGameNote());
 				ResumeGui();
 				continue;
+			}
+			if (ref.what == RowRef::What::ShowAdvanced) {
+				// The same switch as Settings' pages, saved with the settings.
+				auto& other = riftwii::wii::Settings().other;
+				const bool wasShown = AdvancedSettingsShown();
+				other["settings_advanced"] = wasShown ? "off" : "on";
+				if (!riftwii::wii::SaveSettings()) {
+					other["settings_advanced"] = wasShown ? "on" : "off";
+					say(SettingsWriteFailureText());
+				}
+				refreshRows();
+				// Rows came or went above it: the focus stays on this row.
+				for (std::size_t i = 0; i < refs.size(); ++i)
+					if (refs[i].what == RowRef::What::ShowAdvanced) list.Select(static_cast<int>(i));
+				ResumeGui();
+				continue;
+			}
+			// A on a choice (not its arrows) lists its values to pick from,
+			// as on Settings' pages; the arrows still step.
+			const FlowRow actedRow = rows[static_cast<std::size_t>(acted)];
+			if (direction > 0 && !list.LastClickStepped() && actedRow.kind == FlowRow::Kind::Option && !actedRow.dim) {
+				std::vector<std::string> labels;
+				const int set = choicesOf(ref.what, labels);
+				if (set >= 0 && labels.size() > 1) {
+					const std::string about = said;
+					std::vector<FlowRow> choiceRows(labels.size());
+					for (std::size_t i = 0; i < labels.size(); ++i) {
+						choiceRows[i].kind = FlowRow::Kind::Action;
+						choiceRows[i].label = labels[i];
+						if (static_cast<int>(i) == set) {
+							choiceRows[i].on = true;
+							choiceRows[i].value = tr("In use");
+						}
+					}
+					int picked = -1;
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					RunRowPage(actedRow.label, gameName, choiceRows, [&](int) { return about; },
+						[&](int i, const PageAside&) { picked = i; return true; }, nullptr, 0, set, &skin::iconGear);
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					list.GetClicked();
+					list.GetClickedBack();
+					backBtn.button.ResetState();
+					if (picked < 0 || picked == set) {
+						ResumeGui();
+						continue;
+					}
+					direction = picked - set;
+				}
 			}
 			riftwii::GameSettings& game = state.model.game;
 			// What a reset that cannot be saved puts back.

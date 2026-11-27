@@ -3654,6 +3654,78 @@ msgstr "Les auteurs des parties de RiftWii et sa licence."
 msgid "Your SteamGridDB key."
 msgstr "Votre clé SteamGridDB."
 
+msgid "The TV signal this game uses."
+msgstr "Le signal TV utilisé par ce jeu."
+
+msgid "A picture for a game from another region."
+msgstr "Une image pour un jeu d'une autre région."
+
+msgid "Makes this game use 4:3 or widescreen."
+msgstr "Fait passer ce jeu en 4:3 ou en écran large."
+
+msgid "Lets the Wii Remotes rumble in this game."
+msgstr "Fait vibrer les Wiimotes dans ce jeu."
+
+msgid "Sound from the Wii Remotes' speakers."
+msgstr "Le son des haut-parleurs des Wiimotes."
+
+msgid "Country names for a game from another region."
+msgstr "Les noms de pays pour un jeu d'une autre région."
+
+msgid "The language this game is told to use."
+msgstr "La langue indiquée à ce jeu."
+
+msgid "The system software this game runs under."
+msgstr "Le logiciel système sous lequel tourne ce jeu."
+
+msgid "Which copy of the Wii's memory starts it."
+msgstr "La copie de la mémoire de la Wii qui le lance."
+
+msgid "Downloads this game's box art now."
+msgstr "Télécharge la jaquette de ce jeu maintenant."
+
+msgid "Some games have a second GameTDB cover."
+msgstr "Certains jeux ont une seconde jaquette sur GameTDB."
+
+msgid "Pick any of GameTDB's covers."
+msgstr "Choisissez une des jaquettes de GameTDB."
+
+msgid "Where this tile's cover and About page come from."
+msgstr "D'où viennent la jaquette et la page À propos de cette tuile."
+
+msgid "How fast the game's disc is read."
+msgstr "La vitesse de lecture du disque du jeu."
+
+msgid "Which memory card this game uses."
+msgstr "La carte mémoire utilisée par ce jeu."
+
+msgid "480p, 240p or the game's own picture."
+msgstr "480p, 240p ou l'image d'origine du jeu."
+
+msgid "Fills a widescreen TV with the game world."
+msgstr "Remplit une TV écran large avec le monde du jeu."
+
+msgid "60 Hz plays smoother on a TV that takes it."
+msgstr "60 Hz est plus fluide sur une TV qui l'accepte."
+
+msgid "Makes a quiet game louder."
+msgstr "Rend un jeu trop discret plus fort."
+
+msgid "The language this game plays in."
+msgstr "La langue dans laquelle se joue ce jeu."
+
+msgid "Which buttons act as the GameCube controller's."
+msgstr "Les boutons qui servent de manette GameCube."
+
+msgid "What RiftWii's extras take from the game."
+msgstr "Ce que les extras de RiftWii prennent au jeu."
+
+msgid "Puts this game's options back to Settings."
+msgstr "Remet les options de ce jeu à celles des Réglages."
+
+msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
+msgstr "Affiche les options dont presque personne n'a besoin : le cIOS, les corrections de région et la vitesse de chargement. Celles que vous avez changées restent affichées."
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 

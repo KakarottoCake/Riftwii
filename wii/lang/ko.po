@@ -3654,6 +3654,78 @@ msgstr "RiftWii 구성 요소의 제작자와 라이선스입니다."
 msgid "Your SteamGridDB key."
 msgstr "내 SteamGridDB 키입니다."
 
+msgid "The TV signal this game uses."
+msgstr "이 게임이 사용하는 TV 신호입니다."
+
+msgid "A picture for a game from another region."
+msgstr "다른 지역 게임의 화면을 표시합니다."
+
+msgid "Makes this game use 4:3 or widescreen."
+msgstr "이 게임을 4:3 또는 와이드로 표시합니다."
+
+msgid "Lets the Wii Remotes rumble in this game."
+msgstr "이 게임에서 Wii 리모컨 진동을 켭니다."
+
+msgid "Sound from the Wii Remotes' speakers."
+msgstr "Wii 리모컨 스피커의 소리입니다."
+
+msgid "Country names for a game from another region."
+msgstr "다른 지역 게임의 국가 이름입니다."
+
+msgid "The language this game is told to use."
+msgstr "이 게임에 알려 주는 언어입니다."
+
+msgid "The system software this game runs under."
+msgstr "이 게임이 실행되는 시스템 소프트웨어입니다."
+
+msgid "Which copy of the Wii's memory starts it."
+msgstr "어느 Wii 메모리 사본으로 시작할지입니다."
+
+msgid "Downloads this game's box art now."
+msgstr "이 게임의 표지를 지금 내려받습니다."
+
+msgid "Some games have a second GameTDB cover."
+msgstr "일부 게임은 GameTDB에 두 번째 표지가 있습니다."
+
+msgid "Pick any of GameTDB's covers."
+msgstr "GameTDB의 표지 중에서 고릅니다."
+
+msgid "Where this tile's cover and About page come from."
+msgstr "이 타일의 표지와 정보 페이지를 가져오는 곳입니다."
+
+msgid "How fast the game's disc is read."
+msgstr "게임 디스크를 읽는 속도입니다."
+
+msgid "Which memory card this game uses."
+msgstr "이 게임이 사용하는 메모리 카드입니다."
+
+msgid "480p, 240p or the game's own picture."
+msgstr "480p, 240p 또는 게임 원래의 화면입니다."
+
+msgid "Fills a widescreen TV with the game world."
+msgstr "와이드 TV를 게임 세계로 가득 채웁니다."
+
+msgid "60 Hz plays smoother on a TV that takes it."
+msgstr "지원하는 TV에서는 60 Hz가 더 부드럽습니다."
+
+msgid "Makes a quiet game louder."
+msgstr "소리가 작은 게임을 크게 합니다."
+
+msgid "The language this game plays in."
+msgstr "이 게임을 플레이하는 언어입니다."
+
+msgid "Which buttons act as the GameCube controller's."
+msgstr "게임큐브 컨트롤러 대신 쓰는 버튼입니다."
+
+msgid "What RiftWii's extras take from the game."
+msgstr "RiftWii의 추가 기능이 게임에서 쓰는 양입니다."
+
+msgid "Puts this game's options back to Settings."
+msgstr "이 게임의 옵션을 설정 값으로 되돌립니다."
+
+msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
+msgstr "대부분 필요 없는 옵션을 표시합니다: cIOS, 지역 수정, 읽기 속도. 바꾼 옵션은 항상 표시됩니다."
+
 msgid "Channel background"
 msgstr "채널 배경"
 
