@@ -19999,7 +19999,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kChannelCorners:
 				return fromList(kChannelCornerChoices, true, settings.channel_corners, ChannelCornersName);
 			case kReturnTo:
-				return two(settings.return_to == "menu", tr("Back to RiftWii"), tr("Wii Menu"));
+				// The returnto test switch sends games to the Wii Menu whatever is saved.
+				return two(settings.return_to == "menu" || riftwii::wii::debug_off("returnto"), tr("Back to RiftWii"),
+					tr("Wii Menu"));
 			case kLeaveButtons:
 				return two(settings.leave_buttons == "off", tr("HOME or buttons"), tr("HOME only"));
 			case kHomeStart:
@@ -20546,7 +20548,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			std::string typedLower = lowerAscii(text);
 			typedLower.erase(0, typedLower.find_first_not_of(' ') == std::string::npos ? typedLower.size()
 				: typedLower.find_first_not_of(' '));
-			for (const char c : std::string("abcdefghijklmnopqrstuvwxyz0123456789 :-")) {
+			for (const char c : std::string("abcdefghijklmnopqrstuvwxyz0123456789 :-'.")) {
 				for (const std::string& hay : allHays) {
 					const bool fits = c == ' ' ? !typedLower.empty() && typedLower.back() != ' ' && hayMatches(hay, typedLower)
 						: hayMatches(hay, typedLower + c);
@@ -20868,7 +20870,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// list lacks (SD with the SD card not searched, a Wii U's
 					// saved real card), shown as the first: picking even that
 					// one sets it, as the handler takes a pick as it is.
-					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource;
+					// Quitting a game with its test switch on: a pick, even
+					// the one in use, takes the switch out (its help says A
+					// here does).
+					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource ||
+						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto"));
 					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
 					else {
 						direction = picked - set;
@@ -20880,7 +20886,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				stepIt = false;
 				settings.other["settings_advanced"] = advancedShown() ? "off" : "on";
 				if (saveOrUndo()) note(help(kAdvanced));
-				rebuild();
+				// Rows came or went above it: the focus stays on this row, the last.
+				build();
+				list.Refresh();
+				list.Select(static_cast<int>(rows.size()) - 1);
 			}
 			if (stepIt) switch (actedAction) {
 				case kEmulators:
