@@ -43,6 +43,8 @@ public:
 	void SetMaxWidth(int w);
 	//!Gets the width of the text when rendered
 	int GetTextWidth();
+	//!RiftWii: the width of the widest piece the wrapping can't break inside
+	int GetLongestPieceWidth();
 	//!Enables/disables text scrolling
 	//!\param s Scrolling on/off
 	void SetScroll(SCROLL s);

@@ -3599,6 +3599,23 @@ private:
 // Short cards (two rows of them, kChoiceShortCard) put the count in the
 // top right corner, to leave room under the picture for two lines of name.
 static constexpr int kChoiceShortCard = 96;
+// The largest size from `points` down to `smallest` at which every name
+// in `tiles` fits its card (tile.w - 12): no piece the wrapping can't
+// break inside (a word, or a Japanese run between good breaks) is wider.
+// One size for the whole chooser keeps a row of names even.
+static int ChoiceNameSize(const std::vector<TileSpec>& tiles, int points, int smallest)
+{
+	int size = points;
+	for (const TileSpec& tile : tiles) {
+		GuiText probe(tile.label.c_str(), size, skin::kInk);
+		while (size > smallest && probe.GetLongestPieceWidth() > tile.w - 12) {
+			--size;
+			probe.SetFontSize(size);
+		}
+	}
+	return size;
+}
+
 class HomeChoiceCards : public GuiElement {
 public:
 	// `current` and `alsoCurrent` (-1 for none) are drawn as the ones in use:
@@ -3612,6 +3629,7 @@ public:
 	{
 		width = screenwidth;
 		height = screenheight;
+		const int nameSize = ChoiceNameSize(tiles_, 15, 12);
 		for (std::size_t index = 0; index < tiles_.size(); ++index) {
 			const std::string text = index < glyphs.size() ? glyphs[index] : std::string();
 			std::unique_ptr<GuiText> glyph(new GuiText(text.empty() ? nullptr : text.c_str(), 22, skin::kInk));
@@ -3629,6 +3647,10 @@ public:
 			// (4:3 wraps "Recently played" and most translations); a tall card
 			// with a count wraps at three.
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
+			// A word wider than the card has no place to wrap and ran edge to
+			// edge ("Jacquettes" at 4:3): every name gets the size at which the
+			// widest one fits, down to 12 points.
+			label->SetFontSize(nameSize);
 			// A short card and a card with no count have the picture and the
 			// name centred in the card as one block, worked out below (a short
 			// card's count sits in its top-right corner, clear of both). A tall
