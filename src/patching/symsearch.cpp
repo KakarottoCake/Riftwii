@@ -659,6 +659,7 @@ std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std
     constexpr std::uint32_t kWpadReach = 0x10000;
     std::uint32_t found = 0;
     for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;  // a range with no bytes behind it (CodeRabbit on #616)
         const std::size_t words = r.size / 4;
         for (std::size_t i = 0; i < words; ++i) {
             const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
@@ -679,6 +680,7 @@ std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std
     // from the game's own code too (CodeRabbit on #609).
     unsigned near = 0;
     for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
         const std::size_t words = r.size / 4;
         for (std::size_t i = 0; i < words; ++i) {
             const std::uint32_t w = be32(r.bytes + i * 4);

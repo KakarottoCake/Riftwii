@@ -4,6 +4,7 @@
 #include "riftwii/byteorder.hpp"
 
 #include "codescan.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -398,7 +399,9 @@ std::vector<std::pair<std::uint32_t, std::int32_t>> wpad_setters(const std::vect
     constexpr std::size_t kMaxSetterWords = 48;
     constexpr std::int32_t kBlockFields = 0x400;  // the callbacks sit past the control block's buffers
     std::vector<std::pair<std::uint32_t, std::int32_t>> setters;
+    bool out_of_room = false;
     each_framed_function(text, kMaxSetterWords, [&](const CodeRange& r, std::size_t start, std::size_t end) {
+        if (out_of_room) return;
         RegTrack regs(text, r, start, end, RegTrack::kArguments | RegTrack::kAddresses);
         regs.follow(4);  // the new callback, the second argument
         std::uint32_t table = 0;
@@ -447,11 +450,17 @@ std::vector<std::pair<std::uint32_t, std::int32_t>> wpad_setters(const std::vect
             // stw: the new one, the second argument. Once per function, though
             // more than one of its paths swaps the same slot.
             const std::pair<std::uint32_t, std::int32_t> setter(table, simm(insn));
+            // Its length comes from the game's code: grown through the
+            // checked push (AGENTS.md). With no room, the list is dropped
+            // and the finders that use it find nothing, as in a game without
+            // these setters (CodeRabbit on #616).
             if (std::find(setters.begin() + static_cast<std::ptrdiff_t>(first_of_function), setters.end(), setter) ==
-                setters.end())
-                setters.push_back(setter);
+                    setters.end() &&
+                !try_push_back(setters, setter))
+                out_of_room = true;
         }
     });
+    if (out_of_room) setters.clear();
     return setters;
 }
 

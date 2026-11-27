@@ -326,7 +326,16 @@ bool blob_whole(int kind) {
     if (!standin_kind(kind)) return true;
     const rt_pad_standin_header& sh =
         *reinterpret_cast<const rt_pad_standin_header*>(blob(kind) + sizeof(rt_pad_header));
-    return sh.hook_info != 0 && sh.replay_info != 0 && sh.continue_info != 0;
+    if (sh.hook_info == 0 || sh.replay_info == 0 || sh.continue_info == 0) return false;
+    // WPADRead's and WPADSetDataFormat's: all three of each or none (the
+    // Classic Controller's builds have none); a hook with no replay or way
+    // back would have the install write at the blob's start (CodeRabbit on
+    // #616).
+    const auto whole_or_none = [](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume) {
+        return hook == 0 ? replay == 0 && resume == 0 : replay != 0 && resume != 0;
+    };
+    return whole_or_none(sh.hook_wread, sh.replay_wread, sh.continue_wread) &&
+           whole_or_none(sh.hook_format, sh.replay_format, sh.continue_format);
 }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {

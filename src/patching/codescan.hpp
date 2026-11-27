@@ -79,7 +79,7 @@ void each_framed_function(const std::vector<CodeRange>& text, std::size_t max_wo
 // `addi` from it) and, for each argument register the finder follows, the
 // registers holding its value (it and its `mr` copies). Read a word's
 // registers as it finds them, then step() past it:
-//   RegTrack t(text, range, start, end, RegTrack::kAddresses);
+//   RegTrack t(text, range, start, end, RegTrack::kArguments | RegTrack::kAddresses);
 //   t.follow(4);
 //   for (k = start; k < end; ++k) { ... t.copies(4), t.address(a) ...; t.step(k); }
 // A register written loses what it held; a call clobbers r0 and r3-r12

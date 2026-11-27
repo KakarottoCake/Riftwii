@@ -1411,12 +1411,17 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
                 uint8_t* entry = status + (uint32_t)i * c->kpad_unified_bytes;
                 uint8_t raw[RTHOME_WPAD_STATUS_BYTES];
                 uint32_t k;
-                /* The device and format the static writer gives, over the
-                 * sample's buttons, accelerometer and dots. */
+                /* The format the sample was written in (rtgcwii_unified:
+                 * the one the game asked for, the Nunchuk's by default), so
+                 * the byte describes the report (CodeRabbit on #616); the
+                 * static writer's, by the camera, only where the game's
+                 * choice isn't known. The device from the static writer,
+                 * over the sample's buttons, accelerometer and dots. */
+                const uint8_t written = entry[c->kpad_unified_bytes - 2u];
                 pad_gcwii_wpad_status(raw, hold, own, 0);
                 entry[40] = raw[40];
                 for (k = RTHOME_WPAD_STATUS_BYTES - 2u; k < c->kpad_unified_bytes; ++k) entry[k] = 0;
-                entry[c->kpad_unified_bytes - 2u] = raw[RTHOME_WPAD_STATUS_BYTES - 2u];
+                entry[c->kpad_unified_bytes - 2u] = written != 0 ? written : raw[RTHOME_WPAD_STATUS_BYTES - 2u];
             }
 #else
             for (i = 0; i < count; ++i) {
@@ -1572,6 +1577,15 @@ void pad_on_wpad_read(struct rt_pad_context* c, int32_t chan, uint8_t* status) {
         if (pad_in_ram(wants)) camera = *(const volatile uint8_t*)wants != 0;
     }
     msr = interrupts_off();
+    /* The HOME Menu's stand-in holding the channel in another shape (a
+     * Classic Controller, on a channel it took free before a GameCube
+     * controller came to that port): WPADProbe and the KPAD read answer in
+     * its shape, so this form's report isn't given here either, and the
+     * game's own report stays (CodeRabbit on #616). */
+    if (pad_owner(c, (uint32_t)chan, now()) == RTSLOT_HOME && !pad_home_keeps_shape(c, (uint32_t)chan)) {
+        interrupts_restore(msr);
+        return;
+    }
     if (rtgcwii_wpad_status(w, (uint32_t)chan, status, now(), camera) != 0) rtgcwii_heard(w, (uint32_t)chan);
     interrupts_restore(msr);
 }
