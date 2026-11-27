@@ -1291,8 +1291,19 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
             rthome_menu_open(&c->home) ? pointer
             : (rtslot_on(&w->slot, (uint32_t)chan) && ((w->shape.camera >> (uint32_t)chan) & 1u)) ? w->shape.pointer[chan]
                                                                                                    : 0;
+        const int32_t* level = 0;
+#ifdef RT_PAD_FORM_POINTING
+        /* The pointing form's roll, as the KPAD status under the HOME claim
+         * keeps it (pad_gcwii_home_status; looked at, nothing taken), and
+         * level once its GameCube controller has left (CodeRabbit on #610). */
+        struct rtshape_out turned;
+        if (rtslot_on(&w->slot, (uint32_t)chan)) {
+            rtgcwii_wii_remote((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, t, &turned, 0);
+            level = turned.horizon;
+        }
+#endif
         for (i = 0; i < count; ++i)
-            pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, at, 0);
+            pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, at, level);
         interrupts_restore(msr);
         return;
     }
@@ -1562,6 +1573,25 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         /* (The count was taken with the change, above.) */
         if (leave != RTHOME_NO_CHANNEL) {
             const int left = pad_tell_connect(c, leave, -1);
+            /* Not delivered (the game cleared its callback as the HOME
+             * Menu's stand-in ended): its record goes back to this channel,
+             * so the "gone" is tried again at a later read and the
+             * permanent stand-in's "connected" there keeps waiting for it
+             * (pad_home_told), never reaching a game that still knows the
+             * channel in the HOME stand-in's shape (CodeRabbit on #610). A
+             * move to another channel in the same change waits too (its
+             * "connected" comes after this "gone", from the same record at
+             * that later read; CodeRabbit CLI). A record a nested read put
+             * meanwhile is left as it is. */
+            if (!left) {
+                uint32_t now_byte;
+                flags = interrupts_off();
+                now_byte = (c->kpad_connect_info >> 16) & 0xFFu;
+                if (now_byte == 0u || (join != RTHOME_NO_CHANNEL && now_byte == join + 1u))
+                    c->kpad_connect_info = (c->kpad_connect_info & 0xFFFFu) | ((leave + 1u) << 16);
+                interrupts_restore(flags);
+                join = RTHOME_NO_CHANNEL;
+            }
             /* A real Wii Remote that took the channel while "gone" was on
              * its way (a nested PADRead noted it as interrupts came back):
              * its "connected" may have come first, so the game hears

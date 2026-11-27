@@ -196,6 +196,10 @@ $(OUT)/riftwii_$(1).bin: $(OUT)/$(1)/riftwii_$(1).elf $(OUT)/$(1)/riftwii_$(1)_a
 	$(OBJCOPY) -O binary $(OUT)/$(1)/riftwii_$(1)_alt.elf $(OUT)/$(1)/riftwii_$(1)_alt.bin
 	@cmp $$@ $(OUT)/$(1)/riftwii_$(1)_alt.bin || { echo "runtime: $(1) pad blob differs between link bases; not position independent"; rm -f $$@; exit 1; }
 	@echo "$(1) pad blob (with the stand-ins): $$$$(stat -c %s $$@) bytes"
+
+# Their form's defines are in these recipes: a change to one rebuilds them
+# (CodeRabbit on #610).
+$(addprefix $(OUT)/$(1)/,pad_entry.o pad_hook.o rtgcad.o $(3) rtleave.o rthome.o rtgcwii.o rtslot.o rtsrc.o rtshape.o rtdeliver.o rtrestart.o riftwii_$(1).elf riftwii_$(1)_alt.elf): Makefile.runtime
 endef
 PADSTANDIN := $(OUT)/riftwii_padc.bin $(OUT)/riftwii_padac.bin $(OUT)/riftwii_padw.bin $(OUT)/riftwii_padaw.bin \
               $(OUT)/riftwii_padsw.bin $(OUT)/riftwii_padasw.bin               $(OUT)/riftwii_padpt.bin $(OUT)/riftwii_padapt.bin
@@ -324,13 +328,14 @@ $(RVZOUT)/rt_zstd.o: private ZSTDFLAGS += -flto=auto
 $(FAULTOBJS) $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf: private CFLAGS += -fstack-usage
 $(LTO_OBJS) $(LTO_ELFS): Makefile.runtime
 
-# The six pad builds are the pads plugin's (plugins/pads, docs/PLUGINS.md),
+# The fourteen pad builds (six, and the stand-ins' eight) are the pads
+# plugin's (plugins/pads, docs/PLUGINS.md),
 # not the DOL's. The DOL keeps only their sizes, to size its copy of the one
 # a game takes and for the game page's memory budget: this header, in
 # padhook.cpp's BlobKind order (riftwii/plugin_pads.h).
 PADBUILDS := $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(OUT)/riftwii_padn.bin $(OUT)/riftwii_padan.bin $(OUT)/riftwii_padpn.bin $(PADSTANDIN)
 PADSIZES := $(OUT)/riftwii_pad_sizes.h
-$(PADSIZES): $(PADBUILDS)
+$(PADSIZES): $(PADBUILDS) Makefile.runtime
 	@{ echo "/* Made by Makefile.runtime: the pad builds' sizes (the builds are the pads plugin's). */"; \
 	   printf '#define RIFTWII_PAD_BUILD_BYTES {'; \
 	   for f in $(PADBUILDS); do n=$$(wc -c < $$f | tr -d ' ') && [ -n "$$n" ] || exit 1; printf '%su, ' $$n; done; \

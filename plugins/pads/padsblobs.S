@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The ten in-game pad builds (runtime/pad) in the plugin's constants.
+/* The fourteen in-game pad builds (runtime/pad) in the plugin's constants.
  * Makefile.plugin assembles this with -Wa,-I<build-runtime>, the folder
  * Makefile.runtime writes them to, where .incbin finds them. Each is
  * 32-byte aligned; the table after them gives each one's start and size,

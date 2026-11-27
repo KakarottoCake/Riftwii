@@ -4,7 +4,7 @@
 #define RIFTWII_PLUGIN_PADS_H
 
 /* The pads plugin's request (docs/PLUGINS.md, "The pads plugin"): the
- * in-game pad code (runtime/pad) is twelve builds, carried by the plugin
+ * in-game pad code (runtime/pad) is fourteen builds, carried by the plugin
  * instead of the DOL. At a Wii game's launch the DOL asks for the one
  * the game takes (wii/hooks/padhook.cpp picks it); the plugin copies it
  * into the DOL's buffer and is shut down before the game starts. */

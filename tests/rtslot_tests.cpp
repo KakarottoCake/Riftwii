@@ -155,8 +155,11 @@ void TestEmptyReads() {
         rtslot_kpad_read(&s, 1, 0, RTSLOT_NO_ERROR, t);
     }
     EXPECT_EQ(rtslot_owner(&s, 1, kNone), RTSLOT_NOBODY);
-    rtslot_kpad_read(&s, 1, 0, -1, t + 1);  // "no controller" with an error output: gone at once
-    rtslot_kpad_read(&s, 1, 1, RTSLOT_NO_ERROR, t + 2);
+    rtslot_kpad_read(&s, 1, 1, RTSLOT_NO_ERROR, t + 1);  // a real controller again
+    EXPECT_EQ(rtslot_owner(&s, 1, kNone), RTSLOT_REAL);
+    rtslot_kpad_read(&s, 1, 0, -1, t + 2);  // "no controller" with an error output: gone at once
+    EXPECT_EQ(rtslot_owner(&s, 1, kNone), RTSLOT_NOBODY);
+    rtslot_kpad_read(&s, 1, 1, RTSLOT_NO_ERROR, t + 3);
     EXPECT_EQ(rtslot_owner(&s, 1, kNone), RTSLOT_REAL);
     EXPECT_EQ(s.empty_since[1], 0u);  // a controller there: no empty count carried over
 }

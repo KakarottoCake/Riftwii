@@ -365,6 +365,12 @@ void TestEmptyReadsWithoutError() {
     }
     rtgcwii_probed(&w, 1, -1);
     rtgcwii_probed(&w, 1, 0);
+    // The probes started the count over (not a gap's timeout): nothing
+    // counted right after them, and the next empty read is the first.
+    EXPECT_EQ(w.slot.empty_since[1], 0u);
+    EXPECT_EQ(w.slot.empty_reads[1], 0u);
+    rtgcwii_kpad_read(&w, 1, 0, RTGCWII_NO_ERROR, t + 1);
+    EXPECT_EQ(w.slot.empty_reads[1], 1u);
     rtgcwii_kpad_read(&w, 1, 0, RTGCWII_NO_ERROR, t + 2 * kGrace);
     EXPECT_EQ(rtgcwii_on(&w, 1), 0);
 }
