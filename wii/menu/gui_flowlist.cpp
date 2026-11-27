@@ -98,6 +98,9 @@ GuiFlowList::GuiFlowList(int x, int y, int w, int n)
         detail[i] = new GuiText(nullptr, 14, skin::kInkDim);
         detail[i]->SetParent(this);
         detail[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+        tag[i] = new GuiText(nullptr, 13, skin::kAccentInk);
+        tag[i]->SetParent(this);
+        tag[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     }
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
@@ -108,6 +111,7 @@ GuiFlowList::~GuiFlowList() {
         delete label[i];
         delete value[i];
         delete detail[i];
+        delete tag[i];
     }
     delete soundOver;
     delete soundClick;
@@ -267,7 +271,7 @@ void GuiFlowList::Draw() {
             // value is translated here, before the arrow (issue 84). A value
             // already translated with tr() is no key either and stays as it is.
             std::string text = riftwii::wii::tr(r.value.c_str());
-            if (r.kind == FlowRow::Kind::Action && !r.dim) {
+            if (r.kind == FlowRow::Kind::Action && !r.dim && !(cards && r.button)) {
                 if (!r.value.empty())
                     text += "  \xE2\x80\xBA";
                 else if (r.opens)
@@ -285,6 +289,7 @@ void GuiFlowList::Draw() {
             // left a theme's name only "Dashb..." on a half-width list.
             int control = ControlWidth(r);
             if (cards && EndsInText(r) && !text.empty()) control = std::min(value[i]->GetTextWidth(), kChipW - 20);
+            if (cards && r.button && !text.empty()) control += 32;  // its button's padding
             stepperMiddle[i] = kChipW;
             if (cards && r.kind == FlowRow::Kind::Option && !r.dim) {
                 const int needed = value[i]->GetTextWidth() + 20;
@@ -295,8 +300,15 @@ void GuiFlowList::Draw() {
                                   (control ? control + kPad : 0));
             detail[i]->SetText(r.detail.empty() ? nullptr : r.detail.c_str());
             detail[i]->SetColor(skin::kInkDim);
-            detail[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
-                                   (control ? control + kPad : 0));
+            tag[i]->SetText(notesUnder && !r.tag.empty() ? r.tag.c_str() : nullptr);
+            const int textRoom = ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0);
+            if (notesUnder) {
+                // Under the control: the row's whole width, less the tag.
+                const int tagRoom = r.tag.empty() ? 0 : tag[i]->GetTextWidth() + kPad;
+                detail[i]->SetMaxWidth(textRoom - tagRoom);
+            } else {
+                detail[i]->SetMaxWidth(textRoom - (control ? control + kPad : 0));
+            }
         }
     }
 
@@ -383,7 +395,20 @@ void GuiFlowList::Draw() {
         // label goes above the row's middle and the detail under it, in the
         // dim ink, as a value under a label is drawn elsewhere.
         const int textLeft = labelX + (r.icon_column ? kIconRoom : 0);
-        if (r.detail.empty()) {
+        const int lineH = LineHeight(r);
+        if (notesUnder && !r.detail.empty()) {
+            // The label and the control on the top line; the explanation
+            // under both, and when the change takes effect at its end.
+            label[i]->SetPosition(textLeft, y + kCardGap + (lineH - labelH) / 2 - 1);
+            label[i]->Draw();
+            const int detailY = y + kCardGap + lineH + 1;
+            detail[i]->SetPosition(textLeft, detailY);
+            detail[i]->Draw();
+            if (!r.tag.empty()) {
+                tag[i]->SetPosition(right - tag[i]->GetTextWidth(), detailY + 1);
+                tag[i]->Draw();
+            }
+        } else if (r.detail.empty()) {
             label[i]->SetPosition(textLeft, y + (rowH - labelH) / 2 - 2);
             label[i]->Draw();
         } else {
@@ -393,8 +418,10 @@ void GuiFlowList::Draw() {
             detail[i]->Draw();
         }
 
-        const int cy = y + (rowH - kChipH) / 2;  // controls' top
-        const int textY = y + (rowH - 15) / 2 - 2;
+        // Controls sit on the top line (the whole row without SetNotesUnder).
+        const int lineTop = notesUnder && !r.detail.empty() ? y + kCardGap : y;
+        const int cy = lineTop + (lineH - kChipH) / 2;  // controls' top
+        const int textY = lineTop + (lineH - 15) / 2 - 2;
         // A value that just changed comes in from the side, fading up.
         if (shownValue[index] != r.value) {
             if (!shownValue[index].empty() || valueIn[index] < 1.0f) valueIn[index] = 0.0f;
@@ -426,13 +453,26 @@ void GuiFlowList::Draw() {
                 const int backX = right - (kStep + kGap + middle + kGap + kStep);
                 const int chipX = backX + kStep + kGap, fwdX = right - kStep;
                 {
-                    const int by = y + (rowH - kStep) / 2;
+                    const int by = lineTop + (lineH - kStep) / 2;
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
                     const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;
                     skin::Draw(overBack ? skin::stepBackOver : skin::stepBack, backX - 4, by - 4, alpha);
                     skin::Draw(overFwd ? skin::stepForwardOver : skin::stepForward, fwdX - 4, by - 4, alpha);
                 }
                 chipText(chipX, middle);
+            } else if (r.button && !r.value.empty()) {
+                // A thing to do: its verb on a button of its own, the
+                // theme's primary tile, so it does not read as a setting.
+                const int tw = std::min(value[i]->GetTextWidth(), kChipW - 20);
+                const int bw = tw + 32, bh = kChipH + 2;
+                const int bx = right - bw, by = cy - 1;
+                const bool over = index == lit && !dragging;
+                skin::DrawNine(over ? skin::tile9PrimaryOver : skin::tile9Primary, bx - kCardShadow, by - kCardShadow,
+                               bw + 2 * kCardShadow, bh + 2 * kCardShadow, skin::kTileCorner,
+                               r.dim ? alpha / 2 : alpha);
+                value[i]->SetColor(r.dim ? skin::kInkDim : skin::kAccentInk);
+                value[i]->SetPosition(bx + (bw - tw) / 2, textY);
+                value[i]->Draw();
             } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();
             }
@@ -554,6 +594,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
         // Let go: a press that stayed put acts on its row.
         if (!dragging && !grabTrack && pointing && RowAt(px, py) == grabRow && Actionable(grabRow)) {
             (grabPart == Part::Back ? clickedBack : clicked) = grabRow;
+            clickStepped = grabPart == Part::Forward;
             soundClick->Play();
         } else if (!dragging) {
             fling = 0;
@@ -642,6 +683,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
     const bool stepper = r.kind == FlowRow::Kind::Option && !r.dim;
     if (live && (a || (stepper && t->Right()))) {
         clicked = focus;
+        clickStepped = !a;
         soundClick->Play();
     } else if (live && (back || (stepper && t->Left()))) {
         clickedBack = focus;

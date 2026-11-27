@@ -3366,6 +3366,294 @@ msgstr "아이들이 이 비밀번호를 맞힐 것 같습니다. 정말 이 비
 msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
 msgstr "아이가 해커라면 이 비밀번호를 맞힐 겁니다. 정말 이 비밀번호를 사용할까요?"
 
+msgid "1 setting"
+msgstr "설정 1개"
+
+msgid "{1} settings"
+msgstr "설정 {1}개"
+
+msgid "12-hour or 24-hour time."
+msgstr "12시간 또는 24시간 표시."
+
+msgid "A short tour of RiftWii."
+msgstr "RiftWii를 간단히 둘러봅니다."
+
+msgid "A white box behind channel banners."
+msgstr "채널 배너 뒤에 흰색 상자를 둡니다."
+
+msgid "After a restart"
+msgstr "다시 시작한 뒤"
+
+msgid "Blinks the disc slot while a game loads."
+msgstr "게임을 불러오는 동안 디스크 슬롯이 깜박입니다."
+
+msgid "Checks that the Wii is online."
+msgstr "Wii가 온라인인지 확인합니다."
+
+msgid "Copies GameCube saves before each game starts."
+msgstr "게임을 시작하기 전에 게임큐브 세이브를 복사합니다."
+
+msgid "Copies a Wii disc to your USB drive or SD card."
+msgstr "Wii 디스크를 USB 드라이브나 SD 카드로 복사합니다."
+
+msgid "Copies network packs again on the next launch."
+msgstr "다음 실행 때 네트워크 팩을 다시 복사합니다."
+
+msgid "Copy controller layouts from Nintendont."
+msgstr "Nintendont의 컨트롤러 배치를 복사합니다."
+
+msgid "Copy your saves over from Nintendont."
+msgstr "Nintendont의 세이브를 가져옵니다."
+
+msgid "Counts the games you play, for Recently played."
+msgstr "플레이한 게임을 셉니다(최근 플레이용)."
+
+msgid "Default options for installed emulators."
+msgstr "설치된 에뮬레이터의 기본 옵션입니다."
+
+msgid "Download themes made by the community."
+msgstr "커뮤니티가 만든 테마를 내려받습니다."
+
+msgid "Downloads covers Home doesn't have yet."
+msgstr "홈에 아직 없는 커버를 내려받습니다."
+
+msgid "Downloads covers for emulator games."
+msgstr "에뮬레이터 게임의 커버를 내려받습니다."
+
+msgid "Downloads the newest game names."
+msgstr "최신 게임 이름을 내려받습니다."
+
+msgid "Draws the menu for a 4:3 or a 16:9 TV."
+msgstr "4:3 또는 16:9 TV에 맞게 메뉴를 그립니다."
+
+msgid "Extra covers from SteamGridDB."
+msgstr "SteamGridDB의 추가 커버입니다."
+
+msgid "Finds mod packs shared from a PC."
+msgstr "PC에서 공유한 모드 팩을 찾습니다."
+
+msgid "Fix worn sticks and triggers."
+msgstr "닳은 스틱과 트리거를 보정합니다."
+
+msgid "GameCube controllers through a USB adapter."
+msgstr "USB 어댑터로 연결한 게임큐브 컨트롤러입니다."
+
+msgid "Homebrew apps, checked by the RiftWii team."
+msgstr "RiftWii 팀이 확인한 홈브류 앱입니다."
+
+msgid "How games look on Home."
+msgstr "홈에서 게임이 보이는 모습입니다."
+
+msgid "How loud the menu's clicks are."
+msgstr "메뉴 클릭 소리의 크기입니다."
+
+msgid "How round the Channels view's tiles are."
+msgstr "채널 보기 타일의 모서리 둥글기입니다."
+
+msgid "How to set up a USB drive."
+msgstr "USB 드라이브를 준비하는 방법입니다."
+
+msgid "How wide the game's picture is drawn."
+msgstr "게임 화면을 그리는 너비입니다."
+
+msgid "Install WADs, or copy saves and Miis."
+msgstr "WAD를 설치하거나 세이브와 Mii를 복사합니다."
+
+msgid "Keeps the music playing while a game starts."
+msgstr "게임이 시작되는 동안 음악을 계속 재생합니다."
+
+msgid "Lets GameCube controllers rumble."
+msgstr "게임큐브 컨트롤러가 진동하게 합니다."
+
+msgid "Lets RiftWii download names, covers and updates."
+msgstr "RiftWii가 이름, 커버, 업데이트를 내려받게 합니다."
+
+msgid "Lets Wii Remotes rumble."
+msgstr "Wii 리모컨이 진동하게 합니다."
+
+msgid "Lists the Wii's own channels on Home too."
+msgstr "Wii 자체 채널도 홈에 표시합니다."
+
+msgid "Lock games by age rating with a PIN."
+msgstr "연령 등급별로 게임을 PIN으로 잠급니다."
+
+msgid "Looks for a newer RiftWii."
+msgstr "더 새로운 RiftWii를 찾습니다."
+
+msgid "Makes games use 4:3 or widescreen."
+msgstr "게임을 4:3 또는 와이드로 표시하게 합니다."
+
+msgid "More folders to look for games in."
+msgstr "게임을 찾을 추가 폴더입니다."
+
+msgid "Next game"
+msgstr "다음 게임부터"
+
+msgid "No d2x cIOS was found."
+msgstr "d2x cIOS를 찾지 못했습니다."
+
+msgid "No settings match \"{1}\"."
+msgstr "\"{1}\"에 맞는 설정이 없습니다."
+
+msgid "Plays a game's banner music on its page."
+msgstr "게임 페이지에서 배너 음악을 재생합니다."
+
+msgid "Plays music while the menu is open."
+msgstr "메뉴가 열려 있는 동안 음악을 재생합니다."
+
+msgid "Puts every setting back as it came."
+msgstr "모든 설정을 처음 상태로 되돌립니다."
+
+msgid "Reads your drives again."
+msgstr "드라이브를 다시 읽습니다."
+
+msgid "Removes black bars at the picture's edges."
+msgstr "화면 가장자리의 검은 띠를 없앱니다."
+
+msgid "Removes your SteamGridDB key."
+msgstr "SteamGridDB 키를 지웁니다."
+
+msgid "Search settings"
+msgstr "설정 검색"
+
+msgid "See what your USB controllers are pressing."
+msgstr "USB 컨트롤러가 누르는 버튼을 봅니다."
+
+msgid "Sends RiftWii's log to a USB Gecko."
+msgstr "RiftWii의 로그를 USB Gecko로 보냅니다."
+
+msgid "Sends a report to help fix a problem."
+msgstr "문제 해결을 돕는 보고서를 보냅니다."
+
+msgid "Settings for experienced players."
+msgstr "숙련된 사용자를 위한 설정입니다."
+
+msgid "Show advanced settings"
+msgstr "고급 설정 표시"
+
+msgid "Shows the disc drive on Home."
+msgstr "홈에 디스크 드라이브를 표시합니다."
+
+msgid "Shows the edges of the next and previous pages."
+msgstr "이전 페이지와 다음 페이지의 가장자리를 보여 줍니다."
+
+msgid "Shows the game's disc on its page."
+msgstr "게임 페이지에 디스크를 보여 줍니다."
+
+msgid "Shows the games you hid from Home."
+msgstr "홈에서 숨긴 게임을 보여 줍니다."
+
+msgid "Shows the settings most players never need: system software (cIOS), the copy of the Wii's memory, debugging and network packs. Settings' search always finds them."
+msgstr "대부분 필요 없는 설정을 보여 줍니다: 시스템 소프트웨어(cIOS), Wii 메모리 사본, 디버깅, 네트워크 팩. 설정 검색에서는 항상 찾을 수 있습니다."
+
+msgid "Shows your RiiTag."
+msgstr "내 RiiTag를 보여 줍니다."
+
+msgid "Shrinks the menu if your TV cuts off its edges."
+msgstr "TV가 가장자리를 자르면 메뉴를 줄입니다."
+
+msgid "Smaller tiles with more room between them."
+msgstr "타일을 작게 하고 간격을 넓힙니다."
+
+msgid "Softens the picture to hide flicker."
+msgstr "화면을 부드럽게 해 깜박임을 줄입니다."
+
+msgid "Some USB partitions could not be read."
+msgstr "일부 USB 파티션을 읽지 못했습니다."
+
+msgid "Start RiftWii from the Wii Menu."
+msgstr "Wii 메뉴에서 RiftWii를 시작합니다."
+
+msgid "Starts games with the WiiRD debugger."
+msgstr "WiiRD 디버거로 게임을 시작합니다."
+
+msgid "Starts your last game after a short countdown."
+msgstr "짧은 카운트다운 뒤 마지막 게임을 시작합니다."
+
+msgid "Take pictures while you play."
+msgstr "플레이 중에 스크린샷을 찍습니다."
+
+msgid "Test switches are turning parts of RiftWii off."
+msgstr "테스트 스위치가 RiftWii 일부를 끄고 있습니다."
+
+msgid "The TV signal games use: 60 Hz, 50 Hz, 480p or 240p."
+msgstr "게임의 TV 신호: 60Hz, 50Hz, 480p, 240p."
+
+msgid "The language games are told to use."
+msgstr "게임에 알려 주는 언어입니다."
+
+msgid "The language the menu is written in."
+msgstr "메뉴에 쓰이는 언어입니다."
+
+msgid "The letters the menu is written in."
+msgstr "메뉴에 쓰이는 글꼴입니다."
+
+msgid "The menu's colors, pictures and sounds."
+msgstr "메뉴의 색, 그림, 소리입니다."
+
+msgid "The online service that replaces Nintendo's."
+msgstr "닌텐도 서비스를 대신하는 온라인 서비스입니다."
+
+msgid "The order games are listed in."
+msgstr "게임이 나열되는 순서입니다."
+
+msgid "The system software games run under."
+msgstr "게임을 실행하는 시스템 소프트웨어입니다."
+
+msgid "The system software the menu runs under."
+msgstr "메뉴를 실행하는 시스템 소프트웨어입니다."
+
+msgid "Use USB controllers, keyboards and mice."
+msgstr "USB 컨트롤러, 키보드, 마우스를 사용합니다."
+
+msgid "Uses this Wii's own menu music."
+msgstr "이 Wii의 메뉴 음악을 사용합니다."
+
+msgid "Uses this Wii's own menu sounds."
+msgstr "이 Wii의 메뉴 효과음을 사용합니다."
+
+msgid "What changed in this version."
+msgstr "이 버전에서 바뀐 점입니다."
+
+msgid "What the copy of the Wii's memory keeps."
+msgstr "Wii 메모리 사본에 보관할 내용입니다."
+
+msgid "What you see while a game starts."
+msgstr "게임이 시작되는 동안 보이는 화면입니다."
+
+msgid "Where Wii games keep their saves."
+msgstr "Wii 게임의 세이브를 보관하는 곳입니다."
+
+msgid "Where you go when you quit a game."
+msgstr "게임을 그만두었을 때 가는 곳입니다."
+
+msgid "Whether games are looked for on the SD card."
+msgstr "SD 카드에서 게임을 찾을지 정합니다."
+
+msgid "Which buttons take you out of a game."
+msgstr "게임에서 나가는 버튼입니다."
+
+msgid "Which drive holds the copy of the Wii's memory."
+msgstr "Wii 메모리 사본을 두는 드라이브입니다."
+
+msgid "Which games Home shows."
+msgstr "홈에 보이는 게임입니다."
+
+msgid "Which memory card GameCube games use."
+msgstr "게임큐브 게임이 쓰는 메모리 카드입니다."
+
+msgid "Which page Home opens on."
+msgstr "홈이 열리는 페이지입니다."
+
+msgid "Which song the menu plays."
+msgstr "메뉴에서 재생할 곡입니다."
+
+msgid "Who made RiftWii's parts, and its license."
+msgstr "RiftWii 구성 요소의 제작자와 라이선스입니다."
+
+msgid "Your SteamGridDB key."
+msgstr "내 SteamGridDB 키입니다."
+
 msgid "Channel background"
 msgstr "채널 배경"
 

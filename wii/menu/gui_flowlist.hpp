@@ -40,6 +40,12 @@ struct FlowRow {
     // there when it is not null. A save with no icon keeps its place blank.
     bool icon_column = false;
     const unsigned char* icon = nullptr;
+    // Settings (SetNotesUnder): when a change takes effect ("Next game"),
+    // at the right of the row's second line; empty when it is at once.
+    std::string tag;
+    // An Action that does something rather than open or show a setting
+    // (Test, Rescan): on cards its value is drawn as a button of its own.
+    bool button = false;
 };
 
 class GuiFlowList : public GuiElement {
@@ -68,12 +74,20 @@ public:
     // Taller rows for a list whose rows have a second line (FlowRow::detail);
     // kRowHeight by default. Set before the list is shown.
     void SetRowHeight(int h) { rowH = h; }
+    // Settings' rows: the label and its control share the row's top line
+    // and the detail (a short explanation) runs the full width under both,
+    // so a translation has room. Set with SetRowHeight, before it shows.
+    void SetNotesUnder(bool on) { notesUnder = on; }
     // Scrolled to the bottom (a list that fits is always there).
     bool AtEnd() const { return scroll >= static_cast<float>(MaxScroll()) - 1.0f; }
     // The row acted on (A, or stepped forward), or stepped back (-, the
     // left arrow), since the last call; -1 when none.
     int GetClicked();
     int GetClickedBack();
+    // Whether the last GetClicked() row was stepped on (its right arrow, or
+    // Right on the D-pad) rather than pressed with A: Settings opens a
+    // choice's list on A and steps it on the arrows.
+    bool LastClickStepped() const { return clickStepped; }
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -107,6 +121,8 @@ private:
     int focus = 0, hover = -1;
     Part hoverPart = Part::None;
     int clicked = -1, clickedBack = -1;
+    bool clickStepped = false;
+    bool notesUnder = false;
     // A held on the list: which Wii Remote, where it started, what it was on.
     int grabChan = -1, grabY = 0, grabRow = -1;
     float grabScroll = 0;
@@ -129,6 +145,9 @@ private:
     GuiText* label[kMaxVisible + 1];
     GuiText* value[kMaxVisible + 1];
     GuiText* detail[kMaxVisible + 1];
+    GuiText* tag[kMaxVisible + 1];
+    // The top line a row's label and control share (SetNotesUnder).
+    int LineHeight(const FlowRow& r) const { return notesUnder && !r.detail.empty() ? 34 : rowH; }  // a stepper's arrows tall
     GuiSound* soundOver;
     GuiSound* soundClick;
 };
