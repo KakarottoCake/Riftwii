@@ -139,7 +139,6 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
-| `mem1tail.c`, `mem1tail.h` | Home's scan stack (and the music thread's after it), linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |
@@ -147,6 +146,10 @@ The build compiles every folder into one, so no two files share a name.
 | `disclight.cpp` | The disc slot light's pulse while a game loads or a disc is copied; dark while a cIOS runs and at every IOS reload |
 | `sdwritecheck.cpp` | Home's once-per-start check that the SD card can be written (full, locked or faulty), through `src/fs/sdwrite.cpp` |
 | `streamprint.cpp` | Every `FILE` printf routed through `snprintf`'s formatter, so newlib's other formatting engines stay out of the DOL (`src/data/streamformat.cpp`) |
+| `mainstack.cpp` | The stacks crt0 sets up: the main thread's in MEM2 (`mem::kMainStack`), the exception stack in MEM1, in place of libogc's defaults |
+| `mem2sections.ld` | Added to libogc's linker script: the zero-filled buffers of libbte, libwiiuse, parts of libogc and the C library and RiftWii itself in MEM2, after the code and read-only data (all three back to back from `mem::kProgramArea`), zeroed by `restart.cpp` at every start, and the code and read-only data run from MEM2 (`mem::kProgramArea`, up to `mem::ProgramAreaEnd()`), which `tools/dol_stash.py` loads above `.bss` and `restart.cpp` copies up |
+| `timezone.cpp` | newlib's time zone set-up without its `TZ` parser, which a Wii never needs (`--wrap=_tzset_unlocked_r`) |
+| `packedblobs.cpp`, `packedblobs.hpp` | Unpacks a zstd frame of runtime blobs made by `tools/pack_blobs.py`, for the time a launch needs them |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
 
@@ -165,6 +168,7 @@ The build compiles every folder into one, so no two files share a name.
 | `pluginscreen.cpp` | A plugin's own screen (the app store): its draw commands drawn in the theme, the controllers' input gathered for it, its textures, the menu's popup and search keyboard lent to it |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
 | `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
+| `mp3stream.cpp`, `mp3stream.hpp` | The menu's MP3 player: libmad decodes into two buffers ASND voice 0 plays, its state, buffers and stack one MEM2 block taken at the first MP3 |
 | `menumusic.cpp` | The background music: the player's own pick (an Ogg or MP3 song, a playlist or a shuffled folder, Settings > Music file), theme/card Ogg or the selected Wii Menu source |
 | `wiimenucontent.cpp`, `wiimenunand.cpp` | The System Menu's contents (font, sounds, music) read through ES, or from their NAND files when ES refuses them |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
@@ -272,7 +276,7 @@ The build compiles every folder into one, so no two files share a name.
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
 | `sharednandfind.cpp` | The Saves choice "Emulated NAND": the folder Settings names or the other loader's settings files give; the folder its channels are in |
 | `usbnand.hpp` | An emulated NAND on the USB drive (#487): d2x's partition for it, its FAT32 partition mounted to prepare the save, libfat handed to d2x and back (in `usbcatalog.cpp`) |
-| `wadinstall.cpp` | Settings > Games > Manage emulated NAND > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
+| `wadinstall.cpp` | Settings > Games > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `disccopy.cpp`, `disccopy.hpp` | Settings > Copy a game disc: the Wii disc in the drive to a split `.wbfs` file in `wbfs/` on a FAT32 USB drive or the SD card, every partition kept; restarts the menu under d2x first when needed |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
@@ -414,7 +418,7 @@ reader helpers stay beside their source.
 | `qrcode` | QR codes |
 | `pngencode` | Writing screenshot PNGs |
 | `casecolour`, `casecolours.inc` | Game cases' colors and the generated game-ID table |
-| `inputicons`, `inputicons_data.cpp` | Controller button pictures and their generated image data |
+| `inputicons`, `inputicons_data.cpp` | Controller button pictures and their generated image data (alpha masks as (count, value) runs) |
 | `modart` | Candidate picture paths for XML packs, code builds and virtual SD images |
 | `ratingmark` | Choosing the age-rating board's picture from a game's rating |
 | `themelist`, `themepack` | Community theme listings and the built-in themes/apps update-pack format |
@@ -429,6 +433,7 @@ reader helpers stay beside their source.
 | `cheats` | Cheat files and GCT building |
 | `ghcheats` | GameHacking.org's archive: picking the newest Wii zip from its listing, the bounds on the zip, the game ID index and its file |
 | `titles` | Game names |
+| `datetext` | A date and time as `2026-01-05 07:03:09`, without newlib's `strftime` |
 | `settingsfile` | `settings.txt` |
 | `parental` | Parental controls: the age a rating is for, and the PIN kept as a salted PBKDF2 hash |
 | `langfile` | Translation files |
@@ -557,8 +562,10 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
-| `dol_stash.py` | Adds the start-up stash (translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
-| `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well inside Home's scan stack (`wii/core/mem1tail.h`) |
+| `dol_stash.py` | Makes `riftwii.dol` load its code and read-only data (linked to run from MEM2) just above its BSS, then adds the start-up stash (translations, GPL) after it (`docs/MEMORY.md`) |
+| `split_po.py` | Splits `wii/lang/*.po` for the start-up stash: the English lines once (`msgids.zst`), each language's translations alone (`<lang>.str.zst`); checks every file lists the same entries. `wii/core/i18n.cpp` pairs them up again |
+| `check_mem1_line.py` | Fails the Wii build unless `0x81000000` is well above what libogc's start writes from the heap's start, where its DSP boot code cannot hit anything (`docs/MEMORY.md`) |
+| `pack_blobs.py` | Packs a set of runtime blobs (the Wii Remote logger, the WiiRD handlers, the mods' runtime and its RVZ build, the virtual SD card, screenshot and crash hooks) into one zstd frame the DOL embeds, their sizes in front (`wii/core/packedblobs.cpp`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |

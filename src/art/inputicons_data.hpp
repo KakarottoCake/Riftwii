@@ -9,8 +9,9 @@ namespace riftwii {
 constexpr int kInputIconSource = 64;  // each mask is 64 x 64
 
 struct InputIconData {
-    const char* name;            // the picture's file name without ".png"
-    const unsigned char* alpha;  // kInputIconSource * kInputIconSource bytes
+    const char* name;           // the picture's file name without ".png"
+    const unsigned char* runs;  // the alpha mask as (count, value) byte pairs, row by row
+    unsigned run_bytes;
 };
 extern const InputIconData kInputIcons[];
 extern const unsigned kInputIconCount;

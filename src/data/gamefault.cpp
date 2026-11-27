@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gamefault.hpp"
 #include "riftwii/byteorder.hpp"
+#include "riftwii/datetext.hpp"
 
 #include <cstdio>
 #include <ctime>
@@ -64,9 +65,9 @@ bool describe_game_fault(const std::uint8_t* bytes, std::size_t size, std::strin
         const std::uint64_t tb = (static_cast<std::uint64_t>(word(offsetof(rtfault_record, tb_hi))) << 32) |
                                  word(offsetof(rtfault_record, tb_lo));
         const std::time_t when = static_cast<std::time_t>(kWiiEpoch + tb / ticks);
-        char buf[48] = "unknown";
-        if (const std::tm* t = std::gmtime(&when)) std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", t);
-        text += std::string("When: ") + buf + " (the console's clock)\n";
+        std::tm parts = {};
+        const std::string date = ::gmtime_r(&when, &parts) ? date_text(parts, DateParts::Seconds) : "unknown";
+        text += "When: " + date + " (the console's clock)\n";
     }
     text += std::string("What: ") + exception_name(exception) + " (exception " + std::to_string(exception) + ") at " +
             hex(srr0);

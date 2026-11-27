@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
+#include <malloc.h>
 
 namespace riftwii::wii {
 namespace {
@@ -39,7 +41,6 @@ std::atomic<bool> g_held_by_fat{false};
 std::string g_last_error;
 u32 g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
-u8 g_bounce[kBounceSectors * kSectorBytes] ATTRIBUTE_ALIGN(32);
 
 bool transfer(u32 command, u32 sector, u32 count, void* buffer) {
     if (g_fd < 0 || count == 0) return false;
@@ -63,22 +64,29 @@ bool chunked(u32 command, u32 sector, u32 count, u8* data) {
         if (command == kRead) DCInvalidateRange(data, count * kSectorBytes);
         return ok;
     }
-    while (count) {
+    // Taken for this call (32 KiB of MEM1 heap) instead of a buffer in MEM2
+    // for the whole run; one per call, so the threads sharing the card
+    // never share it.
+    u8* bounce = static_cast<u8*>(memalign(32, kBounceSectors * kSectorBytes));
+    if (!bounce) return false;
+    bool ok = true;
+    while (ok && count) {
         const u32 n = std::min(count, kBounceSectors);
         if (command == kWrite) {
-            std::memcpy(g_bounce, data, n * kSectorBytes);
-            DCFlushRange(g_bounce, n * kSectorBytes);
+            std::memcpy(bounce, data, n * kSectorBytes);
+            DCFlushRange(bounce, n * kSectorBytes);
         }
-        if (!transfer(command, sector, n, g_bounce)) return false;
-        if (command == kRead) {
-            DCInvalidateRange(g_bounce, n * kSectorBytes);
-            std::memcpy(data, g_bounce, n * kSectorBytes);
+        ok = transfer(command, sector, n, bounce);
+        if (ok && command == kRead) {
+            DCInvalidateRange(bounce, n * kSectorBytes);
+            std::memcpy(data, bounce, n * kSectorBytes);
         }
         sector += n;
         count -= n;
         data += n * kSectorBytes;
     }
-    return true;
+    std::free(bounce);
+    return ok;
 }
 
 // libfat's view of the device. shutdown keeps the handle: closing it

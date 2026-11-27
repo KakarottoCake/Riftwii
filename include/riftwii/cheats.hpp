@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Cheat files: the plain-text Gecko code format the GeckoCodes archive
@@ -132,16 +133,34 @@ std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const
 // Whether every code in `gct` may run once before the game starts, when
 // nothing of the game is set up yet: writes (00, 02, 04, 06) on fixed
 // addresses, inserted instructions (C2) and E0 or E2 (which set the base
-// address), every write inside MEM1 or MEM2 and none anywhere from
-// `keep_out_start` to `keep_out_end` (the loader, still running; given as
-// cached addresses, the uncached ones are checked as the same memory).
+// address), every write inside MEM1 or MEM2 and none in any of the
+// [start, end) ranges of `keep_out` (the loader, still running: its MEM1
+// image and heap, its MEM2 stack, code and heap; given as cached
+// addresses, the uncached ones are checked as the same memory).
 // Not a condition (20 to 2E: it would read memory the game hasn't set up,
 // and a write it let through by chance would stay), a code that runs
 // instructions itself (C0), works through a pointer the game sets up (po
 // codes, the 4x loads), searches memory and keeps what it found (F6), or
 // anything else. False for a list that is not valid.
-bool gct_runs_before_start(const std::vector<std::uint8_t>& gct, std::uint32_t keep_out_start,
-                           std::uint32_t keep_out_end);
+bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
+                           const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
+
+// Whether no code in `gct` writes into any of the [start, end) ranges of
+// `keep_out` (cached addresses; the uncached ones are the same memory):
+// the looser check for a code build, whose codes always ran before the
+// game starts and stay run first unless one would write over the loader.
+// Every code is walked, conditions, C0 and pointer codes included, and
+// each write whose address is known is checked: 00 to 08 (and their po
+// forms), C2, C6, D2, D6, F2 and F4, through the base and pointer as
+// E0, E2, 42 and 4A set them, and 44 and 4C (a store of the base or
+// pointer at the base plus the value). Not judged: a write through a base or
+// pointer read from the game's memory (40, 48), set to the code's own
+// place (46, 4E), found by a search (F6) or summed by the added forms,
+// and the Gecko register stores and copies (84, 8A, 8C). A switched-off
+// code (66 20 goto, from switch_off_slot_b_codes) is stepped over. False
+// for a list that is not valid or that has a code it can't walk past.
+bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
+                        const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
 
 // A code that was switched off by switch_off_slot_b_codes: where its
 // instructions went and how many lines they took.

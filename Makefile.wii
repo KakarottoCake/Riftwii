@@ -86,7 +86,7 @@ CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
-LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,-T,$(PROJECT_ROOT)/wii/core/mem2sections.ld -Wl,--wrap=_sbrk_r -Wl,--wrap=_tzset_unlocked_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
 				-Wl,--wrap=classic_ctrl_handshake,--wrap=parse_event,--wrap=USB_GetDeviceList
 # No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
 # libraries still carry. libgcc's unwinder here would find frames through
@@ -116,11 +116,6 @@ LDFLAGS		+=	-Wl,--wrap=printf,--wrap=fprintf,--wrap=vprintf,--wrap=vfprintf
 # Controller, one hides tablets and the GameCube adapter from libogc's own
 # USB mouse and keyboard scans.
 LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
-# Linked after every library, so its .bss (Home's scan stack) is the last
-# in RiftWii's .bss and spans 0x81000000, where libogc's start-up copies
-# its DSP boot code (wii/core/mem1tail.h). Checked after the link, below.
-MEM1_TAIL :=	mem1tail.o
-LIBS +=	$(MEM1_TAIL)
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
@@ -199,13 +194,15 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # (riftwii_gc*) are the gamecube plugin's (plugins/gamecube/gcblobs.S),
 # and the pad builds (riftwii_pad*) the pads plugin's (plugins/pads), not
 # the DOL's; the DOL keeps the pad builds' sizes (riftwii_pad_sizes.h).
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_wlog_trace.bin riftwii_wlog_translate.bin riftwii_vsd.bin codehandleronly.bin codehandler.bin codehandlerslota.bin riftwii_stub.bin
+BINFILES	+=	riftwii_rts.bin riftwii_rt_rvz.rel riftwii_hooks.bin riftwii_wlogs.bin codehandleronly.bin riftwii_wiird.bin riftwii_stub.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
 # the heap's after the start. The GPL's text (credits) and translations
-# (wii/lang/*.po), zstd-compressed. All menu fonts are external files.
-export STASHFILES	:=	licence.zst \
-					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
+# (wii/lang/*.po), zstd-compressed: the English lines once (msgids.zst),
+# then each language's translated lines alone (<lang>.str.zst), as
+# tools/split_po.py splits them. All menu fonts are external files.
+export STASHFILES	:=	licence.zst msgids.zst \
+					$(foreach dir,$(DATA),$(addsuffix .str.zst,$(basename $(notdir $(wildcard $(dir)/*.po)))))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -217,7 +214,7 @@ else
 endif
 
 export OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
-export OFILES_SOURCES := $(CPPFILES:.cpp=.o) $(filter-out $(MEM1_TAIL),$(CFILES:.c=.o)) $(sFILES:.s=.o) $(SFILES:.S=.o)
+export OFILES_SOURCES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(sFILES:.s=.o) $(SFILES:.S=.o)
 export OFILES := $(OFILES_BIN) $(OFILES_SOURCES)
 
 export HFILES := $(addsuffix .h,$(subst .,_,$(BINFILES)))
@@ -292,7 +289,7 @@ reload:
 #---------------------------------------------------------------------------------
 else
 
-DEPENDS	:=	$(OFILES:.o=.d) $(MEM1_TAIL:.o=.d)
+DEPENDS	:=	$(OFILES:.o=.d)
 
 #---------------------------------------------------------------------------------
 # main targets
@@ -335,13 +332,13 @@ else
 	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
 endif
 # The TLS library too, so new BearSSL flags (Makefile.bearssl) relink the DOL.
-# devkitPro's link rule, except that mem1tail.o, a prerequisite so a
-# change to it relinks, is left out of $^: it is linked from LIBS, after
-# every library.
-$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(MEM1_TAIL)
+# devkitPro's link rule. The script that puts the read-only data and
+# libbte's and libwiiuse's buffers in MEM2 relinks when it changes; it
+# reaches ld through LDFLAGS.
+$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a $(PROJECT_ROOT)/wii/core/mem2sections.ld
 	$(SILENTMSG) linking ... $(notdir $@)
 	$(ADD_COMPILE_COMMAND) end
-	$(SILENTCMD)$(LD) $(filter-out $(MEM1_TAIL),$^) $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
+	$(SILENTCMD)$(LD) $(filter-out %.ld,$^) $(LDFLAGS) $(LIBPATHS) $(LIBS) -o $@
 
 # The plugins, built with this build's version and stamp (Makefile.plugin).
 .PHONY: plugins
@@ -385,9 +382,16 @@ $(TEST_USERS): $(TEST_STAMP)
 # The menu's translations (wii/core/i18n.cpp) and the GPL
 # (credits.cpp) are zstd-compressed into the start-up stash (above) and
 # unpacked when needed: none of them takes MEM1 after the start.
-%.po.zst : %.po
+LANG_PO_FILES := $(foreach dir,$(DATA),$(wildcard $(PROJECT_ROOT)/$(dir)/*.po))
+msgids.zst : $(LANG_PO_FILES) $(PROJECT_ROOT)/tools/split_po.py
 	@echo $(notdir $@)
-	@zstd -q -19 -f -o $@ $<
+	@$(PYTHON) $(PROJECT_ROOT)/tools/split_po.py ids $(LANG_PO_FILES) > msgids.txt
+	@zstd -q -19 -f -o $@ msgids.txt
+
+%.str.zst : %.po $(PROJECT_ROOT)/tools/split_po.py
+	@echo $(notdir $@)
+	@$(PYTHON) $(PROJECT_ROOT)/tools/split_po.py strings $< > $*.str
+	@zstd -q -19 -f -o $@ $*.str
 
 licence.zst : $(PROJECT_ROOT)/LICENSE
 	@echo $(notdir $@)

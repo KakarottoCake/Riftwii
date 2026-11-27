@@ -10,9 +10,10 @@
 
 #include "fault_hook.h"
 #include "log.hpp"
+#include "packedblobs.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
-#include "riftwii_fault_bin.h"
+#include "riftwii_hooks_bin.h"
 
 namespace riftwii::wii {
 namespace {
@@ -30,7 +31,9 @@ constexpr std::uint32_t kNop = 0x60000000;
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
-const rt_fault_header& header() { return *reinterpret_cast<const rt_fault_header*>(riftwii_fault_bin); }
+// The blob's header, read where it lies: unpacked while planning, copied
+// into the game after.
+const rt_fault_header& header(const std::uint8_t* blob) { return *reinterpret_cast<const rt_fault_header*>(blob); }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
     volatile std::uint32_t* p = reinterpret_cast<volatile std::uint32_t*>(address);
@@ -62,9 +65,16 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
                      bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why,
                      std::uint32_t mem1_veneer, bool record_crashes) {
     out = FaultHook{};
-    const rt_fault_header& h = header();
-    if (riftwii_fault_bin_size < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
-        h.version != RT_FAULT_VERSION || h.size > riftwii_fault_bin_size ||
+    PackedBlobs blobs;
+    if (!blobs.unpack(riftwii_hooks_bin, riftwii_hooks_bin_size, kHookBlobs)) {
+        why = "the embedded crash blob is damaged or there is no memory to unpack it";
+        return false;
+    }
+    const std::uint8_t* image = blobs.blob(kHookFault);
+    const std::uint32_t image_bytes = blobs.size(kHookFault);
+    const rt_fault_header& h = header(image);
+    if (image_bytes < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
+        h.version != RT_FAULT_VERSION || h.size > image_bytes ||
         h.context_offset + RT_FAULT_CONTEXT_BYTES > h.size) {
         why = "the embedded crash blob is damaged";
         return false;
@@ -148,7 +158,7 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     //    nothing now (MEM2's bottom is still this loader's until the
     //    jump): the blob fills what it uses when the game crashes.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(out.code_base), riftwii_fault_bin, h.size);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), image, h.size);
     rt_fault_context* ctx = reinterpret_cast<rt_fault_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_FAULT_CONTEXT_MAGIC) {
         why = "the crash blob's context is not where its header says";
@@ -177,7 +187,7 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
 
 bool install_fault_hook(FaultHook& hook, std::string& why) {
     if (!hook.active) return false;
-    const rt_fault_header& h = header();
+    const rt_fault_header& h = header(reinterpret_cast<const std::uint8_t*>(hook.code_base));
     struct Site {
         std::uint32_t& function;
         std::uint32_t hook, replay, resume;
