@@ -2329,7 +2329,8 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * menu's, so it is checked first, and written whole or not at all (a cut
  * argument, "-C" for "-C1", would start the game wrong without a word):
  * at most GC_TGC_ARGS entries before its 0, each pointing into MEM1 at a
- * string of at most GC_EXEC_ARG_BYTES, and all of them fitting the
+ * string of at most GC_EXEC_ARG_BYTES of printable ASCII (exec.txt
+ * would turn any other byte into '?'), and all of them fitting the
  * sector after `at`. A list that breaks any of that gives no arguments,
  * and the game starts as it did before RiftWii carried them: patched,
  * with its default; a "gc_tgc_args=dropped" line in their place has
@@ -2353,7 +2354,14 @@ static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
         const uint32_t text = entries[count];
         uint32_t length = 0;
         if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) return gc_tgc_args_dropped(buf, at);
-        while (length <= GC_EXEC_ARG_BYTES && ((const volatile char*)(uintptr_t)text)[length] != 0) ++length;
+        while (length <= GC_EXEC_ARG_BYTES) {
+            const uint8_t byte = ((const volatile uint8_t*)(uintptr_t)text)[length];
+            if (byte == 0) break;
+            /* exec.txt would carry it as '?': a different ROM name or
+             * option, so the list is left out whole and said so. */
+            if (byte < 0x20u || byte > 0x7Eu) return gc_tgc_args_dropped(buf, at);
+            ++length;
+        }
         lengths[count] = length;
     }
     /* No 0 within GC_TGC_ARGS: longer than RiftWii carries. */
