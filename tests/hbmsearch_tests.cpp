@@ -538,6 +538,104 @@ void put_slot_call(Section& t, std::int32_t slot, std::int32_t reason) {
     t.put(kBctrl);
 }
 
+// A later WPAD's blocking WPADGetInfo with the request built in (Scarface:
+// The World Is Yours): the table's address, a busy check, the status request
+// (0x15) with its reply handler's address, and a sleep on the queue the
+// handler wakes (find_wpad_get_info_blocking).
+void TestWpadGetInfoBlocking() {
+    const std::uint32_t table = 0x807370F0u, sleep = 0x804F38E8u, wakeup = 0x804F39D4u;
+    const std::int32_t queue = 0x824;
+    // The handler: stores the result, then `addi r3,r3,queue; b OSWakeupThread`.
+    const auto handler = [&](Section& h, std::int32_t wakes, std::uint32_t table_high = 0x8073,
+                             bool returns_first = false) {
+        if (returns_first) h.put(kBlr);
+        h.put(lis(5, table_high));
+        h.put(addi(6, 13, -11412));
+        h.put(kSlwiR0R3By2);
+        h.put(addi(5, 5, 0x70F0));
+        h.put(lwzx(3, 5, 0));
+        h.put(addi(3, 3, wakes));
+        h.put(b(h.here(), wakeup));
+    };
+    const auto blocking = [&](Section& t, std::uint32_t request, std::int32_t sleeps_on) {
+        t.put(stwu_r1(0x90));
+        t.put(kMflrR0);
+        t.put(lis(31, 0x8073));
+        t.put(addi(31, 31, 0x70F0));
+        t.put(lwz(26, 28, 0x7FC));
+        t.put(d_form(11, 0, 26, -1));  // cmpwi r26,-1
+        t.put(li(12, static_cast<std::int32_t>(request)));
+        t.put(lis(11, 0x8052));
+        t.put(addi(11, 11, 0x0438));
+        t.put(stw(11, 1, 0x64));
+        t.put(d_form(11, 0, 26, -2));  // cmpwi r26,-2
+        t.put(lwzx(3, 31, 30));
+        t.put(addi(3, 3, sleeps_on));
+        t.put(bl(t.here(), sleep));
+        t.put(addi(1, 1, 0x90));
+        t.put(kBlr);
+    };
+    Section callees{0x804F3800u, {}};
+    for (int i = 0; i < 0x100; ++i) callees.put(kBlr);
+    {
+        Section h{0x80520438u, {}};
+        handler(h, queue);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x15, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0x80523914u);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, 0), 0u);
+        // The handler not in the game's code: no queue to match.
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), callees.range()}, table), 0u);
+        // Another table: not this WPAD's.
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, 0x805D6170u), 0u);
+        // It has no `bl X; cmpwi r3,-2`: the later finder doesn't take it.
+        EXPECT_EQ(riftwii::find_wpad_get_info_later({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+    {
+        // The handler wakes another queue than the one slept on.
+        Section h{0x80520438u, {}};
+        handler(h, queue + 0x20);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x15, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+    {
+        // The handler returns at once; the wake after its `blr` is another
+        // function's (CodeRabbit CLI, part 5).
+        Section h{0x80520438u, {}};
+        handler(h, queue, 0x8073, true);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x15, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+    {
+        // The handler wakes that offset in another table's blocks: another
+        // queue (CodeRabbit CLI, part 5).
+        Section h{0x80520438u, {}};
+        handler(h, queue, 0x8074);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x15, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+    {
+        // Another request than the status one.
+        Section h{0x80520438u, {}};
+        handler(h, queue);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x12, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+    {
+        // Two such functions: not guessed.
+        Section h{0x80520438u, {}};
+        handler(h, queue);
+        Section t{0x80523914u, {}};
+        blocking(t, 0x15, queue);
+        blocking(t, 0x15, queue);
+        EXPECT_EQ(riftwii::find_wpad_get_info_blocking({t.range(), h.range(), callees.range()}, table), 0u);
+    }
+}
+
 // The later WPAD's WPADGetInfoAsync through its blocking caller: the table's
 // address made, then `bl X; cmpwi r3,-2` (find_wpad_get_info_later).
 void TestWpadGetInfoLater() {
@@ -1653,6 +1751,7 @@ void TestKpadConnect() {
 
 int main() {
     TestWpadGetInfoLater();
+    TestWpadGetInfoBlocking();
     TestKpadRead();
     TestWpadProbe();
     TestWpadGetInfo();

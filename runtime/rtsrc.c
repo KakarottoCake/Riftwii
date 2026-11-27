@@ -8,7 +8,6 @@
 
 #include "rthome.h"
 
-#define RTSRC_PAD_ERR 10u  /* PADStatus' error byte: 0, a report */
 
 /* Ticks since a time noted with its low bit set (so 0 can mean "none"). */
 static uint32_t rtsrc_elapsed(uint32_t now, uint32_t noted) { return now - (noted & ~1u); }

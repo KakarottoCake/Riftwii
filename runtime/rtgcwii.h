@@ -29,6 +29,12 @@
 #define RTGCWII_CHANNELS 4u
 #define RTGCWII_PAD_BYTES 12u
 
+/* rtgcwii.info_answers: what the hooked WPADGetInfo(Async) gets on the
+ * stand-in's channel. */
+#define RTGCWII_INFO_BUSY 0u
+#define RTGCWII_INFO_ANSWER 1u
+#define RTGCWII_INFO_BLOCKING 2u
+
 struct rtgcwii {
     struct rtslot slot;        /* who holds each Wii Remote slot, and what the game was told (rtslot.h) */
     struct rtsrc src;          /* each player's controller, one sample per report (rtsrc.h) */
@@ -51,11 +57,15 @@ struct rtgcwii {
      * stand-in and told at the game's next KPAD read on that channel (as a
      * real Wii Remote's answer comes later), 0: none waiting. */
     uint32_t info_callback[RTGCWII_CHANNELS];
-    /* 1: a 2006 KPAD game, whose WPADGetInfoAsync on the stand-in's channel
-     * gets the stand-in's info (pad_on_info); 0: a later game, where it is
-     * busy (-2), so a blocking WPADGetInfo (Mario Strikers Charged's, after
-     * its title) returns at once instead of sleeping for a reply only a real
-     * Wii Remote sends; the game skips its battery check. Loader-filled. */
+    /* RTGCWII_INFO_ANSWER: a 2006 KPAD game, whose WPADGetInfoAsync on the
+     * stand-in's channel gets the stand-in's info (pad_on_info);
+     * RTGCWII_INFO_BUSY: a later game, where it is busy (-2), so a blocking
+     * WPADGetInfo (Mario Strikers Charged's, after its title) returns at once
+     * instead of sleeping for a reply only a real Wii Remote sends; the game
+     * skips its battery check. RTGCWII_INFO_BLOCKING: the hooked function is
+     * a blocking WPADGetInfo with the request built in (Scarface: The World
+     * Is Yours), which sleeps even with no Wii Remote there: busy before the
+     * original runs (pad_info_first). Loader-filled. */
     uint32_t info_answers;
     /* The 2006 WPAD's connect callbacks (its games have no KPAD-level
      * one): the table of the channels' control blocks and the callback's

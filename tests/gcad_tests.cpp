@@ -1845,6 +1845,82 @@ static void TestKpadDpdSwitch() {
     text = {{b.base, code.data(), code.size()}};
     EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
 }
+
+// A pack's code that reads the GameCube ports itself (quatric's Excite
+// Truck GameCube patch: `lis r6,0xCD00` then `add r6,r6,r5` and `lwz
+// r8,0x6404(r6)`... here with the access right after): found; other
+// hardware registers, or an SI offset through another register: not.
+static void TestReadsGcPorts() {
+    const auto bytes = [](std::initializer_list<std::uint32_t> words) {
+        std::vector<std::uint8_t> out;
+        for (std::uint32_t w : words) {
+            out.push_back(static_cast<std::uint8_t>(w >> 24));
+            out.push_back(static_cast<std::uint8_t>(w >> 16));
+            out.push_back(static_cast<std::uint8_t>(w >> 8));
+            out.push_back(static_cast<std::uint8_t>(w));
+        }
+        return out;
+    };
+    std::vector<std::uint8_t> code = bytes({0x3CC0CD00u, 0x60000000u, 0x81066404u, 0x4E800020u});  // lis r6,0xCD00; nop; lwz r8,0x6404(r6)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CC00u, 0x60C66430u, 0x4E800020u});  // lis r6,0xCC00; ori r6,r6,0x6430 (SIPOLL)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x81060000u, 0x4E800020u});  // lis r6,0xCD00; lwz r8,0(r6): IPC, not the ports
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x81076404u, 0x4E800020u});  // the SI offset through r7, not r6
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC08000u, 0x81066404u, 0x4E800020u});  // lis r6,0x8000: plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x3CC08000u, 0x81066404u});  // lis r6,0xCD00; lis r6,0x8000: plain memory again
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7C661B78u, 0x81066404u});  // lis r6,0xCD00; mr r6,r3: plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CC62A14u, 0x81066404u});  // lis r6,0xCD00; add r6,r6,r5 (a port's offset): still a port read
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x60000000u, 0x60006430u});  // lis r0,0xCD00; nop; ori r0,r0,0x6430: still a port read
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CC3252Eu, 0x81066404u});  // lis r6,0xCD00; stfsx f6,r3,r4 (no GPR written): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0xC4C30004u, 0x81066404u});  // lis r6,0xCD00; lfsu f6,4(r3) (r3 is its base): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0xC4060004u, 0x81066404u});  // lis r6,0xCD00; lfsu f0,4(r6): r6 = base + 4, still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x8D060000u, 0x81066404u});  // lis r6,0xCD00; lbzu r8,0(r6): r6 kept, still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x60000000u, 0x38606430u});  // lis r0,0xCD00; nop; li r3,0x6430 (zero, not r0): none
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x38000005u, 0x60006430u});  // lis r0,0xCD00; li r0,5; ori r0,r0,0x6430: none
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7C6424AAu, 0x81066404u});  // lis r6,0xCD00; lswi r3,r4,4 (r3 only): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CA444AAu, 0x81066404u});  // lis r6,0xCD00; lswi r5,r4,8 (r5 and r6): plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x85066404u});  // lis r6,0xCD00; lwzu r8,0x6404(r6): an update form reads it too
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000101u, 0x81066404u});  // lis r6,0xCD00; bl: the call may change r6 (fork #25)
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4E800421u, 0x81066404u});  // lis r6,0xCD00; bctrl: the same
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000101u, 0x3CC0CD00u, 0x81066404u});  // a fresh lis after the call: one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x429F0005u, 0x7CE802A6u, 0x81066404u});  // bcl 20,31,$+4; mflr r7: r6 kept, one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C69C00u, 0x81066404u});  // lis r6,0xCD00; addi r6,r6,-0x6400; 0x6404(r6): 0xCD000004
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C6000Cu, 0x810663F8u});  // ...; addi r6,r6,12; lwz r8,0x63F8(r6): 0xCD006404
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C6FFFCu, 0x94C60004u, 0x81066400u});  // addi r6,r6,-4; stwu r6,4(r6); 0x6400(r6)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4E800020u, 0x81066404u});  // lis r6,0xCD00; blr; then the next function's 0x6404(r6)
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000008u, 0x60000000u, 0x81066404u, 0x4E800020u});  // b +8 over a word: still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48001000u, 0x81066404u});  // lis r6,0xCD00; b far away: the word after isn't its own
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4BFFFFFCu, 0x81066404u});  // b back: not followed, nor the word after
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+}
+
 // KPAD's camera switch, read from KPADEnableDPD's code just after
 // KPADDisableDPD's (Batman: The Brave and the Bold's pair).
 static void TestKpadEnableDpd() {
@@ -2662,6 +2738,7 @@ int main() {
     TestRemotesIdleReset();
     TestKpadEnableDpd();
     TestKpadDpdSwitch();
+    TestReadsGcPorts();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();

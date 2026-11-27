@@ -394,6 +394,25 @@ std::string LaunchModel::pack_save_owner() const {
     return "";
 }
 
+std::string LaunchModel::pack_gc_controllers() const {
+    for (const LaunchPackage& p : packages) {
+        if (!p.valid || !p.for_disc || !p.enabled || p.code_build() || p.package.gc_controllers.empty()) continue;
+        bool chosen = p.package.options.empty();
+        for (const Option& o : p.package.options)
+            if (o.selected != 0 && o.selected <= o.choices.size()) chosen = true;
+        if (chosen) return p.package.gc_controllers;
+    }
+    return "";
+}
+
+std::string LaunchModel::effective_gc_controllers() const {
+    if (game.gc_controllers == "classic" || game.gc_controllers == "nunchuk" || game.gc_controllers == "sideways" ||
+        game.gc_controllers == "pointing")
+        return game.gc_controllers;
+    const std::string from_pack = pack_gc_controllers();
+    return from_pack.empty() ? "off" : from_pack;
+}
+
 bool LaunchModel::packs_patch_game() const {
     for (const LaunchPackage& p : packages) {
         if (!p.enabled || !p.valid || !p.for_disc || p.code_build()) continue;

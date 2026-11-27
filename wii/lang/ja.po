@@ -1542,17 +1542,32 @@ msgstr "オフ: このゲームではWiiリモコンが振動しません。"
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "オフ: このゲームではWiiリモコンのスピーカーから音が出ません。"
 
-msgid "GameCube controllers"
-msgstr "ゲームキューブコントローラー"
+msgid "Controllers act as"
+msgstr "コントローラーの役割"
+
+msgid "Classic"
+msgstr "クラシック"
+
+msgid "A pack brings its own controls: 'Controllers act as' is off."
+msgstr "パックが独自の操作を使うため、「コントローラーの役割」はオフです。"
+
+msgid "Sideways"
+msgstr "横持ち"
+
+msgid "Pointing"
+msgstr "ポインター"
 
 msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
 msgstr "各ゲームキューブコントローラーがクラシックコントローラーとして動きます（ポート1はWiiリモコン1、以下同様）。対応するゲーム用です。"
 
+msgid "Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it."
+msgstr "標準: 有効なパックが{1}を求めているので、ゲームキューブコントローラーはそのように動きます。変えるにはほかの選択肢を選んでください。"
+
 msgid "A code build doesn't use it."
 msgstr "コードビルドでは使われません。"
 
-msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
-msgstr "ゲームキューブコントローラーは対応するゲームでのみ使えます。ほかの選択肢では、Wiiのコントローラーとして動きます。"
+msgid "Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."
+msgstr "標準: 有効なパックがWiiのコントローラーを求めない限り、ゲームキューブコントローラーは対応するゲームでのみ使えます。ほかの選択肢では、Wiiのコントローラーとして動きます。今のところ、ゲームキューブコントローラー専用です。"
 
 msgid "Wii Remote + Nunchuk"
 msgstr "Wiiリモコン＋ヌンチャク"

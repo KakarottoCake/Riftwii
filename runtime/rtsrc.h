@@ -15,6 +15,7 @@
 
 #define RTSRC_PORTS 4u
 #define RTSRC_PAD_BYTES 12u  /* a PADStatus */
+#define RTSRC_PAD_ERR 10u    /* PADStatus' error byte: 0, a report */
 
 /* A sample's buttons, in the GameCube controller's own bits (PADStatus'
  * word); a source with other buttons maps them onto these. */

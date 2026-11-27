@@ -35,10 +35,17 @@ uint32_t rtgcwii_map_pointing(const uint8_t* pad) {
 }
 
 void rtgcwii_pads(struct rtgcwii* w, const uint8_t* status, uint32_t now) {
+    /* Connected only (rtslot.inputless): a connected controller's sample is
+     * all at rest (buttons up, sticks centred, no motion); it still comes
+     * and goes as usual. */
+    uint8_t at_rest[RTGCWII_PAD_BYTES];  /* (on the stack: the blob has no .rodata) */
     uint32_t i;
+    for (i = 0; i < RTGCWII_PAD_BYTES; ++i) at_rest[i] = 0;
     for (i = 0; i < RTGCWII_CHANNELS; ++i) {
         const uint32_t bit = 1u << i;
-        const enum rtsrc_event event = rtsrc_port(&w->src, i, status + i * RTGCWII_PAD_BYTES, w->slot.grace, now);
+        const uint8_t* s = status + i * RTGCWII_PAD_BYTES;
+        const enum rtsrc_event event = rtsrc_port(
+            &w->src, i, w->slot.inputless && (int8_t)s[RTSRC_PAD_ERR] == 0 ? at_rest : s, w->slot.grace, now);
         if (event == RTSRC_ARRIVED || event == RTSRC_REPORT) {
             struct rtsrc_sample p;
             rtsrc_latest(&w->src, i, &p);

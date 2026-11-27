@@ -1542,17 +1542,32 @@ msgstr "끔: 이 게임에서는 Wii 리모컨이 절대 진동하지 않습니�
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "끔: 이 게임에서는 Wii 리모컨 스피커에서 소리가 나지 않습니다."
 
-msgid "GameCube controllers"
-msgstr "게임큐브 컨트롤러"
+msgid "Controllers act as"
+msgstr "컨트롤러 역할"
+
+msgid "Classic"
+msgstr "클래식"
+
+msgid "A pack brings its own controls: 'Controllers act as' is off."
+msgstr "팩이 자체 조작을 사용하므로 '컨트롤러 역할'은 꺼집니다."
+
+msgid "Sideways"
+msgstr "가로"
+
+msgid "Pointing"
+msgstr "포인팅"
 
 msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
 msgstr "각 게임큐브 컨트롤러가 클래식 컨트롤러로 작동합니다(포트 1은 Wii 리모컨 1 등). 지원하는 게임용입니다."
 
+msgid "Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it."
+msgstr "기본: 켜진 팩이 {1}을(를) 요청하므로 게임큐브 컨트롤러가 그렇게 작동합니다. 바꾸려면 다른 선택지를 고르세요."
+
 msgid "A code build doesn't use it."
 msgstr "코드 빌드에서는 사용되지 않습니다."
 
-msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
-msgstr "게임큐브 컨트롤러는 전용 게임에서만 작동합니다. 다른 선택지에서는 Wii 컨트롤러로 작동합니다."
+msgid "Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."
+msgstr "기본: 켜진 팩이 Wii 컨트롤러를 요청하지 않으면 게임큐브 컨트롤러는 전용 게임에서만 작동합니다. 다른 선택지에서는 Wii 컨트롤러로 작동합니다. 지금은 게임큐브 컨트롤러 전용입니다."
 
 msgid "Wii Remote + Nunchuk"
 msgstr "Wii 리모컨 + 눈차크"

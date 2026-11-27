@@ -75,7 +75,7 @@ bool scan(const std::string& path) {
     const bool pad_found = riftwii::find_pad_symbols(text, pad, pad_error);
     std::printf("%s | kpad %08x/%u/%d | probe %08x | unified %08x/%u | connect %08x %08x/%u+%u | info %08x | "
                 "infolater %08x | c2006 %08x+%u | later %08x+%u | ext %08x+%u | read %08x | fmt %08x | "
-                "dpd %08x %08x/%u+%u | idle %08x | sleep %08x | r13 %08x | hbm %08x %08x %08x | pad %s %08x/%u %08x %08x\n",
+                "dpd %08x %08x/%u+%u | idle %08x | sleep %08x | r13 %08x | hbm %08x %08x %08x | pad %s %08x/%u %08x %08x | infoblock %08x\n",
                 path.c_str(), kpad.address, kpad.status_bytes, kpad.takes_error ? 1 : 0, probe, unified.address,
                 unified.status_bytes, connect.address, connect.block, connect.stride, connect.offset,
                 riftwii::find_wpad_get_info(text), riftwii::find_wpad_get_info_later(text, later.table), c2006.table,
@@ -83,7 +83,7 @@ bool scan(const std::string& path) {
                 riftwii::find_wpad_set_format(text), dpd.enable, dpd.base, dpd.stride, dpd.offset,
                 riftwii::find_wii_remote_idle_reset(text, probe), riftwii::find_os_sleep_thread(text), small_data,
                 hbm.init, hbm.calc, hbm.select, pad_found ? "ok" : "none", pad.read, pad.read_sites,
-                pad.control_motor, pad.idle_reset);
+                pad.control_motor, pad.idle_reset, riftwii::find_wpad_get_info_blocking(text, later.table));
     return true;
 }
 

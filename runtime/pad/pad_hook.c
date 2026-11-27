@@ -50,6 +50,7 @@ void pad_on_menu(struct rt_pad_context* c);
 int32_t pad_on_select(struct rt_pad_context* c, int32_t result);
 void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count);
 #ifdef RT_PAD_STANDIN
+int32_t pad_info_first(struct rt_pad_context* c, int32_t chan);
 int32_t pad_on_info(struct rt_pad_context* c, int32_t chan, uint8_t* info, uint32_t callback, int32_t result);
 uint32_t pad_on_kpad_enter(struct rt_pad_context* c);
 #if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
@@ -1073,6 +1074,15 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
         const int32_t err = c->kpad_takes_error && pad_in_ram(error) ? *error : RTGCWII_NO_ERROR;
         msr = interrupts_off();
         rtgcwii_kpad_read(w, (uint32_t)chan, result, err, now());
+#ifdef RT_PAD_FORM_REMOTE
+        /* Connected only: a read that brought the pack's samples on a slot
+         * the game was told of has heard of it, acknowledged here, before
+         * the poll below, which may tell it anew (and clear this again
+         * until the next read). */
+        if (w->slot.inputless && result > 0 && (uint32_t)chan < RTGCWII_CHANNELS &&
+            rtslot_on(&w->slot, (uint32_t)chan) && ((w->slot.told >> chan) & 1u))
+            rtgcwii_heard(w, (uint32_t)chan);
+#endif
         interrupts_restore(msr);
         if ((uint32_t)chan < RTGCWII_CHANNELS) {
             /* A 2006 KPAD game's info request answered for the stand-in
@@ -1091,7 +1101,9 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
         pad_gcwii_read_pads(c);
         /* Samples the game's own read brought are a real controller's: they
          * go back as they are, even if the refresh just saw it leave (the
-         * next read finds the new owner; CodeRabbit on #609). */
+         * next read finds the new owner; CodeRabbit on #609). Connected
+         * only, they are the pack's on the stand-in's own slot (heard
+         * above, before the poll). */
         if (result > 0) return result;
     }
     msr = interrupts_off();
@@ -1392,7 +1404,8 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     owner = pad_owner(c, (uint32_t)chan, t);
     if (owner != RTSLOT_HOME) {
         /* The permanent stand-in's raw status, in its form's shape. */
-        if (owner == RTSLOT_STANDIN) {
+        /* Connected only: the raw samples there are the pack's, left as they are. */
+        if (owner == RTSLOT_STANDIN && !((const struct rtgcwii*)(uintptr_t)c->gcwii)->slot.inputless) {
             hold = rtgcwii_hold((const struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan);
 #ifdef RT_PAD_FORM_REMOTE
             const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
@@ -1492,6 +1505,21 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
 #define PAD_INFO_LED 21u
 #define PAD_INFO_BATTERY_FULL 4u
 #define PAD_INFO_BUSY (-2)        /* WPAD_ERR_BUSY */
+
+/* Before the hooked function runs: nonzero is its answer, given instead of
+ * running it; 0 runs it. Only a blocking WPADGetInfo with the request built
+ * in (RTGCWII_INFO_BLOCKING: Scarface: The World Is Yours) is answered here:
+ * with no Wii Remote on the channel it sends nothing and still sleeps for the
+ * reply, so on the stand-in's channel it is busy (-2) at once, and the game
+ * skips its battery check, as a later game's WPADGetInfo does with
+ * WPADGetInfoAsync busy. */
+int32_t pad_info_first(struct rt_pad_context* c, int32_t chan) {
+    const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
+    if (!c->gcwii || w->info_answers != RTGCWII_INFO_BLOCKING || chan < 0 || chan >= (int32_t)RTGCWII_CHANNELS)
+        return 0;
+    return rtslot_on(&w->slot, (uint32_t)chan) ? PAD_INFO_BUSY : 0;
+}
+
 int32_t pad_on_info(struct rt_pad_context* c, int32_t chan, uint8_t* info, uint32_t callback, int32_t result) {
     uint32_t msr, i;
     int on, pending;
@@ -1509,7 +1537,7 @@ int32_t pad_on_info(struct rt_pad_context* c, int32_t chan, uint8_t* info, uint3
     pending = ((const struct rtgcwii*)(uintptr_t)c->gcwii)->info_callback[chan] != 0;
     /* A later game: busy, never an answer whose callback would have to wake
      * a WPADGetInfo already asleep (rtgcwii.info_answers). */
-    if (!((const struct rtgcwii*)(uintptr_t)c->gcwii)->info_answers) pending = 1;
+    if (((const struct rtgcwii*)(uintptr_t)c->gcwii)->info_answers != RTGCWII_INFO_ANSWER) pending = 1;
     if (!on || pending) {
         interrupts_restore(msr);
         return on ? PAD_INFO_BUSY : result;
@@ -1545,6 +1573,19 @@ void pad_on_wpad_read(struct rt_pad_context* c, int32_t chan, uint8_t* status) {
         !pad_in_ram(status + RTGCWII_WPAD_FS_BYTES - 1))
         return;
     pad_gcwii_wii_read(c);
+    /* Connected only: a report with no error is the pack's own, left as it
+     * is, never taken for a real Wii Remote. It was read before the poll
+     * below, so it acknowledges what was told before; the poll may tell
+     * something newer, which then waits for the next read. */
+    if (w->slot.inputless && (int8_t)status[RTGCWII_WPAD_ERR] == 0 && rtslot_on(&w->slot, (uint32_t)chan)) {
+        /* (Only on the stand-in's own slot: a report on any other slot is a
+         * real Wii Remote's, noted as usual below; CodeRabbit CLI.) */
+        msr = interrupts_off();
+        rtgcwii_heard(w, (uint32_t)chan);
+        interrupts_restore(msr);
+        pad_gcwii_read_pads(c);
+        return;
+    }
     /* The report's answer is noted before the pads are polled (as at a KPAD
      * read), so whatever the poll then learns is newer than this report and
      * stands (CodeRabbit on #616). */

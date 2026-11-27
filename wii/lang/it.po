@@ -1542,17 +1542,32 @@ msgstr "Disattivato: i telecomandi Wii non vibrano mai in questo gioco."
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "Disattivato: nessun suono dagli altoparlanti dei telecomandi Wii in questo gioco."
 
-msgid "GameCube controllers"
-msgstr "Controller GameCube"
+msgid "Controllers act as"
+msgstr "I controller fanno da"
+
+msgid "Classic"
+msgstr "Tradizionale"
+
+msgid "A pack brings its own controls: 'Controllers act as' is off."
+msgstr "Un pacchetto ha i suoi comandi: 'I controller fanno da' ignorato."
+
+msgid "Sideways"
+msgstr "Di lato"
+
+msgid "Pointing"
+msgstr "Puntamento"
 
 msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
 msgstr "Ogni controller GameCube gioca come un controller tradizionale (la porta 1 come il telecomando Wii 1 e così via), nei giochi che lo supportano."
 
+msgid "Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it."
+msgstr "Predefinito: un pacchetto attivo chiede {1}, quindi i controller GameCube giocano così. Scegli un'altra opzione per cambiarlo."
+
 msgid "A code build doesn't use it."
 msgstr "Una build di codice non lo usa."
 
-msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
-msgstr "I controller GameCube funzionano solo nei giochi pensati per loro. Le altre scelte li fanno giocare come un controller Wii."
+msgid "Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."
+msgstr "Predefinito: i controller GameCube funzionano solo nei giochi pensati per loro, a meno che un pacchetto attivo chieda un controller Wii. Le altre scelte li fanno giocare come uno di questi. Per ora vale solo per i controller GameCube."
 
 msgid "Wii Remote + Nunchuk"
 msgstr "Telecomando Wii + Nunchuk"

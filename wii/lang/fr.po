@@ -1542,17 +1542,32 @@ msgstr "Désactivé : désactive totalement les vibrations de la Télécommande 
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "Désactivé : coupe le haut-parleur intégré des Télécommandes Wii pour ce jeu."
 
-msgid "GameCube controllers"
-msgstr "Manettes GameCube"
+msgid "Controllers act as"
+msgstr "Les manettes jouent comme"
+
+msgid "Classic"
+msgstr "Classique"
+
+msgid "A pack brings its own controls: 'Controllers act as' is off."
+msgstr "Un pack a ses contrôles : 'Les manettes jouent comme' ignoré."
+
+msgid "Sideways"
+msgstr "À l'horizontale"
+
+msgid "Pointing"
+msgstr "Pointage"
 
 msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
 msgstr "Chaque manette GameCube joue comme une manette Classic (le port 1 comme la Télécommande Wii 1, et ainsi de suite), dans les jeux qui l'acceptent."
 
+msgid "Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it."
+msgstr "Par défaut : un pack activé demande {1}, donc les manettes GameCube jouent ainsi. Choisissez une autre option pour changer cela."
+
 msgid "A code build doesn't use it."
 msgstr "Une build de code ne l'utilise pas."
 
-msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
-msgstr "Les manettes GameCube ne fonctionnent que dans les jeux faits pour elles. Les autres choix les font jouer comme une manette Wii."
+msgid "Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."
+msgstr "Par défaut : les manettes GameCube ne fonctionnent que dans les jeux faits pour elles, sauf si un pack activé demande une manette Wii. Les autres choix les font jouer comme une manette Wii. Pour l'instant, ceci ne concerne que les manettes GameCube."
 
 msgid "Wii Remote + Nunchuk"
 msgstr "Télécommande Wii + Nunchuk"

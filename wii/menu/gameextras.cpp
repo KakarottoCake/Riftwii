@@ -382,11 +382,14 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
     // The game's own Rumble, or Settings > Wii Remote rumble for every game.
     extras.rumble_off = state.model.game.rumble == "off" || Settings().wiimote_rumble == "off";
     extras.speaker_off = state.model.game.speaker == "off";
-    extras.gc_standin = state.model.game.gc_controllers == "classic" || state.model.game.gc_controllers == "nunchuk" ||
-                        state.model.game.gc_controllers == "sideways" || state.model.game.gc_controllers == "pointing";
-    extras.gc_standin_nunchuk = state.model.game.gc_controllers == "nunchuk";
-    extras.gc_standin_sideways = state.model.game.gc_controllers == "sideways";
-    extras.gc_standin_pointing = state.model.game.gc_controllers == "pointing";
+    // The game's own setting, or with it Off, the form an enabled pack asks
+    // for (riftwii-gc-controllers).
+    const std::string gc_controllers = state.model.effective_gc_controllers();
+    extras.gc_standin = gc_controllers == "classic" || gc_controllers == "nunchuk" || gc_controllers == "sideways" ||
+                        gc_controllers == "pointing";
+    extras.gc_standin_nunchuk = gc_controllers == "nunchuk";
+    extras.gc_standin_sideways = gc_controllers == "sideways";
+    extras.gc_standin_pointing = gc_controllers == "pointing";
     extras.region_strings = state.model.game.region_strings == "on";
     extras.wfc_domain = wfc_domain(extras.server, Settings().wfc_domain);
     const std::string& adapter = Settings().gc_adapter;

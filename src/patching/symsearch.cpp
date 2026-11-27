@@ -1669,5 +1669,148 @@ std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std:
     return 0;
 }
 
+namespace {
+
+// Whether `insn` writes general register `reg`. The D-form arithmetic and
+// integer loads write rD (lmw: rD through r31); the logical immediates and
+// rotates write rA; every update form (integer and floating-point loads and
+// stores) writes its base, rA. Among the opcode-31 forms, the logical and
+// shift ones write rA; the stores, the floating-point loads and stores, the
+// compares, traps, cache, sync and move-to ones write no general register
+// (beyond an update form's base); the rest (arithmetic, indexed integer
+// loads, mfspr and the like) write rD.
+bool writes_gpr(std::uint32_t insn, std::uint32_t reg) {
+    const std::uint32_t op = insn >> 26, rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u;
+    const bool update = op == 33 || op == 35 || op == 37 || op == 39 || op == 41 || op == 43 || op == 45 ||
+                        op == 49 || op == 51 || op == 53 || op == 55;  // lwzu..sthu, lfsu..stfdu
+    if (update && ra == reg) return true;
+    if (op == 46) return reg >= rd;  // lmw
+    if (op == 7 || op == 8 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+        (op >= 40 && op <= 43)) {
+        return rd == reg;  // mulli..addis, the integer loads
+    }
+    if (op == 20 || op == 21 || op == 23 || (op >= 24 && op <= 29)) return ra == reg;  // rlwimi..andis.
+    if (op != 31) return false;
+    switch ((insn >> 1) & 0x3FFu) {
+        case 28: case 60: case 124: case 284: case 316: case 412: case 444: case 476:  // and..nand
+        case 24: case 536: case 792: case 824: case 26: case 922: case 954:            // shifts, cntlzw, extsh/b
+            return ra == reg;
+        case 183: case 247: case 439:            // stwux, stbux, sthux: their base
+        case 567: case 631: case 695: case 759:  // lfsux, lfdux, stfsux, stfdux: their base
+            return ra == reg;
+        case 55: case 119: case 311: case 375:  // lwzux, lbzux, lhzux, lhaux: rD and their base
+            return rd == reg || ra == reg;
+        case 597: {  // lswi: as many registers as its byte count needs, from rD, wrapping past r31
+            const std::uint32_t bytes = ((insn >> 11) & 31u) != 0 ? (insn >> 11) & 31u : 32u;
+            return ((reg - rd) & 31u) < (bytes + 3u) / 4u;
+        }
+        case 533:  // lswx: its count is known only when it runs
+            return true;
+        case 150: case 151: case 215: case 407: case 662: case 918:  // the other integer stores
+        case 661: case 725: case 438:                                // stswx, stswi, ecowx
+        case 535: case 599: case 663: case 727: case 983:            // lfsx, lfdx, stfsx, stfdx, stfiwx
+        case 0: case 32: case 4: case 512:                           // cmp, cmpl, tw, mcrxr
+        case 144: case 146: case 210: case 242: case 467:            // mtcrf, mtmsr, mtsr, mtsrin, mtspr
+        case 54: case 86: case 246: case 278: case 470: case 982: case 1014:  // dcbst, dcbf, dcbtst, dcbt, dcbi, icbi, dcbz
+        case 306: case 566: case 598: case 854:                               // tlbie, tlbsync, sync, eieio
+            return false;
+        default:
+            return rd == reg;
+    }
+}
+
+// Whether `insn` is an update form whose base is `reg` and that leaves it
+// the address it used (the base plus an offset, as an add does), with no
+// load into it: lwzu..sthu, lfsu..stfdu and their indexed forms.
+bool base_update(std::uint32_t insn, std::uint32_t reg) {
+    const std::uint32_t op = insn >> 26, rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u;
+    if (ra != reg) return false;
+    if (op == 33 || op == 35 || op == 41 || op == 43) return rd != reg;  // lwzu, lbzu, lhzu, lhau
+    if (op == 37 || op == 39 || op == 45 || op == 49 || op == 51 || op == 53 || op == 55) return true;
+    if (op != 31) return false;
+    switch ((insn >> 1) & 0x3FFu) {
+        case 55: case 119: case 311: case 375:  // lwzux, lbzux, lhzux, lhaux
+            return rd != reg;
+        case 183: case 247: case 439: case 567: case 631: case 695: case 759:  // stwux..sthux, lfsux..stfdux
+            return true;
+        default:
+            return false;
+    }
+}
+
+}  // namespace
+
+bool reads_gc_ports(const std::uint8_t* bytes, std::size_t size) {
+    constexpr unsigned kWithin = 8;  // words from the `lis` to its use
+    constexpr std::uint32_t kSiFirst = 0x6400, kSiEnd = 0x6500;
+    const std::size_t words = size / 4;
+    for (std::size_t i = 0; i < words; ++i) {
+        const std::uint32_t lis = be32(bytes + i * 4);
+        const std::uint32_t high = lis & 0xFFFFu;
+        if ((lis >> 26) != 15 || ((lis >> 16) & 31u) != 0 || (high != 0xCD00u && high != 0xCC00u)) continue;
+        const std::uint32_t reg = (lis >> 21) & 31u;
+        // What constant `addi rX,rX,n` and the update forms have added to
+        // the base since the `lis` (`addi r6,r6,-0x6400` then `0x6404(r6)`
+        // reaches 0xCD000004, not the serial interface).
+        std::int32_t added = 0;
+        for (std::size_t k = i + 1; k < words && k <= i + kWithin; ++k) {
+            const std::uint32_t insn = be32(bytes + k * 4);
+            const std::uint32_t op = insn >> 26;
+            // A return (`blr`, `bctr`) ends the `lis`'s function: the next
+            // one's `lwz r8,0x6404(r6)` is its own (its callers may pass any
+            // address in r6). A plain `b` forward within the window is
+            // followed (`b +8` over a word still reaches a use with r6 kept:
+            // CodeRabbit CLI, fork #16); any other `b` leaves the function.
+            if (insn == 0x4E800020u || insn == 0x4E800420u) break;
+            if (op == 18 && (insn & 3u) == 0) {
+                std::int32_t offset = static_cast<std::int32_t>(insn & 0x03FFFFFCu);
+                if (offset & 0x02000000) offset -= 0x04000000;
+                const std::size_t ahead = offset > 0 ? static_cast<std::size_t>(offset / 4) : 0;
+                if (ahead == 0 || k + ahead >= words || k + ahead > i + kWithin) break;
+                k += ahead - 1;  // the loop's ++k lands on the target
+                continue;
+            }
+            // Any other branch ends the run: an absolute `ba`, and a call
+            // (`bl`, `bla`, `bcl`, `blrl`, `bctrl`), whose function may set
+            // rX to anything before a use after it (CodeRabbit, fork #25); a
+            // fresh `lis` after the call is still looked at on its own.
+            // (Not `bcl 20,31,$+4`, which only takes the address of the
+            // next word into the link register, position-independent code's
+            // way: CodeRabbit CLI, fork #25.)
+            if (insn == 0x429F0005u) continue;
+            if (op == 18) break;
+            if ((op == 16 || op == 19) && (insn & 1u) != 0) break;
+            const std::uint32_t low = insn & 0xFFFFu;
+            const std::uint32_t rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u, rb = (insn >> 11) & 31u;
+            // ori rA,rS,low takes rX as its source (rS); addi and the loads
+            // and stores (update forms too) as their base (rA), where a base
+            // of r0 is the number 0, not r0 (`li r3,0x6430`).
+            const std::uint32_t source = op == 24 ? rd : ra;
+            const bool uses = op == 14 || op == 24 || (op >= 32 && op <= 45);  // addi, ori, lwz..sthu
+            if (uses && source == reg && (op == 24 || source != 0)) {
+                const std::int32_t at = op == 24 ? static_cast<std::int32_t>(low) | added
+                                                 : static_cast<std::int16_t>(low) + added;
+                if (at >= static_cast<std::int32_t>(kSiFirst) && at < static_cast<std::int32_t>(kSiEnd)) return true;
+            }
+            const bool update_d = op == 33 || op == 35 || op == 37 || op == 39 || op == 41 || op == 43 || op == 45 ||
+                                  op == 49 || op == 51 || op == 53 || op == 55;  // lwzu..sthu, lfsu..stfdu
+            if (update_d && base_update(insn, reg)) added += static_cast<std::int16_t>(low);
+            if (op == 14 && rd == reg && ra == reg && reg != 0) added += static_cast<std::int16_t>(low);
+            // rX written by anything else (`lis r6,0x8000`, `mr r6,r3`,
+            // `li r6,0`, a load into it): no longer the hardware's base, so a
+            // use after it reads plain memory. Adding to it keeps it a base
+            // (`add r6,r6,r5`, `addi r6,r6,12`: a port's offset), and so
+            // does `ori rX,rX,0` (`nop` is `ori r0,r0,0`).
+            const std::uint32_t xo = (insn >> 1) & 0x3FFu;
+            // So does an update form's base (`lbzu r8,0(r6)`, `lfsu f0,4(r6)`:
+            // the base plus an offset). `addi r0,0,n` is `li r0,n`.
+            const bool keeps = (op == 31 && xo == 266 && rd == reg && (ra == reg || rb == reg)) ||
+                               (op == 14 && rd == reg && ra == reg && reg != 0) ||
+                               (op == 24 && rd == reg && ra == reg && low == 0) || base_update(insn, reg);
+            if (writes_gpr(insn, reg) && !keeps) break;
+        }
+    }
+    return false;
+}
 
 }  // namespace riftwii

@@ -388,7 +388,10 @@ pad_hook_unified:
 #ifdef RT_PAD_STANDIN
 /* s32 WPADGetInfoAsync(chan, info, callback), in the 2006 KPAD games: the
  * original first, then pad_on_info(ctx, chan, info, callback, its result)
- * answers for the stand-in's channel. Frame: 8 chan, 12 info, 16 callback. */
+ * answers for the stand-in's channel. A blocking WPADGetInfo(chan, info)
+ * with the request built in is asked about first: pad_info_first(ctx, chan)
+ * nonzero is its answer and the original never runs (it would sleep).
+ * Frame: 8 chan, 12 info, 16 callback. */
     .globl pad_hook_info
 pad_hook_info:
     stwu 1, -0x20(1)
@@ -397,6 +400,16 @@ pad_hook_info:
     stw 3, 0x08(1)
     stw 4, 0x0C(1)
     stw 5, 0x10(1)
+    mr 4, 3
+    bl 15f
+15: mflr 3
+    addi 3, 3, pad_context_data - 15b
+    bl pad_info_first
+    cmpwi 3, 0
+    bne 16f
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
     bl pad_replay_info
     mr 7, 3
     lwz 4, 0x08(1)
@@ -406,7 +419,7 @@ pad_hook_info:
 12: mflr 3
     addi 3, 3, pad_context_data - 12b
     bl pad_on_info
-    lwz 0, 0x24(1)
+16: lwz 0, 0x24(1)
     mtlr 0
     addi 1, 1, 0x20
     blr

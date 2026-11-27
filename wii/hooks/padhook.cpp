@@ -26,6 +26,8 @@
 #include "rtgcwii.h"
 #include "pentablet.h"
 #include "plugins.hpp"
+#include "progress.hpp"
+#include "riftwii/byteorder.hpp"
 #include "riftwii/hbmsearch.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/mempatch.hpp"
@@ -940,16 +942,27 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, co
     // The 2006 WPAD's by its marks; a later one's through its blocking
     // caller, which loads WPAD's control-block table (the 2006 marks also
     // fit another function there: Mario Strikers Charged).
-    // One scan of the later WPAD's connect table serves both its uses
-    // (here and the callback slot below; CodeRabbit on #616).
+    // A later WPAD whose blocking WPADGetInfo has the request built in (no
+    // WPADGetInfoAsync to answer: Scarface: The World Is Yours, whose open
+    // world checks the battery every 20 to 60 s) sleeps even with no Wii
+    // Remote there; that function is hooked instead, busy before it runs.
+    // One scan of the later WPAD's connect table serves all its uses (here
+    // and the callback slot below; CodeRabbit on #616).
     WpadConnect2006 later_connect;
     if (out.standin && !old_kpad) later_connect = find_wpad_connect_later(text);
-    out.wpad_info = !out.standin ? 0
-                    : old_kpad   ? find_wpad_get_info(text)
-                                 : find_wpad_get_info_later(text, later_connect.table);
-    out.info_answers = old_kpad;
+    const std::uint32_t later_table = later_connect.table;
+    out.wpad_info = !out.standin ? 0 : old_kpad ? find_wpad_get_info(text) : find_wpad_get_info_later(text, later_table);
+    out.info_answers = old_kpad ? RTGCWII_INFO_ANSWER : RTGCWII_INFO_BUSY;
+    if (out.standin && !old_kpad && out.wpad_info == 0) {
+        out.wpad_info = find_wpad_get_info_blocking(text, later_table);
+        if (out.wpad_info != 0) out.info_answers = RTGCWII_INFO_BLOCKING;
+    }
     if (out.standin) {
-        if (out.wpad_info != 0)
+        if (out.info_answers == RTGCWII_INFO_BLOCKING)
+            logf("GameCube adapter: WPADGetInfo at 0x%08x, its request built in (busy on the stand-in's channel "
+                 "before it runs, so it doesn't sleep)\n",
+                 out.wpad_info);
+        else if (out.wpad_info != 0)
             logf("GameCube adapter: WPADGetInfoAsync at 0x%08x (%s)\n", out.wpad_info,
                  old_kpad ? "the 2006 KPAD game waits on its answer; the stand-in gives one"
                           : "busy on the stand-in's channel, so a blocking WPADGetInfo doesn't sleep");
@@ -1090,6 +1103,496 @@ bool pad_read_in_place(std::uint32_t address) {
     return is_pad_read(code, address);
 }
 
+// What the patcher will write, as apply_memory_patches goes: in document
+// order, a plain patch with an `original` guard only where the guard
+// matches the game as loaded with the earlier writes over it, and a search
+// patch wherever its `original` is found in the game's program (`image`,
+// its DOL's sections) with the earlier writes over it, at every match. An
+// ocarina patch's value is the pattern it looks for (it writes only a
+// branch), so it writes nothing here. `applies`: one flag per patch (a
+// search with no match writes nothing); `writes`: each write in order.
+struct PackWrite {
+    std::uint32_t at;
+    std::size_t patch;
+};
+struct PackWrites {
+    std::vector<bool> applies;
+    std::vector<PackWrite> writes;
+    bool incomplete = false;  // more writes than the planning follows (plan_pack_writes)
+    std::vector<CodeRange> program;  // the game's program as loaded (its DOL's sections)
+    // Where file patches that apply go (their bytes aren't read yet here),
+    // and which patch each is (document order: a later write over its bytes
+    // decides them).
+    struct File {
+        std::uint32_t at;
+        std::size_t patch;
+    };
+    std::vector<File> files;
+};
+
+PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::vector<CodeRange>& image) {
+    // Past these the planning would hold the launch up (each byte it checks
+    // looks through the earlier writes): the plan is then incomplete, and
+    // the checks can't vouch for the pack (as PatchedCode gives up past
+    // kMaxPreviewedPatches).
+    constexpr std::size_t kMaxMatches = 1024;  // per search patch
+    constexpr std::size_t kMaxWrites = PatchedCode::kMaxPreviewedPatches;
+    PackWrites out;
+    out.applies.assign(patches.size(), false);
+    out.program = image;
+    const auto byte_at = [&](std::uint32_t address, std::uint8_t& value) {
+        const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
+        if (address < 0x80000000u || address >= ram_end) return false;
+        // libogc's exception stubs at 0x80001000-0x800012ff are cleared
+        // before the patches go in (boot.cpp), so a guard there reads 0.
+        value = address - 0x80001000u < 0x300u ? 0 : *reinterpret_cast<const volatile std::uint8_t*>(address);
+        for (const PackWrite& w : out.writes) {  // the latest write over it wins
+            const std::vector<std::uint8_t>& bytes = patches[w.patch].value;
+            if (address >= w.at && address - w.at < bytes.size()) value = bytes[address - w.at];
+        }
+        return true;
+    };
+    const auto matches_at = [&](std::uint32_t at, const std::vector<std::uint8_t>& pattern) {
+        for (std::size_t k = 0; k < pattern.size(); ++k) {
+            std::uint8_t now = 0;
+            if (!byte_at(at + static_cast<std::uint32_t>(k), now) || now != pattern[k]) return false;
+        }
+        return true;
+    };
+    // Where an earlier file patch that applies may have written: its bytes
+    // aren't read yet here, nor its length (up to the largest a file may
+    // be), so a guard or a search that reads there can't be judged.
+    const auto in_files = [&](std::uint64_t from, std::uint64_t to) {  // [from, to)
+        if (from >= to) return false;  // a guard that reads nothing (an unconditional patch)
+        for (const PackWrites::File& f : out.files) {
+            if (from < std::uint64_t(f.at) + kMaxMemoryValueBytes && f.at < to) return true;
+        }
+        return false;
+    };
+    const auto program_in_files = [&]() {
+        for (const CodeRange& r : image) {
+            if (in_files(r.address, std::uint64_t(r.address) + r.size)) return true;
+        }
+        return false;
+    };
+    for (std::size_t i = 0; i < patches.size(); ++i) {
+        const MemoryPatch& patch = patches[i];
+        // A file patch: its guard judged like any other's, its place noted.
+        // A file-backed search can't be planned (its bytes aren't read yet
+        // and its places are wherever its pattern matches): the checks
+        // can't vouch for such a pack.
+        if (patch.search && !patch.ocarina && !patch.original.empty() && program_in_files()) {
+            out.incomplete = true;
+            return out;
+        }
+        if (!patch.valuefile.empty() && patch.value.empty() && patch.search) {
+            // ...when its pattern is there: one that matches nowhere
+            // writes nothing.
+            // Only the program image, as the search itself reads only the
+            // loaded sections: the game's own bytes (a plain compare), or,
+            // where an earlier write reaches, the writes over them.
+            const std::uint64_t align = patch.align == 0 ? 1 : patch.align;
+            const std::size_t n = patch.original.size();
+            // Starts whose pattern reaches into an earlier write are checked
+            // with the writes over them: a pattern an earlier patch replaced
+            // isn't there when this search runs (CodeRabbit, fork #25).
+            std::vector<std::pair<std::uint64_t, std::uint64_t>> near;
+            for (const PackWrite& w : out.writes) {
+                const std::uint64_t lo = w.at >= n ? w.at - n + 1 : 0;
+                near.push_back({lo, std::uint64_t(w.at) + patches[w.patch].value.size()});
+            }
+            std::sort(near.begin(), near.end());
+            bool found = false;
+            for (const CodeRange& r : image) {
+                if (found || n == 0 || r.size < n) continue;
+                std::size_t next = 0;  // sections aren't in address order
+                std::uint64_t pos = r.address;
+                if (pos % align != 0) pos += align - pos % align;
+                const std::uint64_t last = std::uint64_t(r.address) + r.size - n;
+                for (; pos <= last && !found; pos += align) {
+                    while (next < near.size() && near[next].second <= pos) ++next;
+                    bool overlaid = false;
+                    for (std::size_t k = next; !overlaid && k < near.size() && near[k].first <= pos; ++k)
+                        overlaid = pos < near[k].second;
+                    const std::uint8_t* raw = r.bytes + (pos - r.address);
+                    found = overlaid ? matches_at(static_cast<std::uint32_t>(pos), patch.original)
+                                     : raw[0] == patch.original[0] && std::memcmp(raw, patch.original.data(), n) == 0;
+                }
+            }
+            if (found) {
+                out.incomplete = true;
+                return out;
+            }
+            continue;
+        }
+        if (!patch.valuefile.empty() && patch.value.empty()) {
+            if (patch.has_offset && !patch.search && !patch.ocarina &&
+                in_files(memory_patch_target(patch), std::uint64_t(memory_patch_target(patch)) + patch.original.size())) {
+                out.incomplete = true;
+                return out;
+            }
+            if (patch.has_offset && !patch.search && !patch.ocarina &&
+                matches_at(memory_patch_target(patch), patch.original)) {
+                out.applies[i] = true;
+                out.files.push_back({memory_patch_target(patch), i});
+            }
+            continue;
+        }
+        if (patch.ocarina || patch.value.empty()) continue;
+        if (patch.search) {
+            if (patch.original.empty()) continue;
+            const std::uint64_t align = patch.align == 0 ? 1 : patch.align;
+            const std::size_t step = std::max(patch.original.size(), patch.value.size());
+            // Starts whose pattern reaches into an earlier write: the bytes
+            // there may be the write's, not the game's, so those are checked
+            // whatever the game's byte (as disjoint ranges, in order).
+            std::vector<std::pair<std::uint64_t, std::uint64_t>> near;
+            for (const PackWrite& w : out.writes) {
+                const std::uint64_t lo = w.at >= patch.original.size() ? w.at - patch.original.size() + 1 : 0;
+                near.push_back({lo, std::uint64_t(w.at) + patches[w.patch].value.size()});
+            }
+            std::sort(near.begin(), near.end());
+            std::size_t next = 0;
+            const auto near_write = [&](std::uint64_t pos) {
+                while (next < near.size() && near[next].second <= pos) ++next;
+                for (std::size_t n = next; n < near.size() && near[n].first <= pos; ++n) {
+                    if (pos < near[n].second) return true;
+                }
+                return false;
+            };
+            std::size_t found = 0;
+            // One cursor for all the sections, in the loader's order, as
+            // apply_search keeps it: after a match in a higher section, a
+            // lower one is searched only past it.
+            std::uint64_t from = 0;
+            for (const CodeRange& r : image) {
+                if (r.size < patch.original.size()) continue;
+                next = 0;  // sections aren't in address order
+                std::uint64_t pos = std::max<std::uint64_t>(r.address, from);
+                if (pos % align != 0) pos += align - pos % align;
+                const std::uint64_t last = std::uint64_t(r.address) + r.size - patch.original.size();
+                while (pos <= last) {
+                    // Where no earlier write reaches, the game's own bytes
+                    // decide (a plain compare); near one, the pattern is
+                    // checked with the earlier writes over it.
+                    const std::uint8_t* raw = r.bytes + (pos - r.address);
+                    const bool overlaid = near_write(pos);
+                    if (overlaid ? matches_at(static_cast<std::uint32_t>(pos), patch.original)
+                                 : raw[0] == patch.original[0] &&
+                                       std::memcmp(raw, patch.original.data(), patch.original.size()) == 0) {
+                        // One more write than the planning follows: incomplete
+                        // (a plan with exactly the limit is complete).
+                        if (found >= kMaxMatches || out.writes.size() >= kMaxWrites) {
+                            out.incomplete = true;
+                            return out;
+                        }
+                        out.writes.push_back({static_cast<std::uint32_t>(pos), i});
+                        out.applies[i] = true;
+                        ++found;
+                        pos += step;
+                        from = pos;
+                        if (pos % align != 0) pos += align - pos % align;
+                        continue;
+                    }
+                    pos += align;
+                }
+            }
+            continue;
+        }
+        if (!patch.has_offset) continue;
+        const std::uint32_t at = memory_patch_target(patch);
+        if (in_files(at, std::uint64_t(at) + patch.original.size())) {
+            out.incomplete = true;
+            return out;
+        }
+        if (!matches_at(at, patch.original)) continue;
+        if (out.writes.size() >= kMaxWrites) {
+            out.incomplete = true;
+            return out;
+        }
+        out.applies[i] = true;
+        out.writes.push_back({at, i});
+    }
+    return out;
+}
+
+// The pack's writes as they end up, joined: writes whose words touch or
+// overlap make one span, widened to whole words (the searches read
+// instructions at word steps from a range's start: a one-byte write just
+// before a PADRead would otherwise shift every instruction after it,
+// CodeRabbit CLI, fork #16), so a PADRead or a port read split across two
+// writes is still one (fork #16; CodeRabbit, fork #25). Each byte is the
+// last planned write's over it, plain or search, else the game's (only in a
+// word a write touches: no game instruction is taken in whole). Each span
+// is built once from the writes over it, so the copies are no bigger than
+// the memory written; past kMaxSpanBytes in all, false (the write limit
+// doesn't bound what many large matches of one place copy: a plan the
+// checks can't follow, CodeRabbit, fork #25).
+using SearchSpans = std::vector<std::pair<std::uint32_t, std::vector<std::uint8_t>>>;
+constexpr std::uint64_t kMaxSpanBytes = std::uint64_t(2) << 20;
+bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan, SearchSpans& spans) {
+    spans.clear();
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> words;  // [from, to), whole words
+    for (const PackWrite& w : plan.writes) {
+        const std::uint64_t from = w.at & ~std::uint64_t(3);
+        const std::uint64_t to = (std::uint64_t(w.at) + patches[w.patch].value.size() + 3) & ~std::uint64_t(3);
+        words.push_back({from, to});
+    }
+    std::sort(words.begin(), words.end());
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> joined;
+    for (const auto& r : words) {
+        if (!joined.empty() && r.first <= joined.back().second) {
+            joined.back().second = std::max(joined.back().second, r.second);
+            continue;
+        }
+        joined.push_back(r);
+    }
+    std::uint64_t total = 0;
+    for (const auto& r : joined) {
+        // Only game RAM is read below (MEM1, or MEM2 to its end, as
+        // byte_at's guards): a write reaching past it is one the checks
+        // can't follow (CodeRabbit, fork #25).
+        const bool mem1 = r.first >= 0x80000000u && r.second <= 0x81800000u;
+        const bool mem2 = r.first >= 0x90000000u && r.second <= 0x94000000u;
+        if (!mem1 && !mem2) return false;
+        total += r.second - r.first;
+    }
+    if (total > kMaxSpanBytes) return false;
+    // Which patch last wrote each byte (kNone: none, the game's).
+    constexpr std::size_t kNone = ~std::size_t(0);
+    std::vector<std::vector<std::size_t>> last;
+    for (const auto& r : joined) {
+        spans.push_back({static_cast<std::uint32_t>(r.first), std::vector<std::uint8_t>(r.second - r.first)});
+        last.emplace_back(static_cast<std::size_t>(r.second - r.first), kNone);
+    }
+    // Every write, in order, over the spans it reaches (a later one wins).
+    for (const PackWrite& w : plan.writes) {
+        const std::vector<std::uint8_t>& value = patches[w.patch].value;
+        const std::uint64_t at = w.at, end = at + value.size();
+        std::size_t k = static_cast<std::size_t>(
+            std::upper_bound(joined.begin(), joined.end(), at,
+                             [](std::uint64_t x, const std::pair<std::uint64_t, std::uint64_t>& r) { return x < r.first; }) -
+            joined.begin());
+        if (k != 0) --k;
+        for (; k < joined.size() && joined[k].first < end; ++k) {
+            const std::uint64_t lo = std::max(at, joined[k].first), hi = std::min(end, joined[k].second);
+            for (std::uint64_t x = lo; x < hi; ++x) {
+                spans[k].second[x - joined[k].first] = value[x - at];
+                last[k][x - joined[k].first] = w.patch;
+            }
+        }
+    }
+    // The game's own bytes in the rest of the words a write touches.
+    for (std::size_t k = 0; k < spans.size(); ++k) {
+        for (std::size_t x = 0; x < spans[k].second.size(); ++x) {
+            if (last[k][x] != kNone) continue;
+            const std::uint32_t address = spans[k].first + static_cast<std::uint32_t>(x);
+            // libogc's exception stubs are cleared before the patches go
+            // in (boot.cpp), as byte_at reads them.
+            spans[k].second[x] =
+                address - 0x80001000u < 0x300u ? 0 : *reinterpret_cast<const volatile std::uint8_t*>(address);
+        }
+    }
+    // A word a later file patch may still write over (its bytes aren't
+    // read yet here, up to the largest a file may be) where no write after
+    // it decides every byte is cut out, and the span split there: the
+    // launch may leave other bytes there, and a file's own bytes aren't
+    // looked at either; the words around it stay (CodeRabbit CLI, fork #25).
+    if (!plan.files.empty()) {
+        SearchSpans kept;
+        for (std::size_t k = 0; k < spans.size(); ++k) {
+            const std::uint64_t lo = joined[k].first;
+            std::vector<bool> open(spans[k].second.size(), false);
+            for (const PackWrites::File& f : plan.files) {
+                const std::uint64_t from = std::max<std::uint64_t>(lo, f.at);
+                const std::uint64_t to = std::min<std::uint64_t>(joined[k].second, std::uint64_t(f.at) + kMaxMemoryValueBytes);
+                for (std::uint64_t x = from; x < to; ++x) {
+                    const std::size_t by = last[k][x - lo];
+                    if (by == kNone || by < f.patch) open[(x - lo) & ~std::uint64_t(3)] = true;  // its word
+                }
+            }
+            std::size_t run = 0;  // the start of the words kept so far
+            for (std::size_t w = 0; w <= spans[k].second.size(); w += 4) {
+                if (w < spans[k].second.size() && !open[w]) continue;
+                if (w > run)
+                    kept.push_back({spans[k].first + static_cast<std::uint32_t>(run),
+                                    std::vector<std::uint8_t>(spans[k].second.begin() + static_cast<std::ptrdiff_t>(run),
+                                                              spans[k].second.begin() + static_cast<std::ptrdiff_t>(w))});
+                run = w + 4;
+            }
+        }
+        spans = std::move(kept);
+    }
+    return true;
+}
+
+// Whether a pack's own bytes (what its memory patches write, joined where
+// they touch: pack_spans; not the game code around them: a game's SI
+// library reads the same registers) read the GameCube controller ports
+// straight from the hardware (reads_gc_ports). A value kept in a file isn't
+// loaded yet here, so isn't looked at.
+bool pack_reads_gc_ports(const SearchSpans& spans) {
+    for (const auto& span : spans) {
+        if (reads_gc_ports(span.second.data(), span.second.size())) return true;
+    }
+    return false;
+}
+
+// Whether a pack's memory patches take over the game's Wii controller
+// reads: a write that turns a `bl` (as loaded, before the patches) to
+// WPADProbe or to the KPAD read (or the short KPADRead just before it, which
+// hands its call on) into a `bl` into the pack's own code (a write of its,
+// or anywhere in a program file it brings), as our own full packs reroute
+// them (Kamen Rider: Dragon Knight's); or any write over the first words of
+// WPADProbe or the KPAD read, where the stand-in's hooks would go and so
+// can't (quatric's Kirby's Return to Dream Land patch hooks both there),
+// or over WPADRead's (`wpad_read`, 0 for a form that doesn't hook it), which
+// the Wii Remote forms' stand-in hooks too (CodeRabbit, fork #25).
+bool pack_wraps_wii_reads(const std::vector<MemoryPatch>& patches, const PackWrites& plan, std::uint32_t kpad_read,
+                          std::uint32_t wpad_probe, std::uint32_t wpad_read, bool program_from_pack) {
+    constexpr std::uint32_t kReadEntry = 0x20;  // KPADRead's few words ahead of the read itself
+    const auto is_bl = [](std::uint32_t w) { return (w & 0xFC000003u) == 0x48000001u; };
+    const auto bl_target = [](std::uint32_t at, std::uint32_t w) {
+        std::uint32_t offset = w & 0x03FFFFFCu;
+        if (offset & 0x02000000u) offset |= 0xFC000000u;  // a call back: sign-extended
+        return at + offset;
+    };
+    // The word at `address` once every write is done, in order (a later
+    // write over an earlier one wins), and whether any wrote a byte of it.
+    const auto final_word = [&](std::uint32_t address, bool& written) {
+        std::uint32_t word = *reinterpret_cast<const volatile std::uint32_t*>(address);
+        written = false;
+        for (const PackWrite& w : plan.writes) {
+            const std::vector<std::uint8_t>& bytes = patches[w.patch].value;
+            for (std::uint32_t b = 0; b < 4; ++b) {
+                const std::uint32_t where = address + b;
+                if (where < w.at || where - w.at >= bytes.size()) continue;
+                const unsigned shift = 8u * (3u - b);
+                word = (word & ~(0xFFu << shift)) | (std::uint32_t(bytes[where - w.at]) << shift);
+                written = true;
+            }
+        }
+        return word;
+    };
+    // The pack's own code: bytes one of its writes put there, in a program
+    // file it brings (its loaded sections), or where a patch whose value is
+    // in a file goes (not loaded yet here, so up to the largest such file:
+    // our LEGO Star Wars III pack's code blob).
+    const auto pack_code = [&](std::uint32_t address) {
+        if (program_from_pack) {
+            for (const CodeRange& r : plan.program) {
+                if (address >= r.address && address - r.address < r.size) return true;
+            }
+        }
+        // (Only file patches that apply, as planned; a file's length isn't
+        // known until it's read, so the largest a file may be stands in.)
+        for (const PackWrites::File& f : plan.files) {
+            if (address >= f.at && address - f.at < kMaxMemoryValueBytes) return true;
+        }
+        for (const PackWrite& w : plan.writes) {
+            if (address >= w.at && address - w.at < patches[w.patch].value.size()) return true;
+        }
+        return false;
+    };
+    // Over the function's first few words, changed: the pack's hook is there,
+    // at the entry or just past it (a hook that keeps the `stwu` and
+    // branches from the next word still runs beside the stand-in's); a
+    // write putting the same words back hooks nothing.
+    constexpr std::uint32_t kEntryWords = 4;
+    // Whether a byte of the word at `address` may end up a file patch's
+    // (its bytes not read yet here, up to the largest a file may be): one
+    // in a file patch's reach that no later write of known bytes covers
+    // (a later write decides that byte, as final_word reads it).
+    const auto file_left = [&](std::uint32_t address) {
+        for (const PackWrites::File& f : plan.files) {
+            for (std::uint32_t b = 0; b < 4; ++b) {
+                const std::uint32_t byte = address + b;
+                if (byte < f.at || byte - f.at >= kMaxMemoryValueBytes) continue;
+                bool decided = false;
+                for (const PackWrite& w : plan.writes) {
+                    if (w.patch > f.patch && byte >= w.at && byte - w.at < patches[w.patch].value.size()) {
+                        decided = true;
+                        break;
+                    }
+                }
+                if (!decided) return true;
+            }
+        }
+        return false;
+    };
+    for (const std::uint32_t entry : {wpad_probe, kpad_read, wpad_read}) {
+        if (entry == 0 || entry >= 0x81800000u - 4 * kEntryWords) continue;
+        for (std::uint32_t w = 0; w < kEntryWords; ++w) {
+            if (file_left(entry + 4 * w)) return true;
+        }
+        for (std::uint32_t w = 0; w < kEntryWords; ++w) {
+            const std::uint32_t at = entry + 4 * w;
+            bool written = false;
+            const std::uint32_t final = final_word(at, written);
+            if (written && final != *reinterpret_cast<const volatile std::uint32_t*>(at)) return true;
+        }
+    }
+    // A call to either in the game's program where a file patch may write
+    // (any byte of the call's word), unless later known writes decide it.
+    for (const PackWrites::File& file : plan.files) {
+        for (const CodeRange& r : plan.program) {
+            const std::uint64_t from = std::max<std::uint64_t>(file.at, r.address) & ~std::uint64_t(3);
+            const std::uint64_t to = std::min<std::uint64_t>(std::uint64_t(file.at) + kMaxMemoryValueBytes,
+                                                             std::uint64_t(r.address) + r.size);
+            for (std::uint64_t at = from; at < to && at + 4 <= std::uint64_t(r.address) + r.size; at += 4) {
+                const std::uint32_t old = *reinterpret_cast<const volatile std::uint32_t*>(static_cast<std::uint32_t>(at));
+                if (!is_bl(old) || !file_left(static_cast<std::uint32_t>(at))) continue;
+                const std::uint32_t target = bl_target(static_cast<std::uint32_t>(at), old);
+                if ((wpad_probe != 0 && target == wpad_probe) ||
+                    (kpad_read != 0 && target <= kpad_read && kpad_read - target <= kReadEntry))
+                    return true;
+            }
+        }
+    }
+    // Every word a write touches (a call rerouted inside a longer write
+    // counts as much as a 4-byte one), as it ends up after all the writes.
+    for (const PackWrite& w : plan.writes) {
+        const std::size_t size = patches[w.patch].value.size();
+        for (std::uint32_t at = w.at & ~3u; at < w.at + size && at < 0x81800000u - 4; at += 4) {
+            // Only a word that called either can be rerouted: the others
+            // aren't rebuilt (each rebuild looks through every write).
+            const std::uint32_t old = *reinterpret_cast<const volatile std::uint32_t*>(at);
+            if (!is_bl(old)) continue;
+            const std::uint32_t target = bl_target(at, old);
+            if (!((wpad_probe != 0 && target == wpad_probe) ||
+                  (kpad_read != 0 && target <= kpad_read && kpad_read - target <= kReadEntry)))
+                continue;
+            bool written = false;
+            const std::uint32_t now = final_word(at, written);
+            // A call the pack sends into its own code: the same call written
+            // back, or one moved to other game code, reroutes nothing.
+            if (!written || !is_bl(now) || bl_target(at, now) == target) continue;
+            if (pack_code(bl_target(at, now))) return true;
+        }
+    }
+    return false;
+}
+
+// Whether a pack's writes, in the plan's order, leave a PADRead (or one the
+// search can't be sure of): a search patch's writes, or a plain patch let
+// through by one, aren't in PatchedCode's view (plain patches alone), so
+// they're searched here (`spans`: the writes joined, pack_spans). `found`:
+// what was found (its `read` 0 when unsure of it). Two PADControlMotor candidates there leave a single
+// PADRead found, as find_pad_symbols_with_patches takes a plain patch's
+// (CodeRabbit, fork #25).
+bool search_writes_pad_read(const SearchSpans& spans, PadSymbols& found) {
+    found = PadSymbols{};
+    if (spans.empty()) return false;
+    std::vector<CodeRange> ranges;
+    for (const auto& span : spans) ranges.push_back({span.first, span.second.data(), span.second.size()});
+    std::string error;
+    const bool sure = find_pad_symbols(ranges, found, error);
+    const bool read_unsure = !sure && error.find("PADRead") != std::string::npos;
+    if (read_unsure) found.read = 0;
+    if (!sure) found.control_motor = 0;
+    return found.read != 0 || read_unsure;
+}
+
 void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out) {
     LoadedGame game;
     std::string error;
@@ -1097,8 +1600,9 @@ void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out
         logf("GameCube adapter: a PADRead in the packs' memory patches isn't looked for: %s\n", error.c_str());
 }
 
-bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, bool standin,
-                        bool nunchuk, bool sideways, bool pointing, bool usb, PadHook& out, std::string& why) {
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches,
+                        bool program_from_pack, bool standin, bool nunchuk, bool sideways, bool pointing, bool usb,
+                        PadHook& out, std::string& why) {
     out = PadHook{};
     out.demo = demo;
     out.standin = standin;
@@ -1126,12 +1630,9 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         why = "this game has no GameCube controller support (no PADRead)";
         return false;
     }
-    // The Wii's own ports are read only through the game's PADRead: with no
-    // PADRead and no adapter, nothing could read a GameCube controller.
-    if (pad.read == 0 && !usb) {
-        why = "this game has no GameCube controller code, and with no adapter nothing reads the Wii's own GameCube ports";
-        return false;
-    }
+    // (With no PADRead and no adapter nothing reads the Wii's own GameCube
+    // ports, unless a pack's search patch adds one: decided below, once the
+    // pack's writes are planned; CodeRabbit, fork #25.)
     if (pad.read == 0) {
         // GameCube controllers as Classic Controllers: the hook reads the
         // adapter itself from the game's KPAD reads (#587's question 4).
@@ -1143,11 +1644,115 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         std::vector<CodeRange> view;
         pad.idle_reset =
             code_with_patches(text, patched, view) ? find_wii_remote_idle_reset(view, find_wpad_probe(view)) : 0;
-        logf("GameCube adapter: no PADRead in this game; the hook reads the GameCube controllers itself for their "
-             "stand-in\n");
+        if (usb)
+            logf("GameCube adapter: no PADRead in this game; the hook reads the GameCube controllers itself for "
+                 "their stand-in\n");
     }
     out.read = pad.read;
     out.read_in_patch = from_patch;
+    // A pack or the setting, never both, on the controller's input (#587).
+    // A pack handles the controller itself (our full packs: their own
+    // layout and their own stand-in code), so the setting stays off for
+    // this launch, when it has its own PADRead in its memory patches, when
+    // it reroutes the game's calls to its Wii controller reads into its own
+    // code (Kamen Rider: Dragon Knight's), or when it replaced the game's
+    // program file with one that has a PADRead (our LEGO Star Wars and
+    // Batman: The Brave and the Bold packs: a PADRead added to their own
+    // main.dol, already loaded here; their code beside it is in a file
+    // that isn't) or whose code reads the GameCube ports. A port-reading
+    // patch over the game's own program (quatric's) isn't one, though the
+    // game links a PADRead it never calls (Kirby's Return to Dream Land).
+    // What the packs' memory patches will write, with search patches found
+    // in the game's program as loaded (its code and data sections).
+    std::vector<CodeRange> image;
+    for (std::size_t i = 0; standin && i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) image.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    const PackWrites plan = standin ? plan_pack_writes(patches, image) : PackWrites{};
+    // The pack's writes as they end up, in order, joined (pack_spans): where
+    // a PADRead they write is looked for, and its port reads and SIProbe.
+    // Past their byte limit the checks can't follow the plan (as with too
+    // many writes).
+    SearchSpans all_spans;
+    const bool spans_fit = standin && !plan.incomplete && pack_spans(patches, plan, all_spans);
+    // Its PADRead in a plain patch (found above), or in what its writes leave
+    // as the plan orders them: a search patch's, and a plain patch whose
+    // guard only matches once an earlier search wrote it, which the plain
+    // patches' preview alone misses (CodeRabbit, fork #25).
+    PadSymbols searched;
+    const bool pack_reads_pad = standin && (from_patch || (spans_fit && search_writes_pad_read(all_spans, searched)));
+    // The pack's writes as ranges, for the SIProbe search when the hooked
+    // PADRead is one a search patch adds: the game's code read as all the
+    // writes leave it, plain ones too (CodeRabbit CLI, fork #16; fork #25).
+    std::vector<CodeRange> written;
+    // A PADRead found there is the one hooked for the adapter, as a plain
+    // patch's would be: over none of the game's, or
+    // over the game's own (a copy the pack doesn't call: CodeRabbit, fork
+    // #25). Its place is checked again once the patches are in
+    // (pad_read_in_place: CodeRabbit CLI, fork #16).
+    if (searched.read != 0) {
+        pad.read = searched.read;
+        pad.read_sites = searched.read_sites;
+        out.read = pad.read;
+        out.read_in_patch = true;
+        for (const auto& span : all_spans) written.push_back({span.first, span.second.data(), span.second.size()});
+    }
+    // The Wii's own ports are read only through a PADRead (the game's, or
+    // one a pack's patch adds, plain or search): with none and no adapter,
+    // nothing could read a GameCube controller.
+    if (pad.read == 0 && !usb) {
+        why = "this game has no GameCube controller code, and with no adapter nothing reads the Wii's own GameCube ports";
+        return false;
+    }
+    const bool program_pad = standin && !pack_reads_pad && program_from_pack && pad.read != 0;
+    // (Below: a pack with more memory writes than the checks follow counts
+    // as bringing its own controller code: they can't vouch that it doesn't.)
+    const bool too_many = standin && !pack_reads_pad && !program_pad && (plan.incomplete || !spans_fit);
+    // WPADRead's entry counts where the stand-in's form hooks it.
+    const std::uint32_t wpad_read_hooked =
+        standin && (nunchuk || sideways || pointing) ? find_wpad_read(text) : 0u;
+    const bool pack_wraps = standin && !pack_reads_pad && !program_pad && !too_many &&
+                            pack_wraps_wii_reads(patches, plan, find_kpad_read(text).address, find_wpad_probe(text),
+                                                 wpad_read_hooked, program_from_pack);
+    const bool pack_ports =
+        standin && !pack_reads_pad && !program_pad && !too_many && !pack_wraps && pack_reads_gc_ports(all_spans);
+    if (pack_reads_pad || program_pad || too_many || pack_wraps || (pack_ports && program_from_pack)) {
+        // (Its own code wins over the game's setting and over a pack's
+        // riftwii-gc-controllers request alike: one input, never both.)
+        logf("GameCube adapter: a pack brings its own controller code (%s), so the GameCube controllers' stand-in "
+             "stays off for this launch\n",
+             pack_reads_pad ? "its PADRead is in its memory patches"
+             : program_pad  ? "the program file it brings has a PADRead"
+             : too_many     ? "its memory patches write more than the checks follow"
+             : pack_wraps   ? "it hooks or reroutes the game's Wii controller reads"
+                            : "it reads the GameCube ports, in the program file it brings");
+        // The menu can't know this before the game's code is in memory:
+        // said on the launch screen too.
+        // (Written out twice: tools/lang_source.py finds tr's literals.)
+        ProgressNote(tr("A pack brings its own controls: 'Controllers act as' is off."),
+                     "A pack brings its own controls: 'Controllers act as' is off.");
+        standin = false;
+        out.standin = out.standin_nunchuk = out.standin_sideways = out.standin_pointing = false;
+    } else if (pack_ports) {
+        // A pack that reads the GameCube ports straight from the hardware
+        // over the game's own program (quatric's GameCube controller patches)
+        // gets nothing there from the adapter, which isn't a port: until
+        // RiftWii routes the adapter into such a pack, the stand-in keeps
+        // the controls (the pack's code then has no pad to read). Once it
+        // does, the stand-in becomes "connected only" (standin_inputless).
+        // quatric's Excite Truck patch also takes its input inside KPAD's
+        // handling of a Wii Remote's reports, which a connection alone
+        // doesn't start.
+        logf("GameCube adapter: a pack reads the GameCube controller ports itself, which the adapter doesn't "
+             "answer; the GameCube controllers' stand-in keeps the controls for this launch\n");
+    }
+    // No PADRead and the stand-in off for the pack: nothing to hook, so no
+    // adapter handle is taken (the caller starts the game without one).
+    if (pad.read == 0 && !standin) {
+        why = "a pack brings its own controller code, and this game has no PADRead for the GameCube controllers";
+        return false;
+    }
     out.read_sites = pad.read_sites;
     out.motor = pad.control_motor;
     out.idle_reset = pad.idle_reset;
@@ -1156,7 +1761,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     if (out.read != 0) {
         logf("GameCube adapter: PADRead at 0x%08x (%u error stores%s), PADControlMotor at 0x%08x, screen-dimming reset "
              "at 0x%08x\n",
-             out.read, out.read_sites, from_patch ? ", in a pack's memory patch" : "", out.motor, out.idle_reset);
+             out.read, out.read_sites, out.read_in_patch ? ", in a pack's memory patch" : "", out.motor,
+             out.idle_reset);
     } else {
         logf("GameCube adapter: the Wii Remotes' screen-dimming reset at 0x%08x (0: none found; with the Wii's burn-in "
              "reduction on, play on GameCube controllers alone may dim the screen)\n",
@@ -1191,8 +1797,14 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
                  "hears of a controller won't start the GameCube controllers' stand-in\n");
     }
     // SIProbe is told by PADRead's own calls, so with a pack's PADRead it
-    // is searched in the game's code as the patches will leave it.
-    out.si_probe = from_patch ? find_gc_si_probe_with_patches(text, patched, out.read) : find_gc_si_probe(text, out.read);
+    // is searched in the game's code as the patches will leave it, and in
+    // the pack's writes outside it too (a wrapper it adds beside its
+    // PADRead: CodeRabbit CLI, fork #25).
+    std::vector<CodeRange> text_and_written = text;
+    text_and_written.insert(text_and_written.end(), written.begin(), written.end());
+    out.si_probe = !written.empty()      ? find_gc_si_probe_with_patches(text_and_written, written, out.read)
+                   : from_patch            ? find_gc_si_probe_with_patches(text, patched, out.read)
+                                           : find_gc_si_probe(text, out.read);
     // Where SIProbe is missing the adapter still plays: only a game that
     // asks it before reading a port misses the adapter's ports (#510).
     if (out.si_probe != 0)
@@ -1202,6 +1814,15 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         logf("GameCube adapter: SIProbe not found: a game that asks it which ports have a controller sees none there\n");
 
     if (!usb) {
+        // A pack that brings its own controller code turned the stand-in off:
+        // with no adapter there's nothing left for the hook to do, and the
+        // builds without the stand-in would ask USB on every PADRead (only
+        // the stand-in's honour RT_PAD_FLAG_NO_USB; CodeRabbit CLI, fork #25).
+        if (!out.standin) {
+            why = "no adapter, and a pack brings its own controller code (the stand-in is off), so there's nothing "
+                  "for the hook to do";
+            return false;
+        }
         // No adapter: the hook is there only for the stand-in, which needs
         // the game's KPAD read and WPADProbe (plan_pad_hook's
         // wants_home_build). Without them it would do nothing, so no hook,
@@ -1810,9 +2431,10 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         state->wpad_connect_table = out.wpad_connect_table;
         state->wpad_connect_offset = out.wpad_connect_offset;
         state->wpad_connect_later = out.wpad_connect_later ? 1u : 0u;
+        state->slot.inputless = out.standin_inputless ? 1u : 0u;
         state->wpad_ext_table = out.wpad_ext_table;
         state->wpad_ext_offset = out.wpad_ext_offset;
-        state->info_answers = out.info_answers ? 1u : 0u;
+        state->info_answers = out.info_answers;
     }
     DCFlushRange(reinterpret_cast<void*>(out.state_base), out.state_bytes);
     ctx->state = out.state_base;

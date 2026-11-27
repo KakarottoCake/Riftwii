@@ -51,6 +51,16 @@ static const char* kModMultiOption =
     "<choice name=\"Two\"><patch id=\"b\"/></choice></option></section></options>"
     "<patch id=\"a\"/><patch id=\"b\"/></wiidisc>";
 
+static const char* kModAsksNunchuk =
+    "<wiidisc version=\"1\" riftwii-gc-controllers=\"nunchuk\"><id game=\"RMCE\"/>"
+    "<options><section name=\"Solo\"><option name=\"Enable\" default=\"0\">"
+    "<choice name=\"Apply\"><patch id=\"p\"/></choice></option></section></options>"
+    "<patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\"/></patch>"
+    "</wiidisc>";
+
+static const char* kModAsksSideways =
+    "<wiidisc version=\"1\" riftwii-gc-controllers=\"sideways\"><id game=\"RMCE\"/><patch id=\"p\"/></wiidisc>";
+
 static void test_simple_package_activation() {
     riftwii::DiscIdentity disc{"RMCE01", 0, 0};
     riftwii::LaunchModel simple;
@@ -414,6 +424,8 @@ static void test_saves() {
     model.game.gc_controllers = "pointing";
     prefs.restore(model.save());
     EXPECT_EQ(prefs.game.gc_controllers, std::string("pointing"));
+    // The player's own pointing choice is the one the launch takes.
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("pointing"));
     prefs.restore("*riftwii*\tgccontrollers\tbogus\n");
     EXPECT_EQ(prefs.game.gc_controllers, std::string("off"));
     prefs.restore("*riftwii*\tgccard\tbogus\n");
@@ -975,6 +987,29 @@ static void test_exclusive_pack_reenabled() {
     EXPECT_TRUE(model.packages[1].enabled);
 }
 
+// The form packs ask for (riftwii-gc-controllers) against the game's own
+// setting: the setting wins when it's on; with it Off, the first enabled
+// pack that asks, with something of it chosen (CodeRabbit, fork #25).
+static void test_pack_gc_controllers() {
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("n.xml", "sd:/riivolution/n.xml", kModAsksNunchuk, &disc);
+    model.add("s.xml", "sd:/riivolution/s.xml", kModAsksSideways, &disc);
+    EXPECT_EQ(model.pack_gc_controllers(), std::string(""));
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("off"));
+    EXPECT_TRUE(model.set_enabled(1, true));
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("sideways"));
+    EXPECT_TRUE(model.set_enabled(0, true));
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("nunchuk"));  // the first that asks
+    model.packages[0].package.options[0].selected = 0;  // all its options Off: it asks nothing
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("sideways"));
+    model.game.gc_controllers = "classic";
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("classic"));  // the game's setting wins
+    model.game.gc_controllers = "off";
+    EXPECT_TRUE(model.set_enabled(1, false));
+    EXPECT_EQ(model.effective_gc_controllers(), std::string("off"));
+}
+
 int main() {
     test_cheat_sources();
     test_exclusive_pack_reenabled();
@@ -988,6 +1023,7 @@ int main() {
     test_pack_title();
     test_pack_saves();
     test_packs_patch_game();
+    test_pack_gc_controllers();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;
         return 0;

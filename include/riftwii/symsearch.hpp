@@ -159,6 +159,15 @@ KpadDpd find_kpad_enable_dpd(const std::vector<CodeRange>& text);
 // that reading function. All 0 unless every such read agrees.
 KpadDpd find_kpad_dpd_switch(const std::vector<CodeRange>& text);
 
+// Whether `size` bytes of code (a pack's memory patch, word-aligned) read
+// the GameCube controller ports straight from the hardware: `lis rX,0xCD00`
+// (or 0xCC00, the same registers as a GameCube sees them) and, within the
+// next 8 words, an address or access through rX inside the serial
+// interface's registers (0x6400 to 0x64FF). A pack that does this handles
+// the GameCube controller itself (quatric's GameCube controller patches
+// poll the ports this way, as their games link no PAD library).
+bool reads_gc_ports(const std::uint8_t* bytes, std::size_t size);
+
 // PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
 // game was linked with, not the Wii's): after its checks it keeps the
 // command's two low bits (`rlwinm rX, rY, 0, 30, 31`), ORs them into the

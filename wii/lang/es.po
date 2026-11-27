@@ -1542,17 +1542,32 @@ msgstr "Desactivado: los mandos de Wii nunca vibran en este juego."
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
 msgstr "Desactivado: sin sonido de los altavoces de los mandos de Wii en este juego."
 
-msgid "GameCube controllers"
-msgstr "Mandos de GameCube"
+msgid "Controllers act as"
+msgstr "Los mandos actúan como"
+
+msgid "Classic"
+msgstr "Clásico"
+
+msgid "A pack brings its own controls: 'Controllers act as' is off."
+msgstr "Un paquete trae sus controles: se ignora 'Los mandos actúan como'."
+
+msgid "Sideways"
+msgstr "De lado"
+
+msgid "Pointing"
+msgstr "Apuntando"
 
 msgid "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one."
 msgstr "Cada mando de GameCube juega como un mando clásico (el puerto 1 como el mando de Wii 1, y así sucesivamente), en los juegos que lo admiten."
 
+msgid "Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it."
+msgstr "Predeterminado: un paquete activado pide {1}, así que los mandos de GameCube juegan así. Elige otra opción para cambiarlo."
+
 msgid "A code build doesn't use it."
 msgstr "Una compilación de código no lo usa."
 
-msgid "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller."
-msgstr "Los mandos de GameCube solo funcionan en los juegos hechos para ellos. Las otras opciones los hacen jugar como un mando de Wii."
+msgid "Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."
+msgstr "Predeterminado: los mandos de GameCube solo funcionan en los juegos hechos para ellos, salvo que un paquete activado pida un mando de Wii. Las otras opciones los hacen jugar como uno. Por ahora, esto es solo para mandos de GameCube."
 
 msgid "Wii Remote + Nunchuk"
 msgstr "Mando de Wii + Nunchuk"

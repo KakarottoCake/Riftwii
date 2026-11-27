@@ -53,6 +53,13 @@ struct rtslot {
      * delivered, so a retell the game's callback can't take yet leaves the
      * slot told (and the retell due), not unannounced (CodeRabbit CLI). */
     uint32_t retelling;
+    /* "Connected only" (a pack does the controls: it reads the GameCube
+     * ports itself): the stand-in's slots are connected and told as usual,
+     * but a controller found there (the pack answering WPADProbe or filling
+     * KPAD) is never a real Wii Remote taking the slot back. The other
+     * layers keep the input at rest (rtgcwii_pads) and leave the pack's
+     * samples to the game (pad_hook). Loader-filled. */
+    uint32_t inputless;
 };
 
 /* --- Who holds a slot. */
