@@ -278,6 +278,38 @@ void TestEmptyGapExact() {
     EXPECT_EQ(o.empty_reads[1], 1u);
 }
 
+// A real Wii Remote that comes and goes while "connected" is being told:
+// its library's "gone" reaches the game after the stand-in's "connected"
+// (it came during that callback), so the game's last word is "gone" and the
+// slot is not marked told. With the GameCube controller still there, the
+// next pass announces it again; unplugged, there is nothing to tell, which
+// matches what the game last heard (CodeRabbit on #609, answered).
+void TestConnectedToldAfterRealCameAndWent() {
+    rtslot s = fresh();
+    plug(s, 2);
+    std::uint32_t slot = 0;
+    std::int32_t reason = -1;
+    EXPECT_TRUE(rtslot_next_tell(&s, kNone, 0, &slot, &reason));
+    EXPECT_EQ(reason, 0);
+    rtslot_probed(&s, 2, 0);   // a real Wii Remote during the callback
+    rtslot_probed(&s, 2, -1);  // and gone again: the game heard "gone"
+    EXPECT_EQ(rtslot_told(&s, slot, reason, 1), RTSLOT_AFTER_NOTHING);
+    EXPECT_TRUE(!((s.told >> 2) & 1u));
+    Told t = tell_all(s);
+    EXPECT_EQ(t.joins, 1);  // announced again
+    EXPECT_EQ(t.leaves, 0);
+    rtslot u = fresh();
+    plug(u, 1);
+    EXPECT_TRUE(rtslot_next_tell(&u, kNone, 0, &slot, &reason));
+    rtslot_probed(&u, 1, 0);
+    rtslot_probed(&u, 1, -1);
+    rtslot_told(&u, slot, reason, 1);
+    unplug(u, 1);
+    t = tell_all(u);
+    EXPECT_EQ(t.joins, 0);
+    EXPECT_EQ(t.leaves, 0);  // the game's last word is already "gone"
+}
+
 int main() {
     TestEmptyGapExact();
     TestOwnerOrder();
@@ -293,6 +325,7 @@ int main() {
     TestTellingCount();
     TestCorrectedAfterLeave();
     TestHomeLeaveNotForReal();
+    TestConnectedToldAfterRealCameAndWent();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

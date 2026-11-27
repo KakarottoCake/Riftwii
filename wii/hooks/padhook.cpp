@@ -966,6 +966,16 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         out.ven_fd = -1;
         return true;
     }
+    // A game with no PADRead is hooked only for the stand-in, which needs
+    // the KPAD read and WPADProbe: without them there is nothing to hook,
+    // so the launch goes on without the pad code, as it did before the
+    // stand-in, instead of stopping over the pads plugin (CodeRabbit on
+    // #609).
+    if (out.read == 0 && (out.kpad_read == 0 || out.wpad_probe == 0)) {
+        why = "no PADRead, and the game's KPAD read or WPADProbe that the GameCube controllers' stand-in needs "
+              "wasn't found";
+        return false;
+    }
     // The pad code's plugin first: a launch it can't serve stops before the
     // adapter's handle is taken (pads_plugin_usable).
     if (!pads_plugin_usable()) {

@@ -607,10 +607,7 @@ static uint32_t pad_gcwii_own(const struct rt_pad_context* c) {
  * screens read no channel 0, so any channel and WPADProbe count), and at
  * the game's sleeps (pad_on_sleep). Interrupts as the caller had them: on
  * at a KPAD read or WPADProbe, off at the sleep VIWaitForRetrace makes
- * (PADRead turns them off itself anyway). The real Wii Remotes' recheck
- * runs the game's WPADProbe, which wants them on (rtslot.h): it runs only
- * when they were on, and a due one waits for the next such call
- * (CodeRabbit, fork #22). */
+ * (PADRead and WPADProbe turn them off themselves anyway). */
 static void pad_gcwii_read_pads(struct rt_pad_context* c) {
     struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
     uint32_t msr, i;
@@ -619,9 +616,14 @@ static void pad_gcwii_read_pads(struct rt_pad_context* c) {
      * the game's own WPADProbe (its original, through the hook's replay),
      * so one that turned off gives the channel back even in a game that
      * stops reading a channel its library reported gone, whose hooked
-     * reads and probes then never come (rtgcwii_real_check_due). */
+     * reads and probes then never come (rtgcwii_real_check_due). At a
+     * sleep too, with interrupts off: a game that stops reading controllers
+     * altogether leaves only its sleeps (CodeRabbit on #609), and WPADProbe
+     * turns interrupts off itself and puts them back as they were, with no
+     * wait (the SDK's: OSDisableInterrupts, the channel's state,
+     * OSRestoreInterrupts), so it may run with them off. */
     msr = interrupts_off();
-    read = (msr & 0x8000u) != 0 && rtgcwii_real_check_due(w, now(), c->ticks_per_ms);
+    read = rtgcwii_real_check_due(w, now(), c->ticks_per_ms);
     interrupts_restore(msr);
     if (read) {
         for (i = 0; i < RTGCWII_CHANNELS; ++i) {
@@ -887,8 +889,11 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         interrupts_restore(msr);
         pad_gcwii_read_pads(c);
     }
+    /* Where the game's own WPADProbe found a real controller, its answer
+     * and type stand, even if a recheck in the read above already saw it go
+     * (CodeRabbit on #609): the stand-in answers from the next probe. */
     if (!c->home_on) {
-        if (chan >= 0 && pad_owner(c, (uint32_t)chan, 0) == RTSLOT_STANDIN) {
+        if (chan >= 0 && result != 0 && pad_owner(c, (uint32_t)chan, 0) == RTSLOT_STANDIN) {
             if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
             return 0;
         }
@@ -926,7 +931,7 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
     owner = chan >= 0 ? pad_owner(c, (uint32_t)chan, t) : RTSLOT_NOBODY;
     if (owner != RTSLOT_HOME) {
         if (chan >= 0) rthome_probed(&c->home, (uint32_t)chan, result);
-        if (owner == RTSLOT_STANDIN) {
+        if (owner == RTSLOT_STANDIN && result != 0) {
             if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
             interrupts_restore(msr);
             return 0;
@@ -1243,7 +1248,25 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         struct rtgcwii* gw = c->gcwii ? (struct rtgcwii*)(uintptr_t)c->gcwii : 0;
         uint32_t flags;
         /* (The count was taken with the change, above.) */
-        if (leave != RTHOME_NO_CHANNEL) (void)pad_tell_connect(c, leave, -1);
+        if (leave != RTHOME_NO_CHANNEL) {
+            const int left = pad_tell_connect(c, leave, -1);
+            /* A real Wii Remote that took the channel while "gone" was on
+             * its way (a nested PADRead noted it as interrupts came back):
+             * its "connected" may have come first, so the game hears
+             * "connected" last, as the permanent stand-in's telling does
+             * (CodeRabbit on #609). Checked while the count is held. */
+            if (left && gw) {
+                int after;
+                flags = interrupts_off();
+                after = rtslot_told(&gw->slot, leave, -1, 1) == RTSLOT_AFTER_CONNECTED;
+                interrupts_restore(flags);
+                if (after && pad_tell_connect(c, leave, 0)) {
+                    flags = interrupts_off();
+                    rtslot_corrected(&gw->slot, leave);
+                    interrupts_restore(flags);
+                }
+            }
+        }
         if (join != RTHOME_NO_CHANNEL) (void)pad_tell_connect(c, join, 0);
         if (gw) {
             flags = interrupts_off();

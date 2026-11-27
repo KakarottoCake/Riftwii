@@ -76,9 +76,11 @@ void rtslot_kpad_read(struct rtslot* s, uint32_t slot, int32_t result, int32_t e
  * noted when it is due. */
 int rtslot_real_check_due(struct rtslot* s, uint32_t now, uint32_t ticks_per_ms);
 
-/* That recheck runs the game's WPADProbe with interrupts on: begin notes
- * where the slot's answers stand, and its answer counts only if no newer one
- * came meanwhile (CodeRabbit on #610). */
+/* That recheck runs the game's WPADProbe, with interrupts as the hook found
+ * them (on at a read, off at a sleep; WPADProbe turns them off itself
+ * around the channel's state): begin notes where the slot's answers stand,
+ * and its answer counts only if no newer one came meanwhile (CodeRabbit on
+ * #610). */
 uint32_t rtslot_recheck_begin(const struct rtslot* s, uint32_t slot);
 void rtslot_rechecked(struct rtslot* s, uint32_t slot, int32_t result, uint32_t begun);
 

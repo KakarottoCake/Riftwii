@@ -1328,12 +1328,13 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, b
             gc_adapter = false;
         }
     }
-    // No USB for the game (the Wii's own ports only, or the adapter off):
-    // the menu's adapter session is let go, except after a launch the pads
-    // plugin refused: the failure screen comes next and needs the adapter
-    // (console, 24 Nov: with the session closed, the screen's adapter
-    // answered -4 to everything).
-    if ((!gc_adapter || !usb) && !pads_plugin_stopped_launch()) close_adapter_session();
+    // The adapter off: the menu's adapter session is let go, except after a
+    // launch the pads plugin refused: the failure screen comes next and
+    // needs the adapter (console, 24 Nov: with the session closed, the
+    // screen's adapter answered -4 to everything). The Wii's own ports only
+    // (pad.no_usb): the launch lets it go once the pad code is fetched, so a
+    // refused copy leaves it for that screen too (CodeRabbit on #609).
+    if (!gc_adapter && !pads_plugin_stopped_launch()) close_adapter_session();
     // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
     // once, for the Wii's own ports and the adapter alike (the adapter's
     // hook is not put on it then).
@@ -2714,6 +2715,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return false;
     }
     if (gc_adapter && !fetch_pad_build(extras.pad, code_build, error)) return false;
+    if (gc_adapter && extras.pad.no_usb) close_adapter_session();  // the Wii's own ports only (prepare_gc_pads)
     if (!gc_adapter) release_pads_plugin();
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
@@ -4661,6 +4663,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         card_again();
         return false;
     }
+    // The Wii's own ports only: the menu's adapter session goes now that the
+    // pad code is fetched (prepare_gc_pads).
+    if (extras_context.gc_adapter && extras.pad.no_usb) close_adapter_session();
     if (!extras_context.gc_adapter) release_pads_plugin();
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
