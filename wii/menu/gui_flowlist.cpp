@@ -25,6 +25,12 @@ constexpr int kStep = 34;                 // skin::stepBack/stepForward
 constexpr int kGap = 6;
 constexpr int kSwitchW = 60;  // skin::switchOn/switchOff
 constexpr int kStepperW = kStep + kGap + kChipW + kGap + kStep;
+// On cards a stepper's value is plain text between its arrows (no chip
+// picture), so the arrows close in on it, down to this much room, and the
+// label gets the rest: "Games on the SD card" was cut to "Games on the SD
+// c..." beside a short "Look for them". The floor keeps the usual short
+// values (On, Off, Auto) at one width, their arrows in line from row to row.
+constexpr int kStepperMinMiddle = 140;
 constexpr int kDragStart = 8;  // pixels the pointer moves before a press becomes a drag
 constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
@@ -161,10 +167,19 @@ GuiFlowList::Part GuiFlowList::PartAt(int row, int x) const {
     if (r.kind == FlowRow::Kind::Option && !r.dim) {
         // The arrows' hit areas reach a little past the buttons.
         const int right = ControlsRight();
+        const int stepperW = StepperWidth(row);
         if (x >= right - kStep - 4) return Part::Forward;
-        if (x >= right - kStepperW - 4 && x < right - kStepperW + kStep + 4) return Part::Back;
+        if (x >= right - stepperW - 4 && x < right - stepperW + kStep + 4) return Part::Back;
     }
     return Part::Body;
+}
+
+// A live Option row's stepper, arrows and all: as measured when its texts
+// were set, or the full width for a row not shown then.
+int GuiFlowList::StepperWidth(int row) const {
+    const int slot = row - textFirst;
+    const int middle = slot >= 0 && slot <= visible && stepperMiddle[slot] != 0 ? stepperMiddle[slot] : kChipW;
+    return kStep + kGap + middle + kGap + kStep;
 }
 
 bool GuiFlowList::Actionable(int row) const {
@@ -270,6 +285,12 @@ void GuiFlowList::Draw() {
             // left a theme's name only "Dashb..." on a half-width list.
             int control = ControlWidth(r);
             if (cards && EndsInText(r) && !text.empty()) control = std::min(value[i]->GetTextWidth(), kChipW - 20);
+            stepperMiddle[i] = kChipW;
+            if (cards && r.kind == FlowRow::Kind::Option && !r.dim) {
+                const int needed = value[i]->GetTextWidth() + 20;
+                stepperMiddle[i] = std::max(kStepperMinMiddle, std::min(needed, kChipW));
+                control = kStep + kGap + stepperMiddle[i] + kGap + kStep;
+            }
             label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
                                   (control ? control + kPad : 0));
             detail[i]->SetText(r.detail.empty() ? nullptr : r.detail.c_str());
@@ -381,10 +402,10 @@ void GuiFlowList::Draw() {
         }
         valueIn[index] = motion::Follow(valueIn[index], 1.0f, 58.0f);
         if (valueIn[index] > 0.98f) valueIn[index] = 1.0f;
-        const auto chipText = [&](int cx) {
+        const auto chipText = [&](int cx, int width = kChipW) {
             const int tw = value[i]->GetTextWidth();
-            const int shown = tw > kChipW - 20 ? kChipW - 20 : tw;
-            value[i]->SetPosition(cx + (kChipW - shown) / 2 + static_cast<int>(10.0f * (1.0f - valueIn[index])), textY);
+            const int shown = tw > width - 20 ? width - 20 : tw;
+            value[i]->SetPosition(cx + (width - shown) / 2 + static_cast<int>(10.0f * (1.0f - valueIn[index])), textY);
             value[i]->SetAlpha(static_cast<int>(255 * valueIn[index]));
             value[i]->Draw();
             value[i]->SetAlpha(255);
@@ -399,8 +420,11 @@ void GuiFlowList::Draw() {
         };
         if (cards && r.kind != FlowRow::Kind::Toggle) {
             if (r.kind == FlowRow::Kind::Option && !r.dim) {
-                // The value between its arrows (each a button of its own).
-                const int backX = right - kStepperW, chipX = backX + kStep + kGap, fwdX = right - kStep;
+                // The value between its arrows (each a button of its own),
+                // which close in on it (kStepperMinMiddle).
+                const int middle = stepperMiddle[i] != 0 ? stepperMiddle[i] : kChipW;
+                const int backX = right - (kStep + kGap + middle + kGap + kStep);
+                const int chipX = backX + kStep + kGap, fwdX = right - kStep;
                 {
                     const int by = y + (rowH - kStep) / 2;
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
@@ -408,7 +432,7 @@ void GuiFlowList::Draw() {
                     skin::Draw(overBack ? skin::stepBackOver : skin::stepBack, backX - 4, by - 4, alpha);
                     skin::Draw(overFwd ? skin::stepForwardOver : skin::stepForward, fwdX - 4, by - 4, alpha);
                 }
-                chipText(chipX);
+                chipText(chipX, middle);
             } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();
             }
