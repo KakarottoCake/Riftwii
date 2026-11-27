@@ -3726,6 +3726,24 @@ msgstr "Volta as opções deste jogo às das Configurações."
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "Mostra as opções que quase ninguém precisa: o cIOS, as correções de região e a velocidade de carregamento. As que você mudou aparecem sempre."
 
+msgid "Settings show each value and what it does"
+msgstr "Configurações mostram cada valor e o que faz"
+
+msgid "Search all settings"
+msgstr "Buscar em todas as configurações"
+
+msgid "Get more mods and Get a save"
+msgstr "Obter mais mods e Obter um save"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "Miis em Gerenciar NAND emulada"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX e o disco de Zelda iniciam"
+
+msgid "More memory for games"
+msgstr "Mais memória para os jogos"
+
 msgid "Channel background"
 msgstr "Fundo dos canais"
 
@@ -4502,24 +4520,6 @@ msgstr "Aperte qualquer botão para ver o que o RiftWii está fazendo."
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Caixa do jogo: a caixa do jogo enquanto ele inicia; aperte qualquer botão para ver o que o RiftWii está fazendo. Registro: cada passo, linha por linha. Se o início falhar, o registro sempre aparece."
-
-msgid "Get more themes works again"
-msgstr "Obter mais temas funciona de novo"
-
-msgid "A only presses what the pointer is on"
-msgstr "A só aperta o que o ponteiro aponta"
-
-msgid "Themes can draw the back of the box"
-msgstr "Temas podem desenhar o verso da caixa"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "O menu não trava mais com temas grandes"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "Jogos com NAND emulada voltam ao RiftWii"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "O ponteiro do GameCube some ao desconectar"
 
 msgid "Manage game"
 msgstr "Gerenciar jogo"

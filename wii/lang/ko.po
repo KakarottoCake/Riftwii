@@ -3726,6 +3726,24 @@ msgstr "이 게임의 옵션을 설정 값으로 되돌립니다."
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "대부분 필요 없는 옵션을 표시합니다: cIOS, 지역 수정, 읽기 속도. 바꾼 옵션은 항상 표시됩니다."
 
+msgid "Settings show each value and what it does"
+msgstr "설정에 값과 설명 표시"
+
+msgid "Search all settings"
+msgstr "모든 설정 검색"
+
+msgid "Get more mods and Get a save"
+msgstr "모드 더 받기와 세이브 받기"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "가상 NAND 관리에서 Mii 관리"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX와 젤다 디스크 실행"
+
+msgid "More memory for games"
+msgstr "게임용 메모리 증가"
+
 msgid "Channel background"
 msgstr "채널 배경"
 
@@ -4502,24 +4520,6 @@ msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
-
-msgid "Get more themes works again"
-msgstr "테마 받기가 다시 작동함"
-
-msgid "A only presses what the pointer is on"
-msgstr "A는 포인터가 가리키는 것만 누름"
-
-msgid "Themes can draw the back of the box"
-msgstr "테마가 케이스 뒷면도 그릴 수 있음"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "큰 테마에서도 메뉴가 멈추지 않음"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "에뮬레이트 NAND 게임에서 RiftWii로 돌아옴"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "게임큐브 컨트롤러를 빼면 포인터가 사라짐"
 
 msgid "Manage game"
 msgstr "게임 관리"

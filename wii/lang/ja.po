@@ -3726,6 +3726,24 @@ msgstr "このゲームのオプションを設定の内容に戻します。"
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "ほとんどの人が使わないオプションを表示します: cIOS、地域の修正、読み込み速度。変更したものは常に表示されます。"
 
+msgid "Settings show each value and what it does"
+msgstr "設定で値と内容がわかるように"
+
+msgid "Search all settings"
+msgstr "設定を検索"
+
+msgid "Get more mods and Get a save"
+msgstr "MODとセーブデータをダウンロード"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "仮想NANDの管理でMiiを管理"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GXとゼルダのディスクが起動"
+
+msgid "More memory for games"
+msgstr "ゲームに使えるメモリーが増加"
+
 msgid "Channel background"
 msgstr "チャンネルの背景"
 
@@ -4502,24 +4520,6 @@ msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
-
-msgid "Get more themes works again"
-msgstr "テーマの追加がまた使える"
-
-msgid "A only presses what the pointer is on"
-msgstr "Aはポインターが指すものだけを押す"
-
-msgid "Themes can draw the back of the box"
-msgstr "テーマでケースの裏も描ける"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "大きなテーマでもメニューが止まらない"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "エミュレートNANDのゲームからRiftWiiに戻れる"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "GCコントローラーを抜くとポインターが消える"
 
 msgid "Manage game"
 msgstr "ゲームの管理"

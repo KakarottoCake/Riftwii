@@ -3726,6 +3726,24 @@ msgstr "Remet les options de ce jeu à celles des Réglages."
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "Affiche les options dont presque personne n'a besoin : le cIOS, les corrections de région et la vitesse de chargement. Celles que vous avez changées restent affichées."
 
+msgid "Settings show each value and what it does"
+msgstr "Les réglages montrent leur valeur et leur rôle"
+
+msgid "Search all settings"
+msgstr "Rechercher dans tous les réglages"
+
+msgid "Get more mods and Get a save"
+msgstr "Obtenir des mods et une sauvegarde"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "Les Mii dans Gérer la NAND émulée"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX et le disque Zelda démarrent"
+
+msgid "More memory for games"
+msgstr "Plus de mémoire pour les jeux"
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 
@@ -4502,24 +4520,6 @@ msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
-
-msgid "Get more themes works again"
-msgstr "Obtenir d'autres thèmes refonctionne"
-
-msgid "A only presses what the pointer is on"
-msgstr "A n'appuie que sur ce que vise le pointeur"
-
-msgid "Themes can draw the back of the box"
-msgstr "Les thèmes peuvent dessiner le dos de la boîte"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "Le menu ne se fige plus avec les gros thèmes"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "Les jeux en NAND émulée reviennent à RiftWii"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "Le pointeur GameCube disparaît une fois débranché"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"

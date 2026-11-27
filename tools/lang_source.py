@@ -7400,6 +7400,32 @@ FR.update({
     'Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown.': "Affiche les options dont presque personne n'a besoin : le cIOS, les corrections de région et la vitesse de chargement. Celles que vous avez changées restent affichées.",
 })
 
+# What's new in 2611-268.
+T.update({
+    'Settings show each value and what it does': ('Ajustes muestra cada valor y qué hace', '設定で値と内容がわかるように', 'Configurações mostram cada valor e o que faz', 'Le impostazioni mostrano valore e funzione'),
+    'Search all settings': ('Buscar en todos los ajustes', '設定を検索', 'Buscar em todas as configurações', 'Cerca in tutte le impostazioni'),
+    'Get more mods and Get a save': ('Obtener más mods y Obtener una partida', 'MODとセーブデータをダウンロード', 'Obter mais mods e Obter um save', 'Altre mod e Scarica un salvataggio'),
+    'Miis in Manage emulated NAND': ('Miis en Gestionar NAND emulada', '仮想NANDの管理でMiiを管理', 'Miis em Gerenciar NAND emulada', 'Mii in Gestisci NAND emulata'),
+    'F-Zero GX and the Zelda disc start': ('F-Zero GX y el disco de Zelda arrancan', 'F-Zero GXとゼルダのディスクが起動', 'F-Zero GX e o disco de Zelda iniciam', 'F-Zero GX e il disco di Zelda partono'),
+    'More memory for games': ('Más memoria para los juegos', 'ゲームに使えるメモリーが増加', 'Mais memória para os jogos', 'Più memoria per i giochi'),
+})
+KO.update({
+    'Settings show each value and what it does': '설정에 값과 설명 표시',
+    'Search all settings': '모든 설정 검색',
+    'Get more mods and Get a save': '모드 더 받기와 세이브 받기',
+    'Miis in Manage emulated NAND': '가상 NAND 관리에서 Mii 관리',
+    'F-Zero GX and the Zelda disc start': 'F-Zero GX와 젤다 디스크 실행',
+    'More memory for games': '게임용 메모리 증가',
+})
+FR.update({
+    'Settings show each value and what it does': 'Les réglages montrent leur valeur et leur rôle',
+    'Search all settings': 'Rechercher dans tous les réglages',
+    'Get more mods and Get a save': 'Obtenir des mods et une sauvegarde',
+    'Miis in Manage emulated NAND': 'Les Mii dans Gérer la NAND émulée',
+    'F-Zero GX and the Zelda disc start': 'F-Zero GX et le disque Zelda démarrent',
+    'More memory for games': 'Plus de mémoire pour les jeux',
+})
+
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -9084,25 +9110,6 @@ T["Game's box: the game's box while it starts; press any button to see what Rift
 MORE["ko"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-# What's new in the release after 2611-179.
-T['Get more themes works again'] = ('Obtener más temas vuelve a funcionar', 'テーマの追加がまた使える', 'Obter mais temas funciona de novo', 'Scarica altri temi funziona di nuovo')
-MORE["ko"]['Get more themes works again'] = '테마 받기가 다시 작동함'
-MORE["fr"]['Get more themes works again'] = 'Obtenir d\'autres thèmes refonctionne'
-T['A only presses what the pointer is on'] = ('A solo pulsa lo que señala el puntero', 'Aはポインターが指すものだけを押す', 'A só aperta o que o ponteiro aponta', 'A preme solo ciò che indica il puntatore')
-MORE["ko"]['A only presses what the pointer is on'] = 'A는 포인터가 가리키는 것만 누름'
-MORE["fr"]['A only presses what the pointer is on'] = 'A n\'appuie que sur ce que vise le pointeur'
-T['Themes can draw the back of the box'] = ('Los temas pueden dibujar el dorso de la caja', 'テーマでケースの裏も描ける', 'Temas podem desenhar o verso da caixa', 'I temi possono disegnare il retro della custodia')
-MORE["ko"]['Themes can draw the back of the box'] = '테마가 케이스 뒷면도 그릴 수 있음'
-MORE["fr"]['Themes can draw the back of the box'] = 'Les thèmes peuvent dessiner le dos de la boîte'
-T['The menu no longer freezes with big themes'] = ('El menú ya no se congela con temas grandes', '大きなテーマでもメニューが止まらない', 'O menu não trava mais com temas grandes', 'Il menu non si blocca più con i temi grandi')
-MORE["ko"]['The menu no longer freezes with big themes'] = '큰 테마에서도 메뉴가 멈추지 않음'
-MORE["fr"]['The menu no longer freezes with big themes'] = 'Le menu ne se fige plus avec les gros thèmes'
-T['Emulated NAND games go back to RiftWii'] = ('Los juegos con NAND emulada vuelven a RiftWii', 'エミュレートNANDのゲームからRiftWiiに戻れる', 'Jogos com NAND emulada voltam ao RiftWii', 'I giochi con NAND emulata tornano a RiftWii')
-MORE["ko"]['Emulated NAND games go back to RiftWii'] = '에뮬레이트 NAND 게임에서 RiftWii로 돌아옴'
-MORE["fr"]['Emulated NAND games go back to RiftWii'] = 'Les jeux en NAND émulée reviennent à RiftWii'
-T['The GameCube pointer hides when unplugged'] = ('El puntero de GameCube se oculta al desconectarlo', 'GCコントローラーを抜くとポインターが消える', 'O ponteiro do GameCube some ao desconectar', 'Il puntatore GameCube sparisce se scollegato')
-MORE["ko"]['The GameCube pointer hides when unplugged'] = '게임큐브 컨트롤러를 빼면 포인터가 사라짐'
-MORE["fr"]['The GameCube pointer hides when unplugged'] = 'Le pointeur GameCube disparaît une fois débranché'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')

@@ -3726,6 +3726,24 @@ msgstr "Devuelve las opciones de este juego a las de Ajustes."
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "Muestra las opciones que casi nadie necesita: el cIOS, los arreglos de región y la velocidad de carga. Las que cambiaste siempre se muestran."
 
+msgid "Settings show each value and what it does"
+msgstr "Ajustes muestra cada valor y qué hace"
+
+msgid "Search all settings"
+msgstr "Buscar en todos los ajustes"
+
+msgid "Get more mods and Get a save"
+msgstr "Obtener más mods y Obtener una partida"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "Miis en Gestionar NAND emulada"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX y el disco de Zelda arrancan"
+
+msgid "More memory for games"
+msgstr "Más memoria para los juegos"
+
 msgid "Channel background"
 msgstr "Fondo de los canales"
 
@@ -4502,24 +4520,6 @@ msgstr "Pulsa cualquier botón para ver qué está haciendo RiftWii."
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Caja del juego: la caja del juego mientras se inicia; pulsa cualquier botón para ver qué está haciendo RiftWii. Registro: cada paso, línea por línea. Si el inicio falla, el registro siempre se muestra."
-
-msgid "Get more themes works again"
-msgstr "Obtener más temas vuelve a funcionar"
-
-msgid "A only presses what the pointer is on"
-msgstr "A solo pulsa lo que señala el puntero"
-
-msgid "Themes can draw the back of the box"
-msgstr "Los temas pueden dibujar el dorso de la caja"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "El menú ya no se congela con temas grandes"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "Los juegos con NAND emulada vuelven a RiftWii"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "El puntero de GameCube se oculta al desconectarlo"
 
 msgid "Manage game"
 msgstr "Gestionar juego"

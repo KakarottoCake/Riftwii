@@ -3726,6 +3726,24 @@ msgstr "Riporta le opzioni di questo gioco a quelle delle Impostazioni."
 msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
 msgstr "Mostra le opzioni che quasi nessuno usa: il cIOS, le correzioni di regione e la velocità di caricamento. Quelle che hai cambiato si vedono sempre."
 
+msgid "Settings show each value and what it does"
+msgstr "Le impostazioni mostrano valore e funzione"
+
+msgid "Search all settings"
+msgstr "Cerca in tutte le impostazioni"
+
+msgid "Get more mods and Get a save"
+msgstr "Altre mod e Scarica un salvataggio"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "Mii in Gestisci NAND emulata"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX e il disco di Zelda partono"
+
+msgid "More memory for games"
+msgstr "Più memoria per i giochi"
+
 msgid "Channel background"
 msgstr "Sfondo dei canali"
 
@@ -4502,24 +4520,6 @@ msgstr "Premi un tasto qualsiasi per vedere cosa sta facendo RiftWii."
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Confezione del gioco: la confezione del gioco mentre si avvia; premi un tasto qualsiasi per vedere cosa sta facendo RiftWii. Registro: ogni passo, riga per riga. Se l'avvio non riesce, il registro appare sempre."
-
-msgid "Get more themes works again"
-msgstr "Scarica altri temi funziona di nuovo"
-
-msgid "A only presses what the pointer is on"
-msgstr "A preme solo ciò che indica il puntatore"
-
-msgid "Themes can draw the back of the box"
-msgstr "I temi possono disegnare il retro della custodia"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "Il menu non si blocca più con i temi grandi"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "I giochi con NAND emulata tornano a RiftWii"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "Il puntatore GameCube sparisce se scollegato"
 
 msgid "Manage game"
 msgstr "Gestisci gioco"
