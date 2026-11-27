@@ -16796,12 +16796,16 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			// The GameCube controllers setting: A opens its list too
 			// (CodeRabbit on #610).
 			case W::GcControllers: {
-				// kGcControllers' order.
-				labels = {tr("Off"), tr("Classic Controller"), tr("Wii Remote + Nunchuk"), tr("Sideways Wii Remote"),
-					tr("Pointing Wii Remote")};
+				// kGcControllers' order: Default first, named as on the row
+				// (what an enabled pack asks for, else the game's own).
+				const std::string fromPack = state.model.pack_gc_controllers();
+				labels.push_back(!fromPack.empty() ? tr("Default ({1})", {GcFormShortName(fromPack)})
+				                                   : tr("Default ({1})", {tr("Game's own")}));
 				int set = 0;
-				for (std::size_t i = 0; i < sizeof(kGcControllers) / sizeof(kGcControllers[0]); ++i)
+				for (std::size_t i = 1; i < sizeof(kGcControllers) / sizeof(kGcControllers[0]); ++i) {
 					if (game.gc_controllers == kGcControllers[i]) set = static_cast<int>(i);
+					labels.push_back(GcFormName(kGcControllers[i]));
+				}
 				return set;
 			}
 			default:
