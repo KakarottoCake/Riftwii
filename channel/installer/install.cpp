@@ -142,13 +142,13 @@ bool encrypt_title_key(u64 title, u8 out[16], std::string& error) {
     };
     std::memcpy(in, kTitleKey, 16);
     reset_iv();
-    const s32 r = ES_Encrypt(kCommonKeyHandle, iv, in, 16, enc);
+    const s32 r = ES_Encrypt(kCommonKeyHandle, reinterpret_cast<u8*>(iv), in, 16, enc);
     if (r < 0) {
         error = "ES would not encrypt the channel's key (" + std::to_string(r) + ")";
         return false;
     }
     reset_iv();
-    const s32 d = ES_Decrypt(kCommonKeyHandle, iv, enc, 16, back);
+    const s32 d = ES_Decrypt(kCommonKeyHandle, reinterpret_cast<u8*>(iv), enc, 16, back);
     if (d < 0 || std::memcmp(back, kTitleKey, 16) != 0) {
         error = "ES encrypted the channel's key but did not decrypt it back (" + std::to_string(d) + ")";
         return false;
@@ -254,7 +254,7 @@ bool installed_as(u64 title, unsigned& version) {
     u32 size = 0;
     if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) return false;
     static u8 view[0x400] ATTRIBUTE_ALIGN(32);
-    if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
+    if (ES_GetTMDView(title, view, size) < 0) return false;
     version = reinterpret_cast<const tmd_view*>(view)->title_version;
     return true;
 }

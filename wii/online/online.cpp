@@ -4,8 +4,10 @@
 #include "riftwii/emulatorart.hpp"
 
 #include <network.h>
-#include <ogc/machine/processor.h>
+#ifndef POLLIN  // libogc2's network.h has the POLL* flags; a host build takes them from here
 #include <poll.h>
+#endif
+#include <ogc/machine/processor.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

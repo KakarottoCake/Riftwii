@@ -154,7 +154,7 @@ riftwii::D2xInfo ReadCios(int slot, NandReadAccess& access, bool& read) {
         return {};
     }
     auto* view = reinterpret_cast<tmd_view*>(view_data);
-    if (ES_GetTMDView(title, view, size) < 0 || view->title_id != title || view->num_contents == 0 ||
+    if (ES_GetTMDView(title, view_data, size) < 0 || view->title_id != title || view->num_contents == 0 ||
         view->num_contents > (size - sizeof(tmd_view)) / sizeof(tmd_view_content)) {
         Log("IOS%d was skipped because its content list is missing or invalid.\n", slot);
         return {};

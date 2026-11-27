@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "di.hpp"
+#include "../core/mem1tail.h"
 #include "log.hpp"
 
 #include <gccore.h>
@@ -37,7 +38,7 @@ std::uint32_t g_stop_in[8] ATTRIBUTE_ALIGN(32);
 std::uint32_t g_stop_out[8] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bca[64] ATTRIBUTE_ALIGN(32);
 ioctlv g_vectors[5] ATTRIBUTE_ALIGN(32);
-std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
+std::uint8_t* const g_bounce = riftwii_di_bounce;
 s32 g_fd = -1;
 int g_last_reply = 0;
 std::uint32_t g_frag_device = 0;

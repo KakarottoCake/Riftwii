@@ -3,10 +3,10 @@
 #include "crash.hpp"
 
 #include <gccore.h>
-#include <ogc/console.h>
+#include <ogc/consol.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/video.h>
-#include <tuxedo/ppc/exception.h>
+#include <ogc/context.h>
 
 #include <cstdarg>
 #include <cstdio>
@@ -57,15 +57,15 @@ char g_report[3072];
 
 const char* ExceptionName(unsigned exid) {
     switch (exid) {
-        case PPC_EXCPT_MCHK: return "machine check";
-        case PPC_EXCPT_DSI: return "bad data address (DSI)";
-        case PPC_EXCPT_ISI: return "bad code address (ISI)";
-        case PPC_EXCPT_ALIGN: return "misaligned access";
-        case PPC_EXCPT_UNDEF: return "illegal instruction";
-        case PPC_EXCPT_FPU: return "floating point unavailable";
-        case PPC_EXCPT_TRACE: return "trace";
-        case PPC_EXCPT_PM: return "performance monitor";
-        case PPC_EXCPT_BKPT: return "breakpoint";
+        case EX_MACH_CHECK: return "machine check";
+        case EX_DSI: return "bad data address (DSI)";
+        case EX_ISI: return "bad code address (ISI)";
+        case EX_ALIGN: return "misaligned access";
+        case EX_PRG: return "illegal instruction";
+        case EX_FP: return "floating point unavailable";
+        case EX_TRACE: return "trace";
+        case EX_PERF: return "performance monitor";
+        case EX_IABR: return "breakpoint";
         default: return "exception";
     }
 }
@@ -99,7 +99,7 @@ void BuildReport() {
     Append(at, "PC %08X  LR %08X  MSR %08X  CR %08X  CTR %08X\n", c.pc, c.lr, c.msr, c.cr, c.ctr);
     if (plugin_describe_address(c.pc, plugins, plugin_count, where, sizeof(where))) Append(at, "PC is in %s\n", where);
     if (plugin_describe_address(c.lr, plugins, plugin_count, where, sizeof(where))) Append(at, "LR is in %s\n", where);
-    if (c.exid == PPC_EXCPT_DSI) Append(at, "DAR %08X  DSISR %08X\n", c.dar, c.dsisr);
+    if (c.exid == EX_DSI) Append(at, "DAR %08X  DSISR %08X\n", c.dar, c.dsisr);
     for (int r = 0; r < 32; r += 4) {
         Append(at, "R%02d %08X  R%02d %08X  R%02d %08X  R%02d %08X\n", r, c.gpr[r], r + 1, c.gpr[r + 1], r + 2,
                c.gpr[r + 2], r + 3, c.gpr[r + 3]);
@@ -254,18 +254,34 @@ void* SaveReport(void*) {
     std::exit(0);
 }
 
-// libogc's panic hook, in exception context: note the registers, then let
-// the handler resume the crashed thread in CrashContinue on g_stack.
-void RiftPanic(unsigned exid, PPCContext* ctx) {
+// libogc2 has no panic hook: its default exception handler calls
+// c_default_exceptionhandler (wrapped at link time, --wrap in Makefile.wii) in
+// exception context, then restores the frame and returns from the exception.
+// So: note the registers, and point the frame at a trampoline that switches
+// to g_stack and enters CrashContinue (the handler's epilogue puts sp back
+// by adding to the crashed thread's own, whatever the frame's gpr[1] says).
+extern "C" void __real_c_default_exceptionhandler(frame_context* ctx);
+extern "C" void RiftCrashTrampoline();
+extern "C" { u32 rift_crash_sp = 0; }
+extern "C" [[noreturn]] void RiftCrashEntry() { CrashContinue(); }
+asm(".pushsection .text\n"
+    ".globl RiftCrashTrampoline\n"
+    "RiftCrashTrampoline:\n"
+    "    lis 1, rift_crash_sp@ha\n"
+    "    lwz 1, rift_crash_sp@l(1)\n"
+    "    b RiftCrashEntry\n"
+    ".popsection\n");
+bool g_installed = false;
+void RiftPanic(frame_context* ctx) {
     if (g_crashing) {
         for (;;) {
         }
     }
     g_crashing = 1;
-    g_info.exid = exid;
-    g_info.pc = ctx->pc;
+    g_info.exid = ctx->nExcept;
+    g_info.pc = ctx->srr0;
     g_info.lr = ctx->lr;
-    g_info.msr = ctx->msr;
+    g_info.msr = ctx->srr1;
     g_info.cr = ctx->cr;
     g_info.ctr = ctx->ctr;
     asm volatile("mfspr %0, 19" : "=r"(g_info.dar));
@@ -278,15 +294,21 @@ void RiftPanic(unsigned exid, PPCContext* ctx) {
     const std::size_t bytes = g_stack ? g_stack_bytes : sizeof(g_fallback_stack);
     u32* top = reinterpret_cast<u32*>(stack + bytes - 16);
     top[0] = 0;  // the back chain ends here
-    ctx->gpr[1] = reinterpret_cast<u32>(top);
+    rift_crash_sp = reinterpret_cast<u32>(top);
     ctx->gpr[2] = sda2;
     ctx->gpr[13] = sda;
     ctx->lr = 0;
-    ctx->pc = reinterpret_cast<u32>(&CrashContinue);
-    ctx->msr |= 0x8000 | 0x30 | 0x2;  // EE, IR and DR, RI
+    ctx->srr0 = reinterpret_cast<u32>(&RiftCrashTrampoline);
+    ctx->srr1 |= 0x8000 | 0x30 | 0x2;  // EE, IR and DR, RI
+    ctx->msr = ctx->srr1;
 }
 
 }  // namespace
+
+extern "C" void __wrap_c_default_exceptionhandler(frame_context* ctx) {
+    if (g_installed) RiftPanic(ctx);
+    else __real_c_default_exceptionhandler(ctx);
+}
 
 void CrashInstall() {
     g_started = gettime();
@@ -295,7 +317,7 @@ void CrashInstall() {
         g_stack = skin::Mem2Alloc(kCrashStackBytes);
         g_stack_bytes = g_stack ? kCrashStackBytes : 0;
     }
-    PPCExcptCurPanicFn = RiftPanic;
+    g_installed = true;
 }
 
 void CrashSetPhase(CrashPhase phase) { g_phase = phase; }

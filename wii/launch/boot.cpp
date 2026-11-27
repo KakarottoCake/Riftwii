@@ -541,7 +541,7 @@ void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount, int la
     if (g_extras.game_id.empty() || report.modes == 0) return;
     // After an IOS reload the card is down; with nothing else driving the
     // slot it is mounted just for this note.
-    const bool mounted_here = !g_card_live_for_log && may_mount && sd_interface()->startup() &&
+    const bool mounted_here = !g_card_live_for_log && may_mount && sd_interface()->startup(sd_interface()) &&
                               fatMountSimple("sd", sd_interface());
     if (!g_card_live_for_log && !mounted_here) return;
     const std::string path = "sd:/riftwii/choices/" + g_extras.game_id + ".video";
@@ -552,7 +552,7 @@ void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount, int la
     }
     if (mounted_here) {
         fatUnmount("sd:");
-        sd_interface()->shutdown();
+        sd_interface()->shutdown(sd_interface());
     }
 }
 
@@ -624,7 +624,7 @@ void release_card_and_log() {
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     fatUnmount("sd:");
-    sd_interface()->shutdown();
+    sd_interface()->shutdown(sd_interface());
     g_card_live_for_log = false;
 }
 
@@ -1288,7 +1288,7 @@ void start_ctgp_memory_map(const CtgpLaunchPlan& plan) {
     __asm__ volatile("isync");
     for (std::uint32_t i = 0; i < 16; ++i) __asm__ volatile("mtsrin %0,%1" : : "r"(m.sr[i]), "r"(i << 28));
     __asm__ volatile("sync");
-    mtspr(SDR1, m.sdr1);
+    mtspr(25, m.sdr1);
     for (std::uint32_t ea = 0; ea < 0x40000; ea += 0x1000) __asm__ volatile("tlbie %0" : : "r"(ea));
     __asm__ volatile("sync; isync");
 }
@@ -4220,7 +4220,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     } else {
         LogClose();
         fatUnmount("sd:");
-        sd_interface()->shutdown();
+        sd_interface()->shutdown(sd_interface());
     }
 
     boot_after_unmount(probe, effective, savegame, rvz, required, error);  // returns only on failure
@@ -4396,7 +4396,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             LogClose();
             fatUnmount("sd:");
             fatUnmount("usb:");
-            sd_interface()->shutdown();
+            sd_interface()->shutdown(sd_interface());
             std::string why;
             const ReloadResult reload = reload_ios(ios, why, system_launch);
             if (reload == ReloadResult::Terminal) {

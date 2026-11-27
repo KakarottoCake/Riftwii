@@ -87,7 +87,7 @@ bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>& ti
         alignas(32) std::uint8_t decrypted[32] = {};
         std::memcpy(iv, ticket.data() + 0x1DC, 8);
         std::memcpy(encrypted, ticket.data() + 0x1BF, 16);
-        const s32 result = ES_Decrypt(4, iv, encrypted, 16, decrypted);
+        const s32 result = ES_Decrypt(4, reinterpret_cast<u8*>(iv), encrypted, 16, decrypted);
         if (result >= 0) std::memcpy(out, decrypted, 16);
         else logf("WADs: IOS could not decrypt the ticket's title key (error %d); trying sd:/keys.bin.\n", result);
         clear_wad_key(decrypted, sizeof decrypted);

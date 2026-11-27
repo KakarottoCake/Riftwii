@@ -110,8 +110,8 @@ int read_sector(int slot, unsigned address, unsigned latency, void* buffer) {
 
 void InitGcRealCards() {
     if (card_workarea) return;
-    void* workarea = memalign(32, CARD_WORKAREA_SIZE);
-    if (!gc_real_dma_range(reinterpret_cast<std::uintptr_t>(workarea), CARD_WORKAREA_SIZE)) {
+    void* workarea = memalign(32, CARD_WORKAREA);
+    if (!gc_real_dma_range(reinterpret_cast<std::uintptr_t>(workarea), CARD_WORKAREA)) {
         std::free(workarea);
         return;
     }

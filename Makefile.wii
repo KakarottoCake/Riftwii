@@ -9,7 +9,7 @@ ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
 
-include $(DEVKITPPC)/wii_rules
+include $(DEVKITPRO)/libogc2/wii_rules
 # devkitPro's default bin2o leaves mktemp's path unquoted. Workspace-local
 # temporary directories can contain spaces (as this Windows checkout does).
 define bin2o
@@ -77,7 +77,7 @@ CFLAGS		=	-g -Os -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
 # (include/riftwii/checkedalloc.hpp); a launch that still runs out ends in
 # operator new's handler (wii/core/memlimits.hpp LaunchMemoryGuard).
 CFLAGS		+=	-fno-asynchronous-unwind-tables
-CXXFLAGS	=	$(CFLAGS) -std=c++17 -fno-exceptions
+CXXFLAGS	=	$(CFLAGS) -std=c++17 -fno-exceptions -Wno-register
 # pugixml reports running out of memory as a parse result, not a throw.
 CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 # pugixml without its std::string and stream functions, which RiftWii never
@@ -86,7 +86,7 @@ CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
-LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue -Wl,--wrap=c_default_exceptionhandler \
 				-Wl,--wrap=classic_ctrl_handshake,--wrap=parse_event,--wrap=USB_GetDeviceList
 # No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
 # libraries still carry. libgcc's unwinder here would find frames through
@@ -115,7 +115,7 @@ LDFLAGS		+=	-Wl,--wrap=printf,--wrap=fprintf,--wrap=vprintf,--wrap=vfprintf
 # libogc's functions above: two keep wiiuse from taking a uDraw for a Classic
 # Controller, one hides tablets and the GameCube adapter from libogc's own
 # USB mouse and keyboard scans.
-LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
+LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte -lasnd -lmad -logc -lvorbisidec -logg -lfreetype -lbz2
 # Linked after every library, so its .bss (Home's scan stack) is the last
 # in RiftWii's .bss and spans 0x81000000, where libogc's start-up copies
 # its DSP boot code (wii/core/mem1tail.h). Checked after the link, below.

@@ -68,7 +68,7 @@ bool title_installed(u64 title, unsigned& version) {
     u32 size = 0;
     if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) return false;
     static u8 view[0x400] ATTRIBUTE_ALIGN(32);
-    if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
+    if (ES_GetTMDView(title, view, size) < 0) return false;
     version = reinterpret_cast<const tmd_view*>(view)->title_version;
     return true;
 }

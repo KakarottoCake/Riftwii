@@ -319,7 +319,7 @@ void HostSdForgetLayout() { forget_sd_layout(); }
 // file system lets go of the card before it is opened for the game.
 int32_t HostSdHandOver(rwp_sd_card* out, char* error, uint32_t error_bytes) {
     fatUnmount("sd:");
-    sd_interface()->shutdown();
+    sd_interface()->shutdown(sd_interface());
     sdio::Card card;
     std::string reason;
     if (!sdio::open_card(card, reason)) {

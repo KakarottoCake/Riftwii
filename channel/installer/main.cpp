@@ -142,7 +142,7 @@ bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     VIDEO_WaitVSync();
     shutdown_pads();
     if (g_sd) fatUnmount("sd:");
-    __io_wiisd.shutdown();
+    __io_wiisd.shutdown(&__io_wiisd);
     g_sd = false;
     const s32 result = IOS_ReloadIOS(slot);
     // Like leave(): shutting down before the reload lets libfat's next
@@ -324,7 +324,7 @@ void leave() {
     shutdown_pads();
     if (g_sd) {
         fatUnmount("sd:");
-        __io_wiisd.shutdown();
+        __io_wiisd.shutdown(&__io_wiisd);
         g_sd = false;
     }
     if (back) {
@@ -342,7 +342,7 @@ void leave() {
                 return reinterpret_cast<void*>(lo);
             }, [](void* data) { SYS_SetArena2Lo(data); });
             fatUnmount("sd:");
-            __io_wiisd.shutdown();
+            __io_wiisd.shutdown(&__io_wiisd);
             if (dol && dolboot_valid(dol, size)) dolboot_run(dol, kRiftWii);
         }
     }

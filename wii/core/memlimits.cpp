@@ -311,12 +311,13 @@ void LogSnap(const HeapSnap& snap) {
 
 }  // namespace
 
-// newlib's malloc (dlmalloc 2.6): each chunk is prev_size, size (low bit:
-// the one before is in use), then for a free chunk its bin links; the top
-// chunk is __malloc_av_[2], the bins' headers sit in __malloc_av_ itself.
-extern "C" void* __malloc_av_[];
-extern "C" void __malloc_lock(struct _reent*);
-extern "C" void __malloc_unlock(struct _reent*);
+// libogc2's malloc is its own dlmalloc 2.8, which keeps no layout this file
+// can read, so the heap is walked with its malloc_inspect_all: every chunk it
+// reports must lie inside the heap's pieces. A chunk header overwritten with a
+// plausible size passes; one that is not plausible is reported (newlib's
+// structural walk, with its free-list checks, does not exist here).
+#define MALLOC_LOCK() ((void)0)  // malloc_inspect_all takes dlmalloc's lock itself
+#define MALLOC_UNLOCK() ((void)0)
 
 namespace {
 // What a walk of the heap found, filled in while malloc's lock is held and
@@ -343,9 +344,9 @@ bool CheckHeap(const char* when) {
     // lock hung the menu at start (Dolphin, a theme with a large music.ogg,
     // the menu stopped on "Reading the SD card...").
     HeapWalk walk;
-    __malloc_lock(_REENT);
+    MALLOC_LOCK();
     const bool ok = WalkHeap(walk, true);
-    __malloc_unlock(_REENT);
+    MALLOC_UNLOCK();
     if (!ok) {
         logf("Heap check (%s): BROKEN: %s\n", when, walk.problem);
         LogSnap(walk.bad);
@@ -363,79 +364,41 @@ bool CheckHeap(const char* when) {
 }
 
 namespace {
-bool WalkHeap(HeapWalk& walk, bool with_total) {
-    const u32 top = Address(__malloc_av_[2]);
-    const u32 bins_lo = Address(__malloc_av_) - 8, bins_hi = Address(__malloc_av_) + 258 * 4;
-    const auto link_ok = [&](u32 p) { return InHeap(p) || (p >= bins_lo && p < bins_hi); };
+struct InspectState {
+    HeapWalk* walk;
     u32 chunks = 0;
-    for (u32 s = 0; s < g_segment_count; ++s) {
-        const u32 end = g_segments[s].end;
-        u32 p = (g_segments[s].start + 7) & ~7u, before = 0;
-        while (p + 8 <= end && p != top) {
-            const u32 word = *reinterpret_cast<const u32*>(p + 4);
-            const u32 size = word & ~3u;
-            if (size == 4) break;  // a fencepost: the segment's end as malloc sees it
-            const char* why = nullptr;
-            if (size < 16 || (size & 7) != 0 || p + size > end) why = "a size that does not fit";
-            else if (p + size != top && p + size + 8 <= end) {
-                const u32 next_word = *reinterpret_cast<const u32*>(p + size + 4);
-                if ((next_word & 1) == 0) {  // this chunk is free
-                    const u32 fd = *reinterpret_cast<const u32*>(p + 8), bk = *reinterpret_cast<const u32*>(p + 12);
-                    if (!link_ok(fd) || !link_ok(bk)) why = "a free chunk whose links leave the heap";
-                    else if (*reinterpret_cast<const u32*>(p + size) != size) why = "a free chunk whose end disagrees";
-                }
-            }
-            if (why) {
-                std::snprintf(walk.problem, sizeof(walk.problem),
-                              "%s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)", why, p, word,
-                              static_cast<unsigned>(chunks), before);
-                Snap(walk.bad, p);
-                // A chunk counts as free by the next one's header: an
-                // overrun from this chunk's data shows there.
-                if (size >= 16 && p + size + 8 <= end) {
-                    walk.after = p + size;
-                    Snap(walk.next, walk.after);
-                }
-                return false;
-            }
-            before = p;
-            p += size;
-            ++chunks;
-        }
+    u32 free_bytes = 0;
+};
+
+void InspectChunk(void* start, void* end, size_t used, void* arg) {
+    InspectState& st = *static_cast<InspectState*>(arg);
+    if (st.walk->problem[0]) return;  // the first damage is the one reported
+    const u32 from = Address(start), to = Address(end);
+    if (to <= from || (from & 7) != 0 || !InHeap(from) || !InHeap(to - 1)) {
+        std::snprintf(st.walk->problem, sizeof(st.walk->problem), "a chunk that leaves the heap: 0x%08x to 0x%08x (%u chunks in)",
+                      from, to, static_cast<unsigned>(st.chunks));
+        Snap(st.walk->bad, from);
+        return;
     }
-    walk.chunks = chunks;
-    // The free lists, as mallinfo walks them (each bin's back links until
-    // they come round to the bin): a link into memory that is not a chunk
-    // made mallinfo itself fault (a tester's Wii U, after an IOS249
-    // reload), so they are followed here first, each step checked.
-    for (u32 bin = bins_lo + 16; bin + 16 <= bins_hi; bin += 8) {
-        u32 p = *reinterpret_cast<const u32*>(bin + 12), steps = 0;
-        while (p != bin) {
-            const char* why = nullptr;
-            if (!InHeap(p) || (p & 7) != 0) why = "a free list that leaves the heap";
-            else if (++steps > (g_segments_lost ? 1u << 22 : chunks + 1)) why = "a free list longer than the heap";
-            if (why) {
-                std::snprintf(walk.problem, sizeof(walk.problem), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why,
-                              bin, p, static_cast<unsigned>(steps));
-                if (InHeap(p)) Snap(walk.link, p);
-                return false;
-            }
-            p = *reinterpret_cast<const u32*>(p + 12);
-        }
-    }
-    if (with_total) {
-        const struct mallinfo info = mallinfo();
-        walk.free_bytes = static_cast<u32>(info.fordblks);
-    }
+    ++st.chunks;
+    if (used == 0) st.free_bytes += to - from;
+}
+
+bool WalkHeap(HeapWalk& walk, bool with_total) {
+    InspectState st{&walk};
+    malloc_inspect_all(InspectChunk, &st);
+    walk.chunks = st.chunks;
+    if (walk.problem[0]) return false;
+    if (with_total) walk.free_bytes = st.free_bytes;
     return true;
 }
 }  // namespace
 
 bool HeapIntact(std::string& problem) {
     HeapWalk walk;
-    __malloc_lock(_REENT);
+    MALLOC_LOCK();
     const bool ok = WalkHeap(walk, false);
-    __malloc_unlock(_REENT);
+    MALLOC_UNLOCK();
     if (!ok) problem = walk.problem;
     return ok;
 }

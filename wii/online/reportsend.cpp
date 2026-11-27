@@ -22,6 +22,11 @@
 #include <ogc/conf.h>
 #include <wiiuse/wpad.h>
 
+// libogc2's wiiuse sets classic.type to 2 for a Wii U Pro Controller but has no name for it.
+#ifndef CLASSIC_TYPE_WIIU
+#define CLASSIC_TYPE_WIIU 2
+#endif
+
 #include "boot.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
@@ -120,7 +125,7 @@ bool title_version(u64 title, unsigned& version, unsigned& contents) {
     static u8 view[0x1000] ATTRIBUTE_ALIGN(32);
     u32 size = 0;
     if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > sizeof(view)) return false;
-    if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
+    if (ES_GetTMDView(title, view, size) < 0) return false;
     const tmd_view* v = reinterpret_cast<const tmd_view*>(view);
     version = v->title_version;
     contents = v->num_contents;

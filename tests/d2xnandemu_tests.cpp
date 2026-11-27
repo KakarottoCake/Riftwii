@@ -129,39 +129,40 @@ bool logged_on_card(const std::string& text) {
     return false;
 }
 
-bool card_read(sec_t sector, sec_t count, void* buffer) {
+bool card_read(DISC_INTERFACE*, sec_t sector, sec_t count, void* buffer) {
     if ((sector + count) * 512 > console.card.size()) return false;
     std::memcpy(buffer, console.card.data() + sector * 512, count * 512);
     return true;
 }
 
-bool libogc_startup() {
+bool libogc_startup(DISC_INTERFACE*) {
     console.events.push_back("libogc startup");
     console.libogc_slot_open = true;
     return true;
 }
-bool libogc_shutdown() {
+bool libogc_shutdown(DISC_INTERFACE*) {
     console.events.push_back("libogc shutdown");
     console.libogc_slot_open = false;
     return true;
 }
-bool always() { return true; }
-bool no_write(sec_t, sec_t, const void*) { return false; }
+bool always(DISC_INTERFACE*) { return true; }
+bool no_write(DISC_INTERFACE*, sec_t, sec_t, const void*) { return false; }
+bool no_erase(DISC_INTERFACE*, sec_t, sec_t) { return false; }
 
-bool d2x_startup() {
+bool d2x_startup(DISC_INTERFACE*) {
     console.events.push_back("d2x device startup");
     ++console.d2x_device_starts_asked;
     return console.d2x_device_starts;
 }
 
-bool d2x_shutdown() {
+bool d2x_shutdown(DISC_INTERFACE*) {
     ++console.d2x_shutdowns;
     return true;
 }
 
 const DISC_INTERFACE d2x_io = {
-    DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_WII_SD, d2x_startup, always, card_read, no_write, always,
-    d2x_shutdown,
+    DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_WII_SD, d2x_startup, always, card_read, no_write, no_erase,
+    always, d2x_shutdown, 0, 0, 512,
 };
 
 // The plain launch: a game on the USB drive (or a channel), the menu's
@@ -671,13 +672,15 @@ void test_usb_folder_refused_gives_the_drive_back() {
 
 }  // namespace
 
-const DISC_INTERFACE __io_wiisd = {
-    DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_WII_SD, libogc_startup, always, card_read, no_write, always,
-    libogc_shutdown,
+DISC_INTERFACE __io_wiisd = {
+    DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_WII_SD, libogc_startup, always, card_read, no_write, no_erase,
+    always, libogc_shutdown, 0, 0, 512,
 };
 
 namespace riftwii::wii {
-const DISC_INTERFACE* sd_interface() { return console.d2x_driver ? &d2x_io : &__io_wiisd; }
+DISC_INTERFACE* sd_interface() {
+    return console.d2x_driver ? const_cast<DISC_INTERFACE*>(&d2x_io) : &__io_wiisd;
+}
 bool using_d2x_sd() { return console.d2x_driver; }
 void use_d2x_sd(bool on) {
     console.events.push_back(on ? "use d2x device" : "use libogc driver");
@@ -731,7 +734,7 @@ void fatUnmount(const char*) {
 
 bool fatMountSimple(const char*, const DISC_INTERFACE* interface) {
     console.events.push_back("fat mount");
-    if (!interface->startup()) return false;
+    if (!interface->startup(const_cast<DISC_INTERFACE*>(interface))) return false;
     console.libfat_mounted = console.remount_works;
     return console.remount_works;
 }

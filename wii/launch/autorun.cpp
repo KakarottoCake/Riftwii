@@ -218,8 +218,8 @@ bool TestChannelPartitionLayout(std::string& error) {
         std::array<std::uint8_t, 512> source ATTRIBUTE_ALIGN(32);
         const bool mapped = game.fragments.entries.size() == 1 && game.fragments.entries.front().offset == 512 &&
                             game.fragments.entries.front().count == 1;
-        if (!mapped || !sd_interface()->readSectors(game.fragments.entries.front().sector, 1, actual.data()) ||
-            actual != expected || !sd_interface()->readSectors(static_cast<sec_t>(file.front().sector), 1, source.data()) ||
+        if (!mapped || !sd_interface()->readSectors(sd_interface(), game.fragments.entries.front().sector, 1, actual.data()) ||
+            actual != expected || !sd_interface()->readSectors(sd_interface(), static_cast<sec_t>(file.front().sector), 1, source.data()) ||
             source != original) {
             error = "the partition-layout test did not preserve the source or map the replacement header";
             return false;
@@ -232,10 +232,12 @@ bool TestChannelPartitionLayout(std::string& error) {
     usb_dvd.fragments.size = 4096;
     usb_dvd.fragments.num = 1;
     usb_dvd.fragments.entries.push_back({0, 0, 4096});
-    const u32 previous_sector_bytes = __io_usbstorage_sector_size;
-    __io_usbstorage_sector_size = 2048;
+    // libogc2 keeps the sector size in the driver's own (const) field.
+    u32& sector_bytes = const_cast<u32&>(__io_usbstorage.bytesPerSector);
+    const u32 previous_sector_bytes = sector_bytes;
+    sector_bytes = 2048;
     const bool accepted = prepare_channel_partition_layout(usb_dvd, error);
-    __io_usbstorage_sector_size = previous_sector_bytes;
+    sector_bytes = previous_sector_bytes;
     if (accepted || error != "the channel's replacement disc header needs 512-byte USB sectors") {
         error = "the partition-layout test did not reject 2048-byte USB sectors before reading";
         return false;

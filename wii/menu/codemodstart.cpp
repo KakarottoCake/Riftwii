@@ -70,7 +70,7 @@ const CodeModAnswers& Answers() {
 bool Save() {
     // Also a card pulled while a screen of its own is open, before Home
     // notices: the slot is empty now.
-    if (g_unreadable || g_held || !__io_wiisd.isInserted()) return false;
+    if (g_unreadable || g_held || !__io_wiisd.isInserted(&__io_wiisd)) return false;
     mkdir("sd:/riftwii", 0777);
     const std::string temp = std::string(kCodeModsPath) + ".part";
     const std::string old = std::string(kCodeModsPath) + ".old";

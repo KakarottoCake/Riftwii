@@ -52,13 +52,19 @@ struct MockIos {
     bool is_live(s32 fd) const { return fd >= 0 && fd == live_fd && live_generation == generation; }
 } ios;
 
-bool libogc_startup() {
+bool libogc_startup(DISC_INTERFACE*) {
     ++ios.libogc_startups;
     return true;
 }
-bool libogc_none() { return true; }
-bool libogc_read(sec_t, sec_t, void*) { return true; }
-bool libogc_write(sec_t, sec_t, const void*) { return true; }
+bool libogc_none(DISC_INTERFACE*) { return true; }
+bool libogc_read(DISC_INTERFACE*, sec_t, sec_t, void*) { return true; }
+bool libogc_write(DISC_INTERFACE*, sec_t, sec_t, const void*) { return true; }
+bool libogc_erase(DISC_INTERFACE*, sec_t, sec_t) { return true; }
+
+bool sd_startup() {
+    DISC_INTERFACE* d = riftwii::wii::sd_interface();
+    return d->startup(d);
+}
 
 void start_over() {
     riftwii::wii::d2x_sd_forget();
@@ -69,7 +75,7 @@ void start_over() {
 // picked: d2x's after a reload into the game's cIOS.
 bool mount_through_d2x() {
     riftwii::wii::use_d2x_sd(true);
-    return riftwii::wii::sd_interface()->startup();
+    return sd_startup();
 }
 
 bool read_one_sector() {
@@ -117,7 +123,7 @@ void test_reload_drops_the_driver_choice() {
     ios.reload();
     ios.has_sdhc = false;  // IOS 58
     CHECK(!riftwii::wii::using_d2x_sd());
-    CHECK(riftwii::wii::sd_interface()->startup());
+    CHECK(sd_startup());
     CHECK(ios.libogc_startups == 1);
     CHECK(ios.opens == 1);  // d2x's device was not asked for again
     CHECK(riftwii::wii::d2x_sd_fd() == -1);
@@ -181,12 +187,12 @@ void test_held_card_refuses_until_the_reload() {
         start_over();
         riftwii::wii::use_d2x_sd(d2x);
         riftwii::wii::hold_sd_for_d2x_fat(true);
-        const DISC_INTERFACE* card = riftwii::wii::sd_interface();
+        DISC_INTERFACE* card = riftwii::wii::sd_interface();
         alignas(32) static u8 sector[512];
-        CHECK(!card->startup());
-        CHECK(!card->isInserted());
-        CHECK(!card->readSectors(0, 1, sector));
-        CHECK(!card->writeSectors(0, 1, sector));
+        CHECK(!card->startup(card));
+        CHECK(!card->isInserted(card));
+        CHECK(!card->readSectors(card, 0, 1, sector));
+        CHECK(!card->writeSectors(card, 0, 1, sector));
         CHECK(!riftwii::wii::d2x_sd_read(0, 1, sector));
         CHECK(!riftwii::wii::d2x_sd_write(0, 1, sector));
         CHECK(!riftwii::wii::libogc_sd_start());
@@ -196,21 +202,23 @@ void test_held_card_refuses_until_the_reload() {
         // early leaves the old IOS and its module running.
         riftwii::wii::d2x_sd_forget();
         CHECK(riftwii::wii::sd_held_by_d2x_fat());
-        CHECK(!riftwii::wii::sd_interface()->startup());
+        CHECK(!sd_startup());
         // reload_ios ends it once the old IOS is gone.
         riftwii::wii::hold_sd_for_d2x_fat(false);
-        CHECK(riftwii::wii::sd_interface()->startup());
+        CHECK(sd_startup());
         CHECK(riftwii::wii::libogc_sd_start() && ios.libogc_startups == 2);
     }
 }
 
 }  // namespace
 
-const DISC_INTERFACE __io_wiisd = {
+DISC_INTERFACE __io_wiisd = {
     DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_SD,
     libogc_startup,     libogc_none,
     libogc_read,        libogc_write,
-    libogc_none,        libogc_none,
+    libogc_erase,       libogc_none,
+    libogc_none,        0,
+    0,                  512,
 };
 
 s32 IOS_Open(const char* path, u32 mode) {

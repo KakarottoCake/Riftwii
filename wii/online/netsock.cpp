@@ -4,9 +4,11 @@
 
 #include <fcntl.h>
 #include <network.h>
+#ifndef POLLIN  // libogc2's network.h has the POLL* flags; a host build takes them from here
+#include <poll.h>
+#endif
 #include <ogc/lwp.h>
 #include <ogc/lwp_watchdog.h>
-#include <poll.h>
 #include <unistd.h>
 
 #include <cerrno>

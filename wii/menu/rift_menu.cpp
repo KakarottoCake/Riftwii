@@ -44,6 +44,11 @@
 #include <set>
 #include <unordered_map>
 #include <wiiuse/wpad.h>
+
+// libogc2's wiiuse sets classic.type to 2 for a Wii U Pro Controller but has no name for it.
+#ifndef CLASSIC_TYPE_WIIU
+#define CLASSIC_TYPE_WIIU 2
+#endif
 #include <ogc/lwp_watchdog.h>
 
 #include "libwiigui/gui.h"
@@ -636,7 +641,7 @@ static lwp_t g_watchdog = LWP_THREAD_NULL;
 static volatile bool g_watchdogOn = false;
 static volatile bool g_resetPressed = false;
 
-static void ResetPressed(u32, void*)
+static void ResetPressed(void)
 {
 	g_resetPressed = true;
 }
@@ -5859,8 +5864,8 @@ static bool SdWatchInsertedNow()
 	// A failed remount can leave the driver shut down, and then the slot
 	// reads as empty for good: while the card is gone, each poll starts
 	// it again first (startup() returns at once when it is running).
-	if (g_sdGone) __io_wiisd.startup();
-	return __io_wiisd.isInserted();
+	if (g_sdGone) __io_wiisd.startup(&__io_wiisd);
+	return __io_wiisd.isInserted(&__io_wiisd);
 }
 
 static void SdWatchUnmountForRemoval()
@@ -5875,8 +5880,8 @@ static bool SdWatchRemountForMenu()
 {
 	// A fresh start for the driver, as after a menu IOS reload
 	// (wii/launch/menuios.cpp): some cards answer only after it.
-	__io_wiisd.shutdown();
-	if (!__io_wiisd.startup() || !__io_wiisd.isInserted()) return false;
+	__io_wiisd.shutdown(&__io_wiisd);
+	if (!__io_wiisd.startup(&__io_wiisd) || !__io_wiisd.isInserted(&__io_wiisd)) return false;
 	if (!fatMountSimple("sd", riftwii::wii::sd_interface())) return false;
 	mkdir("sd:/riftwii", 0777);
 	riftwii::wii::LogReopen();
