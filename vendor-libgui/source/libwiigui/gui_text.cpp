@@ -12,6 +12,7 @@
  * Japanese wraps at a good place rather than mid-word (November 2026).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
+#include <vector>
 #include "gui.h"
 #include "../gettext.h"
 
@@ -405,6 +406,44 @@ int BreakAfter(wchar_t a, wchar_t b)
 }
 
 }  // namespace
+
+// RiftWii: the width, at the text's size, of its widest piece with no good
+// place to wrap inside it: a word between spaces, or a Japanese run between
+// the good breaks WrapLines uses (so "3Dパッケージ" counts as "3D" and
+// "パッケージ"). A card shrinks its name only when such a piece is too wide.
+int GuiText::GetLongestPieceWidth()
+{
+	if(!text)
+		return 0;
+	GetTextWidth(); // loads the font at the text's size
+	const int textlen = wcslen(text);
+	std::vector<wchar_t> piece;
+	int widest = 0;
+	for(int ch = 0; ch <= textlen; ++ch)
+	{
+		const bool separator = ch == textlen || text[ch] == ' ' || text[ch] == '\n';
+		if(!separator)
+			piece.push_back(text[ch]);
+		bool goodBreakAfter = false;
+		if(!separator && ch + 1 < textlen)
+		{
+			const wchar_t next = text[ch + 1];
+			if(text[ch] >= 0x2E80)
+				goodBreakAfter = BreakAfter(text[ch], next) == 2;
+			else
+				goodBreakAfter = next >= 0x2E80 && ClassOf(next) != CjkClass::NoStart && ClassOf(next) != CjkClass::Closing;
+		}
+		if((separator || goodBreakAfter) && !piece.empty())
+		{
+			piece.push_back(0);
+			const int width = fontSystem[currentSize]->getWidth(piece.data());
+			if(width > widest)
+				widest = width;
+			piece.clear();
+		}
+	}
+	return widest;
+}
 
 // RiftWii: the wrapping, from Draw, so GetLineCount can wrap before the
 // first draw (a popup spaces its parts for the lines its text takes).
