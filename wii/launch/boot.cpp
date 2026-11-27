@@ -31,6 +31,7 @@
 #include <cstring>
 #include <ctime>
 #include <malloc.h>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -141,7 +142,7 @@ constexpr std::uint32_t kMaxFstBytes = 8 * 1024 * 1024;
 constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seconds
 
 
-std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
+constexpr std::size_t kTmdBytes = 0x4A00;
 
 // Through logf: on screen with the log, held behind the game's box
 // until it is asked for, and in boot.log either way.
@@ -706,13 +707,23 @@ bool write_sd_file(const std::string& sd_path, const void* data, std::size_t len
     return ok;
 }
 
-bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t& es_result, std::string& error) {
+// raw, when given, gets the reply as IOS wrote it, for the dumps.
+bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t& es_result, std::string& error,
+                         std::vector<std::uint8_t>* raw = nullptr) {
     if ((partition.offset >> 2) > 0xFFFFFFFFull) {
         error = "partition offset beyond the drive's range";
         return false;
     }
-    std::memset(g_tmd, 0, sizeof(g_tmd));
-    if (!di::open_partition(static_cast<std::uint32_t>(partition.offset >> 2), g_tmd, sizeof(g_tmd), es_result, error)) {
+    // Taken for the open (MEM1 heap): 18.5 KiB of MEM2 for the whole run before.
+    std::unique_ptr<std::uint8_t, void (*)(void*)> g_tmd(static_cast<std::uint8_t*>(memalign(32, kTmdBytes)),
+                                                        std::free);
+    if (!g_tmd) {
+        error = "out of memory for the title's metadata";
+        return false;
+    }
+    std::memset(g_tmd.get(), 0, kTmdBytes);
+    if (!di::open_partition(static_cast<std::uint32_t>(partition.offset >> 2), g_tmd.get(), kTmdBytes, es_result,
+                            error)) {
         return false;
     }
     if (es_result < 0) {
@@ -721,7 +732,8 @@ bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t
         error = "ES refused the partition (ES result " + std::to_string(es_result) + ")";
         return false;
     }
-    return parse_tmd(g_tmd, di::kTmdBufferBytes, tmd, error);
+    if (raw) raw->assign(g_tmd.get(), g_tmd.get() + di::kTmdBufferBytes);
+    return parse_tmd(g_tmd.get(), di::kTmdBufferBytes, tmd, error);
 }
 
 // Region letter of the game id to the VI standard the game expects; -1
@@ -930,8 +942,7 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     // Opening the partition identifies the game in ES. With this IOS
     // kept for the launch, even the probe is too late after that point.
     prepare_d2x_return_to(disc_d2x_return_title());
-    if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
-    out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
+    if (!open_game_partition(out.partition, out.tmd, out.es_result, error, &out.tmd_bytes)) return false;
     out.running_ios = IOS_GetVersion();
     logf("TMD: title %08x-%08x v%u, needs IOS%u (ES result %d); running IOS%d\n",
          static_cast<unsigned>(out.tmd.title_id >> 32), static_cast<unsigned>(out.tmd.title_id),

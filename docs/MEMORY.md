@@ -570,6 +570,17 @@ well would save only 6 KiB more. The checks that this compiler's Wii
 settings already pass `-ffunction-sections`, `-fdata-sections` and
 `--gc-sections` were done too: nothing unreached is left to drop that way.
 
+A tenth pass took 88 KiB off the program's MEM2 (in Dolphin, 5404 KiB of
+MEM2 taken at the start, down from 5492; MEM1 unchanged) by taking four
+buffers from the MEM1 heap for the one call that uses them, instead of
+keeping them in `.mem2bss` for the whole run: the disc read's 32 KiB bounce
+buffer (`di.cpp`), the d2x SD card's 32 KiB one (`d2xsd.cpp`, one per
+unaligned call, so the threads that share the card never share it), the
+launch's 18.5 KiB TMD (`boot.cpp`) and the USB slot check's 4 KiB TMD view
+(`usbcatalog.cpp`). Checked in Dolphin: the menu starts as before on the
+release DOL. The disc read and the d2x card were not run (no disc in
+Dolphin's drive here, and Dolphin has no d2x).
+
 Still in MEM1 after these passes, about 350 KiB: the GX FIFO (256 KiB, see
 above), libasnd's buffers (25 KiB, read by the DSP), the exception stack
 (16 KiB, which `__wrap___CheckARGV` runs on while it clears the MEM2

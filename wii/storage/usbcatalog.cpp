@@ -1206,7 +1206,7 @@ bool post_reload_failure(const char* log_path, std::string& error) {
 // TMD view costs one IPC call on the *current* IOS and tells us the title
 // really is there, so a bad slot is skipped instead of stranding the
 // console. Only positive evidence of a bad slot rejects it.
-tmd_view g_tmd_view[(4096 + sizeof(tmd_view)) / sizeof(tmd_view)] ATTRIBUTE_ALIGN(32);
+constexpr std::size_t kTmdViewBytes = ((4096 + sizeof(tmd_view)) / sizeof(tmd_view)) * sizeof(tmd_view);
 
 bool slot_title_is_launchable(int slot, std::string& why) {
     const u64 title = 0x100000000ull | static_cast<u64>(slot);
@@ -1221,22 +1221,26 @@ bool slot_title_is_launchable(int slot, std::string& why) {
         why = "installed ticket but no title (ES " + std::to_string(sized) + ")";
         return false;
     }
-    if (size < sizeof(tmd_view) || size > sizeof(g_tmd_view)) {
+    if (size < sizeof(tmd_view) || size > kTmdViewBytes) {
         // An implausible size is not evidence the title is broken; let the
         // existing post-reload checks judge it.
         return true;
     }
-    std::memset(g_tmd_view, 0, sizeof(g_tmd_view));
-    const s32 got = ES_GetTMDView(title, g_tmd_view, size);
+    // Taken for the check (MEM1 heap) instead of 4 KiB of MEM2 for the whole run.
+    std::unique_ptr<tmd_view, void (*)(void*)> g_tmd_view(static_cast<tmd_view*>(memalign(32, kTmdViewBytes)),
+                                                         std::free);
+    if (!g_tmd_view) return true;  // no evidence the slot is bad
+    std::memset(g_tmd_view.get(), 0, kTmdViewBytes);
+    const s32 got = ES_GetTMDView(title, g_tmd_view.get(), size);
     if (got < 0) {
         why = "title metadata unreadable (ES " + std::to_string(got) + ")";
         return false;
     }
-    if (g_tmd_view[0].num_contents == 0) {
+    if (g_tmd_view->num_contents == 0) {
         why = "title has no contents";
         return false;
     }
-    if (cios_revision_is_stub(g_tmd_view[0].title_version)) {
+    if (cios_revision_is_stub(g_tmd_view->title_version)) {
         why = "holds a stub, not a cIOS";
         return false;
     }
