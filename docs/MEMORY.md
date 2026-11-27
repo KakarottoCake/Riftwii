@@ -332,7 +332,7 @@ restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
 (`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
 and RiftWii's own, which follow the code and the read-only data back to
 back from `0x90829000` (the end moves with each build; the linker checks it
-stays below `0x90DFF000`, so a full 2 MiB stash with its note fits). In
+stays at or below `0x90DFF000`, so a full 2 MiB stash with its note fits). In
 MEM1 the DOL loads the code first above `.bss`, then the read-only data,
 then the stash. It is 32 bytes of notes plus the stash (191
 KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:

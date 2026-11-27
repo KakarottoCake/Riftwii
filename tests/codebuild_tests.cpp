@@ -349,7 +349,8 @@ void test_keeps_clear_of() {
     EXPECT_TRUE(clear(gct({0x28345678, 0x00000800, 0x04001000, 0x00000001, 0xE2000001, 0x00000000})));
     EXPECT_TRUE(clear(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
     EXPECT_TRUE(clear(gct({0x14000010, 0x00000001, 0x48000000, 0x80001234, 0x14000010, 0x00000001})));
-    // Default base and pointer reach MEM1 only, the 0x01000000 bit too.
+    // The default base and pointer can't reach MEM2 (0x80000000 plus at
+    // most 0x01FFFFFF), the 0x01000000 bit included.
     EXPECT_TRUE(clear(gct({0x05FFFFFC, 0xFFFFFFFF})));
     // The base moved to MEM2 by an E0, then a write over the main stack:
     // held back; the same write low in MEM2 (the game's arena) is not.
@@ -372,6 +373,25 @@ void test_keeps_clear_of() {
     EXPECT_FALSE(clear(Bytes{0x00, 0xD0, 0xC0, 0xDE}));
     EXPECT_FALSE(clear(gct({0xC2000010, 0x00000005, 0x60000000, 0x00000000})));
     EXPECT_TRUE(clear(gct({})));
+    // An E2 that moves the pointer to MEM2, then a po write: held back.
+    EXPECT_FALSE(clear(gct({0xE2000000, 0x00009090, 0x14000010, 0x00000001})));
+    // After a search the pointer is what it found: not judged, so a po
+    // write that would hit MEM2 with the old pointer no longer counts.
+    EXPECT_TRUE(clear(gct({0x4A000000, 0x90900000, 0xF6000001, 0x80008180, 0x38000000, 0x00000000,
+                           0x14000010, 0x00000001})));
+    // A store of the base at a plain MEM2 address; one in MEM1 is fine.
+    EXPECT_FALSE(clear(gct({0x44000000, 0x90800000})));
+    EXPECT_FALSE(clear(gct({0x4C000000, 0x90A00000})));
+    EXPECT_TRUE(clear(gct({0x44000000, 0x80001800})));
+    // A code switched off by a goto (as a Wii U's REX builds have): its
+    // instructions are stepped over, not read as codes.
+    EXPECT_TRUE(clear(gct({0x66200002, 0x00000000, 0x7D9CE2A6, 0x7C0802A6, 0x4E800020, 0x00000000,
+                           0x04001000, 0x00000001})));
+    EXPECT_FALSE(clear(gct({0x66200000, 0x00000000})));
+    // A whole REX-style list through switch_off_slot_b_codes, then the check.
+    Bytes rex = gct({0xC2001000, 0x00000002, 0x3C60CC00, 0x80636814, 0x60000000, 0x00000000});
+    EXPECT_FALSE(switch_off_slot_b_codes(rex, nullptr).empty());
+    EXPECT_TRUE(clear(rex));
 }
 
 }  // namespace

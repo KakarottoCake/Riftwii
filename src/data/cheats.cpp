@@ -880,7 +880,13 @@ bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
         // insert instructions with a checksum, NN lines (the value's low
         // byte); F6 searches with NN lines of pattern (the first word's).
         std::size_t extra = 0;
-        if (type == 0xD2) {
+        if ((first & 0xFFFF8000u) == 0x66200000u && value == 0) {
+            // A goto, always, forward over the lines after it: how
+            // switch_off_slot_b_codes switches a code off (a Wii U's REX
+            // and Project+ builds). Nothing in those lines runs.
+            extra = first & 0x7FFFu;
+            if (extra == 0) return false;
+        } else if (type == 0xD2) {
             extra = value;
         } else if (type == 0xF2 || type == 0xF4) {
             extra = value & 0xFFu;
@@ -926,6 +932,12 @@ bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
             writes = false;
         }
         if (writes && known && !misses(word ? address & ~std::uint64_t(3) : address, bytes)) return false;
+        // 44 and 4C store the base or the pointer, a word at the value's
+        // address when nothing is added to it (the first word's low bits
+        // all zero). One that adds the base or pointer isn't followed.
+        if ((type == 0x44 || type == 0x4C) && (first & 0x00FFFFFFu) == 0 &&
+            !misses(std::uint64_t(value) & ~std::uint64_t(3), 4))
+            return false;
         // What sets the base or the pointer.
         if (type == 0xE0 || type == 0xE2) {
             // A nonzero top half sets the base, a nonzero low half the pointer.
@@ -951,7 +963,8 @@ bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
             }
         } else if (type == 0x40 || type == 0x46) {
             ba_known = false;
-        } else if (type == 0x48 || type == 0x4E) {
+        } else if (type == 0x48 || type == 0x4E || type == 0xF6) {
+            // F6 points the pointer at what its search found.
             po_known = false;
         }
         at += (1 + extra) * 8;

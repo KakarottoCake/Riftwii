@@ -152,10 +152,13 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
 // Every code is walked, conditions, C0 and pointer codes included, and
 // each write whose address is known is checked: 00 to 08 (and their po
 // forms), C2, C6, D2, D6, F2 and F4, through the base and pointer as
-// E0, E2, 42 and 4A set them. A write through a base or pointer read
-// from the game's memory (40, 48, 46, 4E and the added forms) isn't
-// judged: that is the game's memory, not the loader's. False for a list
-// that is not valid or that has a code it can't walk past.
+// E0, E2, 42 and 4A set them, and 44 and 4C (a store of the base or
+// pointer) at a plain address. Not judged: a write through a base or
+// pointer read from the game's memory (40, 48), set to the code's own
+// place (46, 4E), found by a search (F6) or summed by the added forms,
+// and the Gecko register stores and copies (84, 8A, 8C). A switched-off
+// code (66 20 goto, from switch_off_slot_b_codes) is stepped over. False
+// for a list that is not valid or that has a code it can't walk past.
 bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
                         const std::vector<std::pair<std::uint32_t, std::uint32_t>>& keep_out);
 
