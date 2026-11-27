@@ -5413,7 +5413,7 @@ static const char* const kWhatsNew[] = {
 	"Get more mods and Get a save",
 	"Miis in Manage emulated NAND",
 	"F-Zero GX and the Zelda disc start",
-	"More memory for games",
+	"LEGO games get the adapter back",
 };
 
 static std::string WhatsNewText()

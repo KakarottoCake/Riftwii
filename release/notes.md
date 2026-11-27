@@ -33,7 +33,9 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** Settings is easier to read and search, a game's Mods and Saves pages can download mods and saves, and games get about 5.7 MB more memory. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Settings is easier to read and search, and a game's Mods and Saves pages can download mods and saves. Every RiftWii offers this update by itself (Settings > Check for a new version).
+
+It replaces 2611-268, which was taken down the same day: on a real Wii it refused to start every game ("RiftWii's memory was damaged"). The change behind that is out of this release.
 
 ![A Settings page: each setting's value, a line on what it does, and when it takes effect]({{SCREENSHOTS}}2611-268-settings.png)
 
@@ -68,7 +70,6 @@ have it, or that haven't changed since the last release's tag.
 - **F-Zero GX (USA)** gets past its save page: it restarts itself after making the save, and RiftWii now lets that restart run.
 - **The Zelda: Ocarina of Time / Master Quest disc** starts the game you pick on its menu, and bonus discs with many demos (Mario Kart: Double Dash!! bonus disc, demo discs) can start all of them.
 - **LEGO Batman and both LEGO Indiana Jones games** get the GameCube adapter, screenshots, crash recording and cheats back.
-- **About 5.7 MB more memory for games.** RiftWii's own code and buffers moved out of the memory games use most, so big mods and cheats have more room. Code builds (Project+ and the like) still run before the game starts, unless one would write over RiftWii itself.
 - After an IOS reload, RiftWii waits until the console's second memory answers before going on.
 
 ### Menu
@@ -79,16 +80,14 @@ have it, or that haven't changed since the last release's tag.
 
 ## What to test
 
-1. **Does RiftWii start, and does a game start?** This release moves RiftWii's own code in memory. Try a Wii game from disc, USB and SD, and a GameCube game.
-2. **A Project+ or other code build**: does it start as before?
-3. **Settings**: change a few settings, open a choice's list with A, try Search and Show advanced settings, in 4:3 and 16:9.
-4. **Get more mods** and **Get a save** on a real Wii: does the list load, and does a download install?
-5. **Manage emulated NAND > Miis**: copy a Mii each way.
-6. **F-Zero GX (USA)**: make a save, then play. **The Zelda OoT / Master Quest disc**: pick each game on its menu.
+1. **If you had 2611-268:** does a game start again? Try a Wii game from disc, USB and SD, and a GameCube game.
+2. **Settings**: change a few settings, open a choice's list with A, try Search and Show advanced settings, in 4:3 and 16:9.
+3. **Get more mods** and **Get a save** on a real Wii: does the list load, and does a download install?
+4. **Manage emulated NAND > Miis**: copy a Mii each way.
+5. **F-Zero GX (USA)**: make a save, then play. **The Zelda OoT / Master Quest disc**: pick each game on its menu.
 
 ## Known issues
 
-- **Moving RiftWii's code in memory** was checked in Dolphin and by build checks, not yet on a real Wii.
 - **The Zelda OoT / Master Quest disc**: picking a game went black in one Dolphin setup today, on this build and on the one before. It worked when the fix was made. A problem report from a real Wii helps.
 - **Get more mods, Get a save and Miis** were tried in Dolphin only.
 - **The way back from a WAD game or a game with emulated-NAND saves** hasn't been tried on a real Wii or vWii yet.
