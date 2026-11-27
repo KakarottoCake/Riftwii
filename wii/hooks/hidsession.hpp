@@ -56,6 +56,15 @@ struct OwnHidHandle {
 
     // The handle goes to the game: it is no longer ours to close.
     void hand_over() { *this = OwnHidHandle{}; }
+
+    // A handle handed over for a launch that then stopped before the game
+    // took it: ours again, as it was (never shut down, still listing the
+    // adapter), for the failure screen.
+    void take_back(std::int32_t handed_fd, std::uint32_t handed_version, std::int32_t handed_device) {
+        fd = handed_fd;
+        version = handed_version;
+        device = handed_device;
+    }
 };
 
 }  // namespace riftwii::wii

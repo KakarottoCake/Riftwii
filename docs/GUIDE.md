@@ -331,9 +331,11 @@ the one you pick as your own; **Back to automatic** there removes it.
 **Home tiles** in
 Settings switches to 3D covers, the carousel, the shelf, channels or
 name tiles. The small **Layout** button at Home's top left shows the
-current layout. Press it to open six cards, then point at one or move
-left and right and press **A** to choose; **B** closes without changing
-anything. The current layout is marked when the picker opens. Classic
+current layout. Press it to open the six layouts and, on a second row,
+Home's four orders (*A to Z*, *Last played*, *Most played*, *Your
+order*, the same as Settings > Home > Home order). Point at one or move
+with the D-pad and press **A** to choose; **B** closes without changing
+anything. The current layout and order are marked when the picker opens. Classic
 Controller **ZR**, Wii U GamePad **R**, and a USB keyboard's **F2** open
 it too. GameCube L/R keep their page and letter controls; use the control-stick
 pointer to press Layout. In Channels, Layout and Search sit on the bottom

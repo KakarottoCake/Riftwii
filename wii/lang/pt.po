@@ -2778,11 +2778,17 @@ msgstr "\"{1}\" sai do início, com seus próprios mods e configurações, e a i
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" removido. Esta página voltou a ser a do jogo."
 
+msgid "The game did not start: {1}"
+msgstr "O jogo não iniciou: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "Falta uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo."
 
 msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
 msgstr "Uma parte do RiftWii está danificada (o complemento {1}). Atualize o RiftWii de novo."
+
+msgid "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again."
+msgstr "Não foi possível usar uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo."
 
 msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
 msgstr "O complemento {1} é de outro RiftWii ({2}; este é {3}). Atualize o RiftWii de novo."
@@ -5327,3 +5333,9 @@ msgstr "Isto grava {1} na memória do Wii. Uma cópia dos Miis do Wii é guardad
 
 msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
 msgstr "{1} é removido da NAND emulada. Uma cópia dos Miis dela é guardada antes."
+
+msgid "Layout and order"
+msgstr "Layout e ordem"
+
+msgid "Home order: {1}"
+msgstr "Ordem do Início: {1}"

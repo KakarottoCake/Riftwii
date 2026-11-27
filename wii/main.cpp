@@ -50,6 +50,7 @@
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
+#include "padhook.hpp"
 #include "loadersettings.hpp"
 #include "d2xsd.hpp"
 #include "di.hpp"
@@ -211,6 +212,40 @@ void StartChannel(u64 title) {
             riftwii::wii::ConsoleRevealDeferred();
             riftwii::wii::halt_after_terminal_reload();
         }
+    }
+    // Only a channel that was tried (boot_channel, which starts each launch
+    // with no refusal): one whose files couldn't be read can't have been
+    // stopped by the pad code, whatever an earlier launch left (CodeRabbit
+    // CLI, #593).
+    if (read && riftwii::wii::pads_plugin_stopped_launch()) {
+        // Without the pad code the system's own start would leave a player
+        // whose only controllers are GameCube or USB ones with none: back
+        // to RiftWii, which says why.
+        riftwii::wii::StopDiscLight();
+        riftwii::wii::logf("Wii channels: it did not start: %s\n", error.c_str());
+        // d2x's FAT module still holding the SD card (it wouldn't let go of
+        // it, boot_channel): RiftWii restarts in place, with no IOS reload,
+        // and would mount the card under it. An IOS reload ends the module
+        // first, so the restarted RiftWii has the card to itself.
+        if (riftwii::wii::sd_held_by_d2x_fat()) {
+            std::string reload_error;
+            riftwii::wii::release_wii_remotes();
+            if (riftwii::wii::reload_ios(IOS_GetVersion(), reload_error, true) ==
+                riftwii::wii::ReloadResult::Terminal)
+                riftwii::wii::halt_after_terminal_reload();
+        }
+        // A reload refused before the old IOS went (an ES error) leaves the
+        // module running and the card held: no restart onto it (it would
+        // mount it as its own). Leaving RiftWii brings the next program up
+        // on its own IOS, which ends the module.
+        if (riftwii::wii::sd_held_by_d2x_fat()) {
+            riftwii::wii::logf("Wii channels: d2x still holds the SD card; leaving RiftWii, not restarting it\n");
+            std::exit(0);
+        }
+        if (riftwii::wii::CanRestart())
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
+                                      riftwii::wii::tr("The game did not start: {1}", {error}));
+        std::exit(0);
     }
     if (!emu_nand.empty()) {
         riftwii::wii::StopDiscLight();

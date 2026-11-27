@@ -2374,6 +2374,11 @@ T = {
         "\"{1}\" removido. Esta página voltou a ser a do jogo.",
         "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."),
     # Plugins (wii/core/plugins.cpp): a part of RiftWii that could not be loaded.
+    "The game did not start: {1}": (
+        "El juego no se inició: {1}",
+        "ゲームが起動しませんでした: {1}",
+        "O jogo não iniciou: {1}",
+        "Il gioco non si è avviato: {1}"),
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.": (
         "Falta una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii.",
         "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。",
@@ -2384,6 +2389,11 @@ T = {
         "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。",
         "Uma parte do RiftWii está danificada (o complemento {1}). Atualize o RiftWii de novo.",
         "Una parte di RiftWii è danneggiata (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.": (
+        "No se pudo usar una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii.",
+        "RiftWiiの一部（{1}アドオン）が使えませんでした。もう一度RiftWiiを更新してください。",
+        "Não foi possível usar uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo.",
+        "Non è stato possibile usare una parte di RiftWii (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.": (
         "El complemento {1} es de otro RiftWii ({2}; este es {3}). Vuelve a actualizar RiftWii.",
         "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。",
@@ -4287,10 +4297,14 @@ KO = {
         "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
+    "The game did not start: {1}":
+        "게임이 시작되지 않았습니다: {1}",
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
         "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
         "RiftWii의 일부({1} 애드온)가 손상되었습니다. RiftWii를 다시 업데이트해 주세요.",
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.":
+        "RiftWii의 일부({1} 애드온)를 사용할 수 없었습니다. RiftWii를 다시 업데이트해 주세요.",
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
         "{1} 애드온은 다른 RiftWii의 것입니다({2}, 이 RiftWii는 {3}). RiftWii를 다시 업데이트해 주세요.",
     "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
@@ -6155,10 +6169,14 @@ FR = {
         "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
+    "The game did not start: {1}":
+        "Le jeu n'a pas démarré : {1}",
     "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
         "Une partie de RiftWii est manquante (le module {1}). Mettez RiftWii à jour à nouveau.",
     "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
         "Une partie de RiftWii est endommagée (le module {1}). Mettez RiftWii à jour à nouveau.",
+    "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.":
+        "Une partie de RiftWii n'a pas pu être utilisée (le module {1}). Mettez RiftWii à jour à nouveau.",
     "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
         "Le module {1} vient d'un autre RiftWii ({2}, celui-ci est {3}). Mettez RiftWii à jour à nouveau.",
     "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
@@ -8615,7 +8633,7 @@ def check(repo):
     sources = ["wii/launch/modplan.cpp", "wii/launch/gclaunch.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/core/plugins.cpp", "wii/hooks/padhook.cpp", "wii/core/memlimits.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
                "wii/menu/picturepicker.cpp", "wii/launch/ctgpr.cpp", "wii/launch/launchrun.cpp",
                "plugins/appstore/storeui.cpp", "plugins/appstore/storedata.cpp", "plugins/appstore/storeentry.cpp", "src/net/appcatalog.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
@@ -10843,6 +10861,22 @@ FR.update({
     'The emulated NAND has no Miis yet.': "La NAND émulée n'a pas encore de Mii.",
     "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.": "Ceci écrit {1} dans la mémoire de la Wii. Une copie des Mii de la Wii est d'abord gardée dans le dossier de la NAND émulée. Laissez la Wii allumée jusqu'à la fin.",
     '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': '{1} est retiré de la NAND émulée. Une copie de ses Mii est gardée avant.',
+})
+
+
+
+# Home's Layout button: its chooser also sets Home's order.
+T.update({
+    'Layout and order': ('Diseño y orden', 'レイアウトと並び順', 'Layout e ordem', 'Layout e ordine'),
+    'Home order: {1}': ('Orden de Inicio: {1}', 'ホームの並び順：{1}', 'Ordem do Início: {1}', 'Ordine della Home: {1}'),
+})
+KO.update({
+    'Layout and order': '레이아웃과 순서',
+    'Home order: {1}': '홈 정렬 순서: {1}',
+})
+FR.update({
+    'Layout and order': 'Disposition et ordre',
+    'Home order: {1}': "Ordre de l'accueil : {1}",
 })
 
 

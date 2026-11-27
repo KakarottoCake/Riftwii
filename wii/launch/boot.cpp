@@ -1109,6 +1109,19 @@ namespace {
 // started for the game, so libogc's USB holds nothing of the menu's.
 // Leaves g_extras.gc_adapter On or Off (Demo stays Demo), and the
 // adapter's USB handle open only when it is On.
+// Whether a launch may put the pad code in, for loading the pads plugin
+// while the card is RiftWii's (PadsPluginForLaunch): Settings > GameCube
+// adapter not Off, or USB pads configured or plugged in, which
+// settle_gc_adapter turns Off into Automatic for. The USB pads' list is
+// read first if nothing has yet (a channel started straight from the card
+// asks before settle_gc_adapter, whose own read then returns at once). It
+// may load the plugin for a launch that ends up without it, never the
+// other way.
+bool pads_may_be_wanted() {
+    HidPadsPreload();
+    return g_extras.gc_adapter != GcAdapterMode::Off || HidPadsWanted() || HidPadsConnected();
+}
+
 void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
     HidPadsPreload();
     const bool usb_pads = HidPadsConnected();
@@ -1302,7 +1315,10 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, c
             gc_adapter = false;
         }
     }
-    if (!gc_adapter) close_adapter_session();
+    // A launch the pads plugin refused keeps the menu's adapter session: the
+    // failure screen comes next and needs the adapter (console, 24 Nov: with
+    // the session closed, the screen's adapter answered -4 to everything).
+    if (!gc_adapter && !pads_plugin_stopped_launch()) close_adapter_session();
     // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
     // once, for the Wii's own ports and the adapter alike (the adapter's
     // hook is not put on it then).
@@ -2668,6 +2684,15 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
     gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
+    // Its code from the pads plugin while the card is still RiftWii's.
+    // Refused before the adapter's handle was taken (pads_plugin_usable): the
+    // launch stops here, the adapter left for the failure screen.
+    if (pads_plugin_stopped_launch()) {
+        error = pads_plugin_refusal();
+        return false;
+    }
+    if (gc_adapter && !fetch_pad_build(extras.pad, code_build, error)) return false;
+    if (!gc_adapter) release_pads_plugin();
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
     // hook does, which needs the SD card for the request and Return to
@@ -3515,6 +3540,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
 
 }  // namespace
 
+bool LaunchMayTakePadCode() { return pads_may_be_wanted(); }
+
 // Whether a pack's replacement executable has the SDK's IPC functions the
 // resident runtime hooks (find_ipc_symbols over its text sections).
 static bool executable_has_ipc(const std::vector<std::uint8_t>& bytes, std::string& why) {
@@ -4176,6 +4203,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // above its heap (kLoaderStart, mem::kMem1Ceiling), the decoder's is
     // RiftWii's own, and nothing up to then masks the audio's interrupts.
     if (!effective.preserve_current_ios) LaunchMusicEnd("the game's IOS is loaded next");
+    // The pad code's plugin while the card is still RiftWii's: a reload
+    // takes the card, and the build a game takes is known only once it is
+    // loaded (fetch_pad_build).
+    const PadsPluginForLaunch pads_plugin(pads_may_be_wanted());
     // Everything IOS holds for us dies with a reload: the Wii Remote stack
     // (which also saves its pairings to NAND on shutdown, so it must go
     // while IPC is still alive), the log, DI and the SD card. With the
@@ -4216,6 +4247,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
     DiscLightActivity discLight;
+    // Before anything can return: wii/main.cpp reads the refusal after a
+    // failed channel launch, and an early return here (a section in the
+    // loader's way) is never the pads plugin's (CodeRabbit on #593).
+    pads_plugin_forget_refusal();
     g_extras.game_id = files.game_id;
     NetStopForLaunch();
     const DolHeader& dol = files.program.dol;
@@ -4334,6 +4369,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (card) LogReopen();
         else logf("Wii channels: the SD card could not be mounted again after d2x let go of it (boot.log ends here)\n");
     };
+    // The pad code's plugin while the card is still RiftWii's: each try
+    // below reloads IOS, and d2x's NAND emulation may keep the card.
+    const PadsPluginForLaunch pads_plugin(pads_may_be_wanted());
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";
@@ -4582,6 +4620,22 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
     extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
+    // Its code from the pads plugin while the card is still RiftWii's
+    // (a channel is never a code build).
+    // Refused before the adapter's handle was taken (pads_plugin_usable), or
+    // by the copy itself.
+    const bool refused_early = pads_plugin_stopped_launch();
+    if (refused_early) error = pads_plugin_refusal();
+    if (refused_early || (extras_context.gc_adapter && !fetch_pad_build(extras.pad, false, error))) {
+        // d2x's NAND emulation holds the card for the game: it lets go now
+        // (writing out what it holds), as after a refused start, and the
+        // card comes back for the failure's log and the restart. If d2x
+        // won't let go, RiftWii stays off the card until IOS is reloaded.
+        if (emulated) release_d2x_saves();
+        card_again();
+        return false;
+    }
+    if (!extras_context.gc_adapter) release_pads_plugin();
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);

@@ -2778,11 +2778,17 @@ msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画�
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"
 
+msgid "The game did not start: {1}"
+msgstr "ゲームが起動しませんでした: {1}"
+
 msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
 msgstr "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。"
 
 msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
 msgstr "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。"
+
+msgid "A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again."
+msgstr "RiftWiiの一部（{1}アドオン）が使えませんでした。もう一度RiftWiiを更新してください。"
 
 msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
 msgstr "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。"
@@ -5327,3 +5333,9 @@ msgstr "{1}をWii本体のメモリーに書き込みます。先にWii本体の
 
 msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
 msgstr "{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。"
+
+msgid "Layout and order"
+msgstr "レイアウトと並び順"
+
+msgid "Home order: {1}"
+msgstr "ホームの並び順：{1}"
