@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <iterator>
 
 namespace riftwii {
 namespace {
@@ -62,35 +61,24 @@ unsigned store_all(const std::vector<CodeSpan>& loaded, const Store* stores, std
     return done;
 }
 
-// patch_kirby: kirbypatch.c, as the table tools/gx_kirby_table.py made:
-// SUKE01's words whole, the other regions as SUKE01's moved in runs.
+// patch_kirby: kirbypatch.c, as the table tools/gx_kirby_table.py made.
 unsigned kirby(const std::string& id, const std::vector<CodeSpan>& loaded, GxReport& report) {
-    std::uint8_t region = 0;
-    const KirbyRun* runs = nullptr;
-    std::size_t run_count = 0;
-    if (id_is(id, "SUKE01")) region = 0;
-    else if (id_is(id, "SUKP01")) region = 1, runs = kKirbySUKP01Runs, run_count = std::size(kKirbySUKP01Runs);
-    else if (id_is(id, "SUKJ01")) region = 2, runs = kKirbySUKJ01Runs, run_count = std::size(kKirbySUKJ01Runs);
-    else if (id_is(id, "SUKK01")) region = 3, runs = kKirbySUKK01Runs, run_count = std::size(kKirbySUKK01Runs);
-    else return 0;
+    const std::uint32_t* table = nullptr;
+    std::size_t count = 0;
+    if (id_is(id, "SUKE01")) table = kKirbySUKE01, count = sizeof(kKirbySUKE01) / 4;
+    else if (id_is(id, "SUKP01")) table = kKirbySUKP01, count = sizeof(kKirbySUKP01) / 4;
+    else if (id_is(id, "SUKJ01")) table = kKirbySUKJ01, count = sizeof(kKirbySUKJ01) / 4;
+    else if (id_is(id, "SUKK01")) table = kKirbySUKK01, count = sizeof(kKirbySUKK01) / 4;
+    if (!table) return 0;
     unsigned done = 0, missing = 0;
-    std::size_t run = 0;
-    for (std::size_t i = 0; i < std::size(kKirbySUKE01); ++i) {
-        std::uint32_t word = kKirbySUKE01[i];
-        if (run_count != 0) {
-            while (run + 1 < run_count && runs[run + 1].first <= i) ++run;
-            const std::uint32_t moved = (word & 0x00FFFFFFu) + static_cast<std::uint32_t>(runs[run].shift);
-            word = (word & 0xFF000000u) | (moved & 0x00FFFFFFu);
-        }
-        for (const KirbyWord& w : kKirbyWords)
-            if (w.region == region && w.index == i) word = w.word;
-        const std::uint32_t address = 0x80000000u | (word & 0x00FFFFFFu);
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::uint32_t address = 0x80000000u | (table[i] & 0x00FFFFFFu);
         std::uint8_t* p = at(loaded, address, 4);
         if (!p) {
             ++missing;
             continue;
         }
-        put32(p, kKirbyValues[word >> 24]);
+        put32(p, kKirbyValues[table[i] >> 24]);
         ++done;
     }
     report.notes.push_back("MetaFortress (Kirby's Return to Dream Land): " + std::to_string(done) + " checks patched" +

@@ -643,10 +643,8 @@ void DrawFocusRim(const Face& face, int alpha) {
 
 // The backdrop: a blurred copy of the focused game's cover across the
 // screen, far behind the shelf, the last one fading out as the next one
-// fades in. The two textures come from MEM2 at the first backdrop, so a
-// menu with another theme spends nothing on them.
-using BackdropPixels = u8[riftwii::kBackdropBytes];
-BackdropPixels* g_backPx = nullptr;
+// fades in.
+alignas(32) u8 g_backPx[2][riftwii::kBackdropBytes];
 std::string g_backId[2];
 float g_backShown[2] = {0, 0};
 int g_backCur = 0;
@@ -671,8 +669,7 @@ void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool s
     const std::string key =
         art ? (tile_box ? cover_name : id) + "#box" : (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
     if (g_backId[g_backCur] != key && still && !id.empty()) {
-        if (g_backPx == nullptr) g_backPx = reinterpret_cast<BackdropPixels*>(skin::Mem2Alloc(2 * sizeof(BackdropPixels)));
-        if (g_backPx != nullptr && (art || cover || (disc && skin::discCase.data))) {
+        if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
             if (disc)
                 riftwii::make_backdrop(skin::discCase.data, skin::discCase.w, skin::discCase.h, 0, skin::discCase.w,
@@ -683,7 +680,7 @@ void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool s
             else
                 riftwii::make_backdrop(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, riftwii::kCoverWidth,
                                        g_backPx[next]);
-            DCFlushRange(g_backPx[next], sizeof(BackdropPixels));
+            DCFlushRange(g_backPx[next], sizeof(g_backPx[next]));
             GX_InvalidateTexAll();
             g_backId[next] = key;
             g_backShown[next] = 0;

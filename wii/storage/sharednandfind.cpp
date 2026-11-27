@@ -4,11 +4,9 @@
 
 #include <cstdio>
 #include <cstring>
-#include <vector>
 
 #include "loadersettings.hpp"
 #include "log.hpp"
-#include "riftwii/checkedalloc.hpp"
 #include "riftwii/sharednand.hpp"
 
 namespace riftwii::wii {
@@ -23,25 +21,15 @@ const char* const kSettingsFolders[] = {"sd:/apps/usbloader_gx/", "usb:/apps/usb
 constexpr std::size_t kLineBytes = 20 * 1024;
 // A settings file bigger than this is not read past it.
 constexpr long kMaxFileBytes = 4L * 1024 * 1024;
-
-enum class LinesRead { Missing, Read, NoMemory };
+char g_line[kLineBytes];
 
 // Calls `take` with each whole line of `path` (its end kept), until `take`
-// returns true. NoMemory is not Missing: a file that could not be read
-// must not let another folder stand in for the one it names.
+// returns true. False when the file does not open.
 template <typename Take>
-LinesRead each_line(const std::string& path, Take take) {
+bool each_line(const std::string& path, Take take) {
     FILE* file = std::fopen(path.c_str(), "rb");
-    if (file == nullptr) return LinesRead::Missing;
-    // Only while a file is read: a launch looks once, and most cards have
-    // no other loader's settings at all.
-    std::vector<char> buffer;
-    if (!try_resize(buffer, kLineBytes)) {
-        std::fclose(file);
-        logf("Saves: no memory to read %s\n", path.c_str());
-        return LinesRead::NoMemory;
-    }
-    char* const line = buffer.data();
+    if (file == nullptr) return false;
+    char* const line = g_line;
     bool at_line_start = true;
     long read = 0;
     while (read < kMaxFileBytes && std::fgets(line, static_cast<int>(kLineBytes), file) != nullptr) {
@@ -52,16 +40,7 @@ LinesRead each_line(const std::string& path, Take take) {
         if (whole_line_start && take(std::string(line, length))) break;
     }
     std::fclose(file);
-    return LinesRead::Read;
-}
-
-// The lookup when a settings file could not be read for want of memory.
-SharedNandLookup unreadable(const std::string& path) {
-    SharedNandLookup found;
-    found.from = path;
-    found.usable = false;
-    found.error = "there was no memory to read " + path;
-    return found;
+    return true;
 }
 
 }  // namespace
@@ -82,11 +61,10 @@ SharedNandLookup look_up_shared_nand(const std::string& game_id) {
     for (const char* settings : kSettingsFolders) {
         const std::string global = std::string(settings) + "GXGlobal.cfg";
         std::string global_path;
-        const LinesRead read = each_line(global, [&](const std::string& line) {
+        const bool found = each_line(global, [&](const std::string& line) {
             return shared_nand_global_line(line, global_path);
         });
-        if (read == LinesRead::NoMemory) return unreadable(global);
-        if (read == LinesRead::Missing) continue;
+        if (!found) continue;
         if (!global_path.empty()) {
             configured = global_path;
             from = global;
@@ -94,9 +72,7 @@ SharedNandLookup look_up_shared_nand(const std::string& game_id) {
         // A game's own folder wins over the global one.
         const std::string games = std::string(settings) + "GXGameSettings.cfg";
         std::string game_path;
-        const LinesRead game_read =
-            each_line(games, [&](const std::string& line) { return shared_nand_game_line(line, game_id, game_path); });
-        if (game_read == LinesRead::NoMemory) return unreadable(games);
+        each_line(games, [&](const std::string& line) { return shared_nand_game_line(line, game_id, game_path); });
         if (!game_path.empty()) {
             configured = game_path;
             from = games + " (this game's own)";
@@ -116,10 +92,8 @@ SharedNandLookup look_up_channel_nand() {
     for (const char* settings : kSettingsFolders) {
         const std::string global = std::string(settings) + "GXGlobal.cfg";
         std::string path;
-        const LinesRead read =
-            each_line(global, [&](const std::string& line) { return shared_nand_channels_line(line, path); });
-        if (read == LinesRead::NoMemory) return unreadable(global);
-        if (read == LinesRead::Missing) continue;
+        const bool found = each_line(global, [&](const std::string& line) { return shared_nand_channels_line(line, path); });
+        if (!found) continue;
         if (!path.empty()) {
             configured = path;
             from = global;

@@ -71,7 +71,6 @@
 #include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/ctgprsave.hpp"
-#include "riftwii/datetext.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
@@ -5419,7 +5418,7 @@ static const char* const kWhatsNew[] = {
 	"Get more mods and Get a save",
 	"Miis in Manage emulated NAND",
 	"F-Zero GX and the Zelda disc start",
-	"More memory for games",
+	"LEGO games get the adapter back",
 };
 
 static std::string WhatsNewText()
@@ -14725,9 +14724,8 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	std::time_t written = 0;
 	std::string sourceLine = tr("From GameTDB, the database of Wii games its community keeps.");
 	if (riftwii::wii::GameInfoSource(source, written)) {
-		std::tm local = {};
-		const std::string date =
-			localtime_r(&written, &local) ? riftwii::date_text(local, riftwii::DateParts::Day) : std::string("?");
+		char date[16];
+		std::strftime(date, sizeof date, "%Y-%m-%d", std::localtime(&written));
 		sourceLine = tr("Game details of {1}", {date}) + " \xC2\xB7 GameTDB";
 	}
 	GuiText footTxt(sourceLine.c_str(), 14, skin::kInkDim);

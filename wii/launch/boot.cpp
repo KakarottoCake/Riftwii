@@ -31,7 +31,6 @@
 #include <cstring>
 #include <ctime>
 #include <malloc.h>
-#include <memory>
 #include <utility>
 #include <vector>
 
@@ -43,7 +42,6 @@
 #include "menuios.hpp"
 #include "menumusic.hpp"
 #include "log.hpp"
-#include "packedblobs.hpp"
 #include "disclight.hpp"
 #include "memlimits.hpp"
 #include "nandchannels.hpp"
@@ -68,7 +66,8 @@
 #include "wfc.hpp"
 #include "riftwii/ctgpfiles.hpp"
 #include "codehandleronly_bin.h"
-#include "riftwii_wiird_bin.h"
+#include "codehandler_bin.h"
+#include "codehandlerslota_bin.h"
 #include "gecko.hpp"
 #include "riftwii/cardlog.hpp"
 #include "riftwii/cheats.hpp"
@@ -142,7 +141,7 @@ constexpr std::uint32_t kMaxFstBytes = 8 * 1024 * 1024;
 constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seconds
 
 
-constexpr std::size_t kTmdBytes = 0x4A00;
+std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
 // Through logf: on screen with the log, held behind the game's box
 // until it is asked for, and in boot.log either way.
@@ -249,31 +248,23 @@ struct CodeHandler {
 // would not expect. `low_veneers`: this launch's veneers are at
 // kCodeVeneers, inside the debugger handler's longer body (it runs to
 // 0x800028C0), so only the plain one fits.
-// The two debugger handlers are embedded packed (riftwii_wiird_bin: slot B's,
-// then slot A's; tools/pack_blobs.py) and unpacked into `debuggers`, which
-// the caller keeps until the handler is copied.
-CodeHandler choose_code_handler(bool low_veneers, PackedBlobs& debuggers) {
+CodeHandler choose_code_handler(bool low_veneers) {
     const CodeHandler plain{codehandleronly_bin, codehandleronly_bin_size, kCodeListAddress, false, "the code handler"};
     if (!g_extras.wiird_debugger) return plain;
-    // The debugger handlers run past the veneers (4288 bytes from
-    // kCodeHandlerAddress); the plain one ends before them.
     static_assert(kCodeHandlerAddress + codehandleronly_bin_size <= kCodeVeneers, "the plain handler must end before the veneers");
+    static_assert(kCodeHandlerAddress + codehandler_bin_size > kCodeVeneers, "the debugger handler runs past them");
     if (low_veneers) {
         logf("WiiRD debugger: off for this game: RiftWii's hooks use the memory right after the code handler "
              "(0x%08x), where the debugger's handler would run on\n", kCodeVeneers);
         return plain;
     }
-    const bool slot_b = GeckoInSlot(EXI_CHANNEL_1);
-    if (slot_b || GeckoInSlot(EXI_CHANNEL_0)) {
-        if (!debuggers.unpack(riftwii_wiird_bin, riftwii_wiird_bin_size, 2)) {
-            logf("WiiRD debugger: its code handler could not be unpacked (no memory, or this build is damaged), so "
-                 "the game starts without the debugger\n");
-            return plain;
-        }
-        const int which = slot_b ? 0 : 1;
-        return CodeHandler{debuggers.blob(which), debuggers.size(which), kDebuggerCodeListAddress, true,
-                           slot_b ? "the WiiRD debugger's code handler for slot B"
-                                  : "the WiiRD debugger's code handler for slot A"};
+    if (GeckoInSlot(EXI_CHANNEL_1)) {
+        return CodeHandler{codehandler_bin, codehandler_bin_size, kDebuggerCodeListAddress, true,
+                           "the WiiRD debugger's code handler for slot B"};
+    }
+    if (GeckoInSlot(EXI_CHANNEL_0)) {
+        return CodeHandler{codehandlerslota_bin, codehandlerslota_bin_size, kDebuggerCodeListAddress, true,
+                           "the WiiRD debugger's code handler for slot A"};
     }
     logf("WiiRD debugger: no USB Gecko answers in slot B or slot A, so the game starts without the debugger\n");
     return plain;
@@ -346,8 +337,7 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
         why = room;
         return false;
     }
-    PackedBlobs debuggers;
-    const CodeHandler chosen = choose_code_handler(low_veneers, debuggers);
+    const CodeHandler chosen = choose_code_handler(low_veneers);
     if (debugger_handler) *debugger_handler = chosen.debugger;
     const std::uint32_t list = moved ? g_extras.code_list_start : chosen.list;
     // A low-memory return stub owns the last 32 bytes of the ordinary
@@ -474,27 +464,17 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
 bool codes_run_first(bool debugger_handler, bool start_file_pending) {
     bool first = false;
     if (!g_extras.code_builds.empty()) {
-        // A build's codes run first, as they always have (C0, conditions,
-        // pointers and all: the builds are made for that), unless one
-        // writes into RiftWii's MEM2, where its stack, code and heap still
-        // run until the jump: then they start with the game instead. Only
-        // MEM2 is checked: RiftWii's MEM1 part was already there before
-        // its code moved up, and builds always ran over it.
-        first = g_extras.cheat_gct.empty() || gct_keeps_clear_of(g_extras.cheat_gct, {{mem::kMem2Floor, kMem2End}});
-        if (!first)
-            logf("Codes: the build's codes write into RiftWii's memory in MEM2 (or can't be read to the end): they start "
-                 "with the game\n");
+        first = true;
     } else if (debugger_handler) {
         logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
     } else if (start_file_pending) {
         logf("Codes: the cheats start with the game, after its start file is in place\n");
     } else if (g_extras.cheat_gct.empty()) {
         // No cheats (the WiiRD setting on, no USB Gecko): nothing to run.
-    } else if (!gct_runs_before_start(g_extras.cheat_gct, {{kLoaderStart, kMem1End}, {mem::kMem2Floor, kMem2End}})) {
+    } else if (!gct_runs_before_start(g_extras.cheat_gct, kLoaderStart, kMem1End)) {
         // Before the game nothing of it is set up: a code that runs
         // instructions or follows the game's pointers could fault, and this
-        // loader still runs: its image and heap up to MEM1's end, and its
-        // stack, code, data and heap from mem::kMem2Floor up.
+        // loader (its code, data and stack, up to MEM1's end) still runs.
         logf("Codes: the cheats start with the game: one of them runs code, follows the game's pointers, "
              "searches memory or writes where RiftWii's loader still runs\n");
     } else {
@@ -676,15 +656,6 @@ bool overlaps_loader(std::uint32_t start, std::uint32_t length) {
     return start < loader_end && end > kLoaderStart;
 }
 
-// The loader's MEM2 (wii/core/memlimits.hpp): from mem::kMem2Floor up, its
-// restart notes, main stack, code, read-only data, buffers and heap, with
-// IOS above. It runs from there until the jump, so nothing of a game may be
-// written there before it; no game or start file puts anything there.
-bool overlaps_loader_mem2(std::uint32_t start, std::uint32_t length) {
-    const std::uint64_t end = std::uint64_t(start) + length;
-    return start < kMem2End && end > mem::kMem2Floor;
-}
-
 bool make_directories(const std::string& sd_path) {
     // Creates every directory component before the file name.
     std::string::size_type pos = sd_path.find(":/");
@@ -716,23 +687,13 @@ bool write_sd_file(const std::string& sd_path, const void* data, std::size_t len
     return ok;
 }
 
-// raw, when given, gets the reply as IOS wrote it, for the dumps.
-bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t& es_result, std::string& error,
-                         std::vector<std::uint8_t>* raw = nullptr) {
+bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t& es_result, std::string& error) {
     if ((partition.offset >> 2) > 0xFFFFFFFFull) {
         error = "partition offset beyond the drive's range";
         return false;
     }
-    // Taken for the open (MEM1 heap): 18.5 KiB of MEM2 for the whole run before.
-    std::unique_ptr<std::uint8_t, void (*)(void*)> g_tmd(static_cast<std::uint8_t*>(memalign(32, kTmdBytes)),
-                                                        std::free);
-    if (!g_tmd) {
-        error = "out of memory for the title's metadata";
-        return false;
-    }
-    std::memset(g_tmd.get(), 0, kTmdBytes);
-    if (!di::open_partition(static_cast<std::uint32_t>(partition.offset >> 2), g_tmd.get(), kTmdBytes, es_result,
-                            error)) {
+    std::memset(g_tmd, 0, sizeof(g_tmd));
+    if (!di::open_partition(static_cast<std::uint32_t>(partition.offset >> 2), g_tmd, sizeof(g_tmd), es_result, error)) {
         return false;
     }
     if (es_result < 0) {
@@ -741,8 +702,7 @@ bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t
         error = "ES refused the partition (ES result " + std::to_string(es_result) + ")";
         return false;
     }
-    if (raw) raw->assign(g_tmd.get(), g_tmd.get() + di::kTmdBufferBytes);
-    return parse_tmd(g_tmd.get(), di::kTmdBufferBytes, tmd, error);
+    return parse_tmd(g_tmd, di::kTmdBufferBytes, tmd, error);
 }
 
 // Region letter of the game id to the VI standard the game expects; -1
@@ -951,7 +911,8 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     // Opening the partition identifies the game in ES. With this IOS
     // kept for the launch, even the probe is too late after that point.
     prepare_d2x_return_to(disc_d2x_return_title());
-    if (!open_game_partition(out.partition, out.tmd, out.es_result, error, &out.tmd_bytes)) return false;
+    if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
+    out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
     out.running_ios = IOS_GetVersion();
     logf("TMD: title %08x-%08x v%u, needs IOS%u (ES result %d); running IOS%d\n",
          static_cast<unsigned>(out.tmd.title_id >> 32), static_cast<unsigned>(out.tmd.title_id),
@@ -2473,12 +2434,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         const std::uint32_t len = static_cast<std::uint32_t>(length);
         const std::uint32_t woff = static_cast<std::uint32_t>(word_offset);
-        if (overlaps_loader_mem2(dest, len)) {
-            char where[64];
-            std::snprintf(where, sizeof(where), "0x%08x-0x%08x", dest, dest + len);
-            error = std::string("the game's DOL section ") + where + " is in MEM2 where RiftWii's loader runs";
-            return false;
-        }
         if (overlaps_loader(dest, len)) {
             char where[96];
             std::snprintf(where, sizeof(where), "0x%08x-0x%08x overlaps the loader at 0x%08x-0x%08x", dest,
@@ -2575,19 +2530,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         if (start_dol.bss_size != 0 && !in_ram(start_dol.bss_address, start_dol.bss_size)) {
             error = "the start file's BSS is not in RAM";
-            return false;
-        }
-        // Checked before anything is written: these go straight to memory.
-        for (const DolSection& sec : start_dol.sections) {
-            if (sec.used() && overlaps_loader_mem2(sec.address, sec.size)) {
-                char where[64];
-                std::snprintf(where, sizeof(where), "0x%08x-0x%08x", sec.address, sec.address + sec.size);
-                error = std::string("the start file's section ") + where + " is in MEM2 where RiftWii's loader runs";
-                return false;
-            }
-        }
-        if (start_dol.bss_size != 0 && overlaps_loader_mem2(start_dol.bss_address, start_dol.bss_size)) {
-            error = "the start file's BSS is in MEM2 where RiftWii's loader runs";
             return false;
         }
         // Its BSS first (data sections inside it keep their bytes); the
@@ -3289,19 +3231,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // restart snapshot when the launch fails): its heap's pieces and the
         // snapshot are not the game's to patch, wherever in MEM2 they are.
         exclusions.push_back(MemoryRegion{mem::kRestartArea, mem::kRestartBytes});
-        // The main thread's stack, which this code is running on, the
-        // Bluetooth and Wii Remote libraries' buffers, the read-only data
-        // and the code.
-        exclusions.push_back(MemoryRegion{mem::kMainStack, mem::kMainStackBytes});
-        exclusions.push_back(MemoryRegion{mem::kProgramArea, mem::ProgramAreaEnd() - mem::kProgramArea});
         // The start-up stash's copy: a restart after a failed launch reads the menu's font from it.
-        exclusions.push_back(MemoryRegion{mem::StashArea(), stash::ReservedEnd() - mem::StashArea()});
-        // The blocks skin::Mem2Alloc handed out (menu textures, font pools,
-        // cover and sound buffers): above the stash, below arena 2's live low end.
-        const std::uint32_t arena2_lo = reinterpret_cast<std::uint32_t>(SYS_GetArena2Lo());
-        if (arena2_lo > stash::ReservedEnd()) {
-            exclusions.push_back(MemoryRegion{stash::ReservedEnd(), arena2_lo - stash::ReservedEnd()});
-        }
+        exclusions.push_back(MemoryRegion{mem::kStashArea, stash::ReservedEnd() - mem::kStashArea});
         for (const auto& piece : mem::HeapPieces()) {
             if (piece.second > piece.first) exclusions.push_back(MemoryRegion{piece.first, piece.second - piece.first});
         }

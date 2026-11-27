@@ -12,14 +12,8 @@
 #include "riftwii/stashimage.hpp"
 
 // libogc's linker script: the end of .bss. The heap (__Arena1Lo) starts
-// at it rounded up to 32 bytes. tools/dol_stash.py puts the code and the
-// read-only data bound for MEM2 there (wii/core/mem2sections.ld), then the
-// stash.
+// at it rounded up to 32 bytes, and tools/dol_stash.py puts the stash there.
 extern "C" char __bss_end[];
-extern "C" char __riftwii_mem2text_start[];
-extern "C" char __riftwii_mem2text_end[];
-extern "C" char __riftwii_mem2rodata_start[];
-extern "C" char __riftwii_mem2rodata_end[];
 
 namespace riftwii::wii::stash {
 namespace {
@@ -39,17 +33,11 @@ constexpr u32 kTakenNow = 1;            // copied from the DOL's section this st
 constexpr u32 kKept = 2;                // none in MEM1: the copy from an earlier start (a warm restart)
 constexpr u32 kMem1Top = 0x81800000;
 
-Note* note() { return reinterpret_cast<Note*>(mem::StashArea()); }
-u8* image() { return reinterpret_cast<u8*>(mem::StashArea() + sizeof(Note)); }
+Note* note() { return reinterpret_cast<Note*>(mem::kStashArea); }
+u8* image() { return reinterpret_cast<u8*>(mem::kStashArea + sizeof(Note)); }
 constexpr u32 kAvailable = kStashMaxBytes;
 
-u32 Mem1Address() {
-    const u32 code = (reinterpret_cast<u32>(__bss_end) + 31) & ~31u;
-    const u32 code_bytes = static_cast<u32>(__riftwii_mem2text_end - __riftwii_mem2text_start);
-    const u32 read_only_data = (code + code_bytes + 31) & ~31u;
-    const u32 read_only_bytes = static_cast<u32>(__riftwii_mem2rodata_end - __riftwii_mem2rodata_start);
-    return (read_only_data + read_only_bytes + 31) & ~31u;
-}
+u32 Mem1Address() { return (reinterpret_cast<u32>(__bss_end) + 31) & ~31u; }
 
 bool g_checked = false;
 u32 g_total = 0;  // the good copy's size, 0 when there is none
@@ -92,8 +80,8 @@ void Check() {
 
 u32 ReservedEnd() {
     Check();
-    if (g_total == 0) return mem::StashArea();
-    return (mem::StashArea() + sizeof(Note) + g_total + 0xFFF) & ~0xFFFu;
+    if (g_total == 0) return mem::kStashArea;
+    return (mem::kStashArea + sizeof(Note) + g_total + 0xFFF) & ~0xFFFu;
 }
 
 bool Find(const char* name, const u8*& data, u32& size) {

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/http.hpp"
 #include "riftwii/checkedalloc.hpp"
-#include "riftwii/datetext.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -247,12 +246,13 @@ bool http_date_parse(const std::string& value, std::time_t& out) {
 std::string tls_failure_reason(int bearssl_code, std::time_t wii_now) {
     if (bearssl_code < kX509InvalidValue || bearssl_code > kX509RangeEnd) return "";
     if (bearssl_code == kX509TimeUnknown || bearssl_code == kX509Expired) {
+        char date[16];
         // The date shown is the Wii's clock as set in Wii Settings.
         std::tm clock_time = {};
         std::tm* clock_ok = ::gmtime_r(&wii_now, &clock_time);
-        if (clock_ok != nullptr)
+        if (clock_ok != nullptr && std::strftime(date, sizeof(date), "%Y-%m-%d", &clock_time) != 0)
             return "the certificate is outside its valid dates; the Wii's clock says " +
-                date_text(clock_time, DateParts::Day) +
+                std::string(date) +
                 "; if that date is wrong, set it in Wii Settings";
         return "the certificate is outside its valid dates; if the Wii's clock is wrong, "
             "set it in Wii Settings";

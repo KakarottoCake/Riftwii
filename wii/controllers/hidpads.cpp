@@ -9,10 +9,7 @@
 #include <ogc/usb.h>
 #include <unistd.h>
 
-#include <vector>
-
 #include "riftwii/builtinpads.hpp"
-#include "riftwii/checkedalloc.hpp"
 #include "riftwii/hidconfig.hpp"
 #include "rtgcad.h"
 #include "loadersettings.hpp"
@@ -24,6 +21,9 @@ namespace {
 
 rthid_catalog g_catalog{};
 std::atomic<unsigned> g_published_count{0};
+// Scans run serially on the menu/loader side. Keep the bounded file
+// buffer off the GUI thread's 24 KiB stack, including during preload.
+char g_text[kHidConfigMaxBytes + 1];
 // One attempt per plugged-in device, including missing/bad configurations.
 rthid_device g_checked[RTHID_DEVICE_MAX]{};
 unsigned g_checked_count = 0;
@@ -42,17 +42,6 @@ void StoreMapping(const rthid_mapping& mapping) {
     }
     if (!rthid_catalog_add(&g_catalog, layout)) return;
     g_published_count.store(g_catalog.count, std::memory_order_release);
-}
-
-// A controller file's text, one byte past the longest a file may be so a
-// longer one is caught. On the heap, only while the file is read: off the
-// GUI thread's 24 KiB stack (a preload runs there), and no MEM1 kept for
-// cards with no controller files. False on a read error or no memory.
-bool ReadConfigText(FILE* file, std::vector<char>& text) {
-    if (!try_resize(text, kHidConfigMaxBytes + 1)) return false;
-    const std::size_t size = std::fread(text.data(), 1, text.size(), file);
-    text.resize(size);
-    return std::ferror(file) == 0;
 }
 
 bool LoadConfig(std::uint32_t id, rthid_mapping& mapping) {
@@ -81,11 +70,11 @@ bool LoadConfig(std::uint32_t id, rthid_mapping& mapping) {
             file = std::fopen(paths[i], "rb");
             if (!file) continue;
         }
-        std::vector<char> text;
-        const bool read_error = !ReadConfigText(file, text);
+        const std::size_t size = std::fread(g_text, 1, sizeof(g_text), file);
+        const bool read_error = std::ferror(file) != 0;
         std::fclose(file);
         std::string error;
-        if (read_error || !parse_hid_config(std::string_view(text.data(), text.size()), mapping, error)) {
+        if (read_error || !parse_hid_config(std::string_view(g_text, size), mapping, error)) {
             logf("USB controller %04x:%04x: cannot use %s: %s\n", vid, pid, paths[i],
                  read_error ? "The file could not be read." : error.c_str());
             // A higher-priority file that exists but is broken must not
@@ -305,12 +294,12 @@ void HidPadsPreload(bool refresh_devices) {
     if (g_catalog.count < RTHID_CONFIG_MAX) {
         FILE* file = std::fopen("sd:/controller.ini", "rb");
         if (!file) return;
-        std::vector<char> text;
-        const bool read_error = !ReadConfigText(file, text);
+        const std::size_t bytes = std::fread(g_text, 1, sizeof(g_text), file);
+        const bool read_error = std::ferror(file) != 0;
         std::fclose(file);
         rthid_mapping mapping{};
         std::string error;
-        if (!read_error && parse_hid_config(std::string_view(text.data(), text.size()), mapping, error)) {
+        if (!read_error && parse_hid_config(std::string_view(g_text, bytes), mapping, error)) {
             const std::uint32_t id = (static_cast<std::uint32_t>(mapping.vid) << 16) | mapping.pid;
             if (id != 0x057E0337u && !rthid_find(&g_catalog, id) && LoadConfig(id, mapping)) {
                 StoreMapping(mapping);

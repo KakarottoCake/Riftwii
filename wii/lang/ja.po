@@ -3741,8 +3741,8 @@ msgstr "仮想NANDの管理でMiiを管理"
 msgid "F-Zero GX and the Zelda disc start"
 msgstr "F-Zero GXとゼルダのディスクが起動"
 
-msgid "More memory for games"
-msgstr "ゲームに使えるメモリーが増加"
+msgid "LEGO games get the adapter back"
+msgstr "LEGOゲームでアダプターが使える"
 
 msgid "Channel background"
 msgstr "チャンネルの背景"

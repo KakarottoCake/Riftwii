@@ -11,9 +11,9 @@ static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_FALSE(cond) EXPECT_TRUE(!(cond))
 
-namespace table {
+static const char kCodes[] =
 #include "../src/data/offlinegames.inc"
-}  // namespace table
+    ;
 
 int main() {
     using riftwii::game_has_no_online;
@@ -37,20 +37,10 @@ int main() {
     EXPECT_FALSE(game_has_no_online("ZZZZ99"));
     EXPECT_FALSE(game_has_no_online("RZT"));
     EXPECT_FALSE(game_has_no_online(""));
-    // A region with no bit is looked up whole: Sports Island 3 in Europe (Z).
-    EXPECT_TRUE(game_has_no_online("SEMZ01"));
-    // A known game in a region it is not listed in.
-    EXPECT_FALSE(game_has_no_online("RZTX01"));
-    // Both tables are sorted, four bytes an entry, for the binary searches:
-    // three characters and a byte of region bits, then whole codes.
-    using table::kOtherCodes;
-    using table::kPrefixes;
-    EXPECT_TRUE((sizeof(kPrefixes) - 1) % 4 == 0);
-    EXPECT_TRUE((sizeof(kOtherCodes) - 1) % 4 == 0);
-    for (std::size_t i = 1; i < (sizeof(kPrefixes) - 1) / 4; ++i)
-        EXPECT_TRUE(std::memcmp(kPrefixes + (i - 1) * 4, kPrefixes + i * 4, 3) < 0);
-    for (std::size_t i = 1; i < (sizeof(kOtherCodes) - 1) / 4; ++i)
-        EXPECT_TRUE(std::memcmp(kOtherCodes + (i - 1) * 4, kOtherCodes + i * 4, 4) < 0);
+    // The table is sorted, four characters a code, for the binary search.
+    const std::size_t n = (sizeof(kCodes) - 1) / 4;
+    EXPECT_TRUE((sizeof(kCodes) - 1) % 4 == 0);
+    for (std::size_t i = 1; i < n; ++i) EXPECT_TRUE(std::memcmp(kCodes + (i - 1) * 4, kCodes + i * 4, 4) < 0);
     if (g_failures == 0) std::cout << "offlinegames: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

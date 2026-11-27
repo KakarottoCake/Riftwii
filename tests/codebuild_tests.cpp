@@ -229,7 +229,7 @@ void test_runs_before_start() {
                              0x70040020, 0x60000000, 0x00000000, 0x0451E468, 0x38000001});
     // The loader's range, kept out of the codes' writes.
     const std::uint32_t lo = 0x80A00000, hi = 0x81800000;
-    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, {{lo, hi}}); };
+    const auto runs = [&](const Bytes& list) { return gct_runs_before_start(list, lo, hi); };
     EXPECT_TRUE(runs(remap));
     // A string write and an E2.
     EXPECT_TRUE(runs(gct({0x06001000, 0x00000005, 0x11223344, 0x55000000, 0xE2000001, 0x00000000})));
@@ -238,18 +238,6 @@ void test_runs_before_start() {
     EXPECT_TRUE(runs(gct({})));
     // Runs instructions itself.
     EXPECT_FALSE(runs(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
-    // With the loader's MEM2 (0x90800000 up: its stack, code and heap) kept
-    // out too: an E0 that moves the base to MEM2, then 64 KiB of zeros at
-    // 0x90819000, over the main thread's stack, waits for the game; the
-    // same write low in MEM2, where the game's arena starts, still runs.
-    const auto runs_both = [&](const Bytes& list) {
-        return gct_runs_before_start(list, {{lo, hi}, {0x90800000u, 0x94000000u}});
-    };
-    const Bytes over_stack = gct({0xE0000000, 0x90000000, 0x00819000, 0xFFFF0000});
-    EXPECT_TRUE(runs(over_stack));
-    EXPECT_FALSE(runs_both(over_stack));
-    EXPECT_TRUE(runs_both(gct({0xE0000000, 0x90000000, 0x00001000, 0x00FF0000})));
-    EXPECT_TRUE(runs_both(remap));
     // A write through the pointer, and a load of it from the game's memory.
     EXPECT_FALSE(runs(gct({0x14000010, 0x00000001})));
     EXPECT_FALSE(runs(gct({0x48000000, 0x80001234})));
@@ -336,68 +324,6 @@ void test_model() {
     index.add_game("RSBE01");
     EXPECT_TRUE(index.has_packs("RSBE01"));
     EXPECT_FALSE(index.has_packs("RMCE01"));
-}
-
-
-// A code build's looser check: everything runs first unless a code writes
-// into RiftWii's MEM2 (0x90800000 up).
-void test_keeps_clear_of() {
-    const std::vector<std::pair<std::uint32_t, std::uint32_t>> loader = {{0x90800000u, 0x94000000u}};
-    const auto clear = [&](const Bytes& list) { return gct_keeps_clear_of(list, loader); };
-    // What a player's cheats may not do before the game, a build may: a
-    // condition, C0 instructions, a pointer write and a load from memory.
-    EXPECT_TRUE(clear(gct({0x28345678, 0x00000800, 0x04001000, 0x00000001, 0xE2000001, 0x00000000})));
-    EXPECT_TRUE(clear(gct({0xC0000000, 0x00000001, 0x4E800020, 0x00000000})));
-    EXPECT_TRUE(clear(gct({0x14000010, 0x00000001, 0x48000000, 0x80001234, 0x14000010, 0x00000001})));
-    // The default base and pointer can't reach MEM2 (0x80000000 plus at
-    // most 0x01FFFFFF), the 0x01000000 bit included.
-    EXPECT_TRUE(clear(gct({0x05FFFFFC, 0xFFFFFFFF})));
-    // The base moved to MEM2 by an E0, then a write over the main stack:
-    // held back; the same write low in MEM2 (the game's arena) is not.
-    EXPECT_FALSE(clear(gct({0xE0000000, 0x90000000, 0x00819000, 0xFFFF0000})));
-    EXPECT_TRUE(clear(gct({0xE0000000, 0x90000000, 0x00001000, 0x00FF0000})));
-    // The pointer set to MEM2 by an E0's low half or a 4A, then a po write.
-    EXPECT_FALSE(clear(gct({0xE0000000, 0x00009080, 0x14000010, 0x00000001})));
-    EXPECT_FALSE(clear(gct({0x4A000000, 0x90900000, 0x14000010, 0x00000001})));
-    // A 42 that sets the base, then a C2 there (the handler keeps the
-    // base's top seven bits, the code adds the rest); an uncached address too.
-    EXPECT_FALSE(clear(gct({0x42000000, 0x90A00000, 0xC2A00010, 0x00000001, 0x60000000, 0x00000000})));
-    EXPECT_FALSE(clear(gct({0xE0000000, 0xD0A00000, 0x04A00010, 0x00000001})));
-    // A pointer loaded from memory: the game's, not judged.
-    EXPECT_TRUE(clear(gct({0x48000000, 0x80001234, 0x14000010, 0x00000001})));
-    // A serial write from 8 bytes under 0x90800000: three 4-byte writes 8
-    // bytes apart reach past it; from 32 under, two stop short.
-    EXPECT_FALSE(clear(gct({0xE0000000, 0x90000000, 0x087FFFF8, 0x00000001, 0x20020008, 0x00000000})));
-    EXPECT_TRUE(clear(gct({0xE0000000, 0x90000000, 0x087FFFE0, 0x00000001, 0x20010008, 0x00000000})));
-    // Not a whole list, or a code it can't walk past (a C2 longer than the list).
-    EXPECT_FALSE(clear(Bytes{0x00, 0xD0, 0xC0, 0xDE}));
-    EXPECT_FALSE(clear(gct({0xC2000010, 0x00000005, 0x60000000, 0x00000000})));
-    EXPECT_TRUE(clear(gct({})));
-    // An E2 that moves the pointer to MEM2, then a po write: held back.
-    EXPECT_FALSE(clear(gct({0xE2000000, 0x00009090, 0x14000010, 0x00000001})));
-    // After a search the pointer is what it found: not judged, so a po
-    // write that would hit MEM2 with the old pointer no longer counts.
-    EXPECT_TRUE(clear(gct({0x4A000000, 0x90900000, 0xF6000001, 0x80008180, 0x38000000, 0x00000000,
-                           0x14000010, 0x00000001})));
-    // A store of the base or pointer at the base plus the value: from the
-    // default base, 0x10800000 on is RiftWii's MEM2 (the sum cut to 32 bits
-    // as the handler adds it); 0x1800 is low MEM1.
-    EXPECT_FALSE(clear(gct({0x44000000, 0x10800000})));
-    EXPECT_FALSE(clear(gct({0x4C000000, 0x10A00000})));
-    EXPECT_TRUE(clear(gct({0x44000000, 0x00001800})));
-    // With the base moved to MEM2 by a 42, a small offset lands there too;
-    // after a 40 (the base read from memory) it isn't judged.
-    EXPECT_FALSE(clear(gct({0x42000000, 0x90000000, 0x44000000, 0x00900000})));
-    EXPECT_TRUE(clear(gct({0x40000000, 0x80001234, 0x44000000, 0x10800000})));
-    // A code switched off by a goto (as a Wii U's REX builds have): its
-    // instructions are stepped over, not read as codes.
-    EXPECT_TRUE(clear(gct({0x66200002, 0x00000000, 0x7D9CE2A6, 0x7C0802A6, 0x4E800020, 0x00000000,
-                           0x04001000, 0x00000001})));
-    EXPECT_FALSE(clear(gct({0x66200000, 0x00000000})));
-    // A whole REX-style list through switch_off_slot_b_codes, then the check.
-    Bytes rex = gct({0xC2001000, 0x00000002, 0x3C60CC00, 0x80636814, 0x60000000, 0x00000000});
-    EXPECT_FALSE(switch_off_slot_b_codes(rex, nullptr).empty());
-    EXPECT_TRUE(clear(rex));
 }
 
 }  // namespace
@@ -535,17 +461,17 @@ void test_slot_b_codes() {
     // Switching a code off keeps the list runnable before the game starts:
     // the goto is understood there, and the lines it skips don't run.
     list = list_of({rex_flag, rex_log}, {flag_words, log_words});
-    EXPECT_TRUE(gct_runs_before_start(list, {{0x80A00000u, 0x81800000u}}));
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
     EXPECT_EQ(switch_off_slot_b_codes(list).size(), 1u);
-    EXPECT_TRUE(gct_runs_before_start(list, {{0x80A00000u, 0x81800000u}}));
+    EXPECT_TRUE(gct_runs_before_start(list, 0x80A00000u, 0x81800000u));
     // Only that goto counts: none with no lines, one past the end of the
     // list, or one with anything in its second word.
     const std::uint32_t goto_none[] = {0x66200000, 0x00000000};
     const std::uint32_t goto_past[] = {0x66200003, 0x00000000, 0x60000000, 0x60000000};
     const std::uint32_t goto_value[] = {0x66200001, 0x00000001, 0x60000000, 0x60000000};
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), {{0x80A00000u, 0x81800000u}}));
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), {{0x80A00000u, 0x81800000u}}));
-    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), {{0x80A00000u, 0x81800000u}}));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_none}, {2}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_past}, {4}), 0x80A00000u, 0x81800000u));
+    EXPECT_FALSE(gct_runs_before_start(list_of({goto_value}, {4}), 0x80A00000u, 0x81800000u));
 
     // A C0 code (it runs where it is) has no address of its own.
     std::uint32_t rex_log_c0[sizeof(rex_log) / 4];
@@ -649,7 +575,6 @@ int main(int argc, char** argv) {
     test_debugger_handlers(argv[1]);
     test_join();
     test_runs_before_start();
-    test_keeps_clear_of();
     test_slot_b_codes();
     test_model();
     if (g_failures == 0) std::cout << "codebuild tests passed" << std::endl;

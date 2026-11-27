@@ -3741,8 +3741,8 @@ msgstr "Mii in Gestisci NAND emulata"
 msgid "F-Zero GX and the Zelda disc start"
 msgstr "F-Zero GX e il disco di Zelda partono"
 
-msgid "More memory for games"
-msgstr "Più memoria per i giochi"
+msgid "LEGO games get the adapter back"
+msgstr "I giochi LEGO riavranno l'adattatore"
 
 msgid "Channel background"
 msgstr "Sfondo dei canali"

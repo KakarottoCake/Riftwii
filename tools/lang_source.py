@@ -7407,7 +7407,7 @@ T.update({
     'Get more mods and Get a save': ('Obtener más mods y Obtener una partida', 'MODとセーブデータをダウンロード', 'Obter mais mods e Obter um save', 'Altre mod e Scarica un salvataggio'),
     'Miis in Manage emulated NAND': ('Miis en Gestionar NAND emulada', '仮想NANDの管理でMiiを管理', 'Miis em Gerenciar NAND emulada', 'Mii in Gestisci NAND emulata'),
     'F-Zero GX and the Zelda disc start': ('F-Zero GX y el disco de Zelda arrancan', 'F-Zero GXとゼルダのディスクが起動', 'F-Zero GX e o disco de Zelda iniciam', 'F-Zero GX e il disco di Zelda partono'),
-    'More memory for games': ('Más memoria para los juegos', 'ゲームに使えるメモリーが増加', 'Mais memória para os jogos', 'Più memoria per i giochi'),
+    'LEGO games get the adapter back': ('Los juegos LEGO recuperan el adaptador', 'LEGOゲームでアダプターが使える', 'Jogos LEGO voltam a usar o adaptador', "I giochi LEGO riavranno l'adattatore"),
 })
 KO.update({
     'Settings show each value and what it does': '설정에 값과 설명 표시',
@@ -7415,7 +7415,7 @@ KO.update({
     'Get more mods and Get a save': '모드 더 받기와 세이브 받기',
     'Miis in Manage emulated NAND': '가상 NAND 관리에서 Mii 관리',
     'F-Zero GX and the Zelda disc start': 'F-Zero GX와 젤다 디스크 실행',
-    'More memory for games': '게임용 메모리 증가',
+    'LEGO games get the adapter back': 'LEGO 게임에서 어댑터 다시 사용',
 })
 FR.update({
     'Settings show each value and what it does': 'Les réglages montrent leur valeur et leur rôle',
@@ -7423,7 +7423,7 @@ FR.update({
     'Get more mods and Get a save': 'Obtenir des mods et une sauvegarde',
     'Miis in Manage emulated NAND': 'Les Mii dans Gérer la NAND émulée',
     'F-Zero GX and the Zelda disc start': 'F-Zero GX et le disque Zelda démarrent',
-    'More memory for games': 'Plus de mémoire pour les jeux',
+    'LEGO games get the adapter back': "Les jeux LEGO retrouvent l'adaptateur",
 })
 
 def escape(s):
