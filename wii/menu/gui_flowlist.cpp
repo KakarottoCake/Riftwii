@@ -404,7 +404,10 @@ void GuiFlowList::Draw() {
             // under both, and when the change takes effect at its end.
             label[i]->SetPosition(textLeft, y + kCardGap + (lineH - labelH) / 2 - 1);
             label[i]->Draw();
-            const int detailY = y + kCardGap + lineH + 1;
+            // Tucked 3 px into the control line: the font's letters start
+            // that far below their top, and the low parts of g, y and p
+            // need the room at the card's bottom edge.
+            const int detailY = y + kCardGap + lineH - 3;
             detail[i]->SetPosition(textLeft, detailY);
             detail[i]->Draw();
             if (!r.tag.empty()) {

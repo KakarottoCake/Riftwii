@@ -19904,10 +19904,35 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	// Settings' search: every word typed is in the row's name, its line,
 	// its section's name or its other words (letters compared without case).
-	const auto lowerAscii = [](std::string text) {
-		for (char& c : text)
-			if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-		return text;
+	// The keyboard has a to z only, so accented letters are compared as the
+	// plain letter: a French player finds "écran" by typing "ecran".
+	const auto lowerAscii = [](const std::string& text) {
+		// UTF-8 C3 80 to C3 BF (À to ÿ), as plain letters; "" keeps the letter.
+		static const char* const kLatin1[64] = {
+			"a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
+			"d", "n", "o", "o", "o", "o", "o", "", "o", "u", "u", "u", "u", "y", "", "ss",
+			"a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
+			"d", "n", "o", "o", "o", "o", "o", "", "o", "u", "u", "u", "u", "y", "", "y"};
+		std::string folded;
+		folded.reserve(text.size());
+		for (std::size_t i = 0; i < text.size(); ++i) {
+			const unsigned char c = static_cast<unsigned char>(text[i]);
+			const unsigned char next = i + 1 < text.size() ? static_cast<unsigned char>(text[i + 1]) : 0;
+			const bool latin1 = c == 0xC3 && next >= 0x80 && next <= 0xBF && kLatin1[next - 0x80][0] != '\0';
+			const bool oeLigature = c == 0xC5 && (next == 0x92 || next == 0x93);  // Œ œ
+			if (latin1) {
+				folded += kLatin1[next - 0x80];
+				++i;
+			} else if (oeLigature) {
+				folded += "oe";
+				++i;
+			} else if (c >= 'A' && c <= 'Z') {
+				folded += static_cast<char>(c - 'A' + 'a');
+			} else {
+				folded += static_cast<char>(c);
+			}
+		}
+		return folded;
 	};
 	const auto hayOf = [&](const FlowRow& row, RowAction a, SettingsSection s) {
 		return lowerAscii(row.label + " " + shortNote(a) + " " + SectionName(s) + " " + keywords(a));
