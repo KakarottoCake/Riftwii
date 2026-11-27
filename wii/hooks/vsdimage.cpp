@@ -35,9 +35,10 @@ std::vector<Part> g_parts;
 std::uint64_t g_size = 0;
 int g_mounts = 0;
 
-bool io_startup() { return true; }
-bool io_inserted() { return !g_parts.empty(); }
-bool io_read(sec_t sector, sec_t count, void* buffer) {
+// libogc2's DISC_INTERFACE callbacks take the interface first.
+bool io_startup(DISC_INTERFACE*) { return true; }
+bool io_inserted(DISC_INTERFACE*) { return !g_parts.empty(); }
+bool io_read(DISC_INTERFACE*, sec_t sector, sec_t count, void* buffer) {
     std::uint64_t offset = static_cast<std::uint64_t>(sector) * kSectorBytes;
     std::size_t bytes = static_cast<std::size_t>(count) * kSectorBytes;
     if (offset > g_size || bytes > g_size - offset) return false;
@@ -61,19 +62,24 @@ bool io_read(sec_t sector, sec_t count, void* buffer) {
     }
     return bytes == 0;
 }
-bool io_write(sec_t, sec_t, const void*) { return false; }  // read only
-bool io_clear() { return true; }
-bool io_shutdown() { return true; }
+bool io_write(DISC_INTERFACE*, sec_t, sec_t, const void*) { return false; }  // read only
+bool io_erase(DISC_INTERFACE*, sec_t, sec_t) { return false; }
+bool io_flush(DISC_INTERFACE*) { return true; }
+bool io_shutdown(DISC_INTERFACE*) { return true; }
 
-const DISC_INTERFACE g_io = {
+DISC_INTERFACE g_io = {
     0x56534400,  // "VSD"
     FEATURE_MEDIUM_CANREAD,
     io_startup,
     io_inserted,
     io_read,
     io_write,
-    io_clear,
+    io_erase,
+    io_flush,
     io_shutdown,
+    0,
+    0,
+    kSectorBytes,
 };
 
 void close_image() {

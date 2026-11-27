@@ -142,10 +142,10 @@ jobs:
     permissions:
       contents: read
       actions: read
-    # devkitPro's own image, pinned so a new devkitPPC or libogc can't turn
-    # a PR red by itself. Moving the pin is its own PR. This one is
-    # devkitPPC 16.1.0 (October 2026).
-    container: devkitpro/devkitppc@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
+    # libogc2's own image (extremscorner/libogc2). It is a moving tag, so a
+    # new devkitPPC or libogc2 can turn a PR red by itself: pin a digest if
+    # that becomes a problem.
+    container: ghcr.io/extremscorner/libogc2:latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:

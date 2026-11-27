@@ -5,7 +5,6 @@
 
 #include <network.h>
 #include <ogc/machine/processor.h>
-#include <poll.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

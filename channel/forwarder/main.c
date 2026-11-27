@@ -262,9 +262,7 @@ static volatile bool g_reset_pressed;
 
 static void on_power(void) { g_power_pressed = true; }
 
-static void on_reset(u32 irq, void* ctx) {
-    (void)irq;
-    (void)ctx;
+static void on_reset(void) {
     g_reset_pressed = true;
 }
 
@@ -413,8 +411,8 @@ static bool mount_usb(void) {
 
 static void unmount(int which) {
     fatUnmount(which == 0 ? "sd:" : "usb:");
-    if (which == 0) __io_wiisd.shutdown();
-    else __io_usbstorage.shutdown();
+    if (which == 0) __io_wiisd.shutdown(&__io_wiisd);
+    else __io_usbstorage.shutdown(&__io_usbstorage);
 }
 
 // Into MEM2, taken off the arena directly: the heap would put part of it
@@ -452,13 +450,13 @@ static void log_sd_start(u32 started_ms, u32 mounted_ms) {
 
 // The loader thread: SD card first, the USB drive when the card has no
 // RiftWii. The SD card's start and mount are separate steps, so a console
-// that stops in one shows which (__io_wiisd.startup() does nothing the
+// that stops in one shows which (__io_wiisd.startup(&__io_wiisd) does nothing the
 // second time, inside fatMountSimple).
 static void* load_thread(void* unused) {
     (void)unused;
     const u64 sd_begin = gettime();
     enter_step(STEP_SD_START);
-    bool sd = __io_wiisd.startup();
+    bool sd = __io_wiisd.startup(&__io_wiisd);
     const u32 started_ms = diff_msec(sd_begin, gettime());
     if (sd) {
         enter_step(STEP_SD_MOUNT);

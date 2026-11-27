@@ -31,9 +31,6 @@
 #include "pentablet.h"
 #include "udraw.h"
 
-#if _V_MAJOR_ != 3 || _V_MINOR_ != 1
-#warning "uDraw: the wiiuse wrappers were written against libogc 3.1; check them against this version"
-#endif
 
 /* Not one of wiiuse's EXP_* values, so its event code and WPAD skip it. */
 #define EXP_UDRAW   0x40

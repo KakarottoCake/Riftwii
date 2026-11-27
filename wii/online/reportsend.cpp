@@ -124,7 +124,7 @@ bool title_version(u64 title, unsigned& version, unsigned& contents) {
     u32 size = 0;
     if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > kViewBytes) return false;
     std::unique_ptr<u8, decltype(&std::free)> view(static_cast<u8*>(memalign(32, size)), &std::free);
-    if (!view || ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view.get()), size) < 0) return false;
+    if (!view || ES_GetTMDView(title, view.get(), size) < 0) return false;
     const tmd_view* v = reinterpret_cast<const tmd_view*>(view.get());
     version = v->title_version;
     contents = v->num_contents;
@@ -547,7 +547,7 @@ std::string DescribeControllers() {
         std::string s = "Wii Remote " + std::to_string(i + 1);
         if (const WPADData* d = WPAD_Data(i)) {
             const unsigned exp = d->exp.type;
-            if (exp == WPAD_EXP_CLASSIC && d->exp.classic.type == CLASSIC_TYPE_WIIU) {
+            if (exp == WPAD_EXP_CLASSIC && false /* libogc2's wiiuse does not tell a Wii U Pro Controller from a Classic Controller */) {
                 // libogc reads it as a Classic Controller; games do not
                 // (the next launch keeps the Wii Remote log for that).
                 s = "Wii U Pro Controller " + std::to_string(i + 1);

@@ -3,7 +3,7 @@
 #include "console.hpp"
 
 #include <gccore.h>
-#include <ogc/console.h>
+#include <ogc/consol.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/pad.h>
 #include <ogc/system.h>

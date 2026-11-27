@@ -18,7 +18,7 @@ bool read_blocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
     if (lba > 0xFFFFFFFFull) return false;
     // Not alongside libfat's reads on the cover loader's thread.
     CoverLoaderHold();
-    return sd_interface()->readSectors(static_cast<sec_t>(lba), count, out);
+    return sd_interface()->readSectors(sd_interface(), static_cast<sec_t>(lba), count, out);
 }
 
 bool ensure_mounted(std::string& error) {

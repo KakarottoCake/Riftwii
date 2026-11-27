@@ -38,7 +38,6 @@
 #include "padhook.hpp"
 #include "usbinput.hpp"
 
-extern "C" void udelay(int us);
 
 namespace riftwii::wii {
 namespace {
@@ -312,7 +311,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // the new kernel to announce its version and open the IPC registers,
     // then hand the interrupt back and re-arm libogc's IPC layer.
     __MaskIrq(IM_PI_ACR);
-    raw_irq_handler_t handler = IRQ_Free(IRQ_PI_ACR);
+    irq_handler_t handler = IRQ_Free(IRQ_PI_ACR);
     int started_ms = 0;
     for (; (read32(kIosVersionAddress) >> 16) == 0; ++started_ms) {
         if (started_ms >= kIosStartTimeoutMs) {
@@ -363,7 +362,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // power-off screen, so do the same and only note it.
     int ipc_ms = -1;
     for (int i = 0; i <= kIpcStartRetries; ++i) {
-        if (read32(0x0D000004) & HW_IPC_PPC_MSG_ACK) {
+        if (read32(0x0D000004) & 2u) {
             ipc_ms = i;
             break;
         }
@@ -382,7 +381,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
                       std::to_string(returned_ms) + " ms); " + mem2_note + "; " +
                       (ipc_ms >= 0 ? "IPC ready after " + std::to_string(ipc_ms) + " ms"
                                    : std::string("IPC ack bit not seen in 400 ms, continued as libogc does"));
-    IRQ_Request(IRQ_PI_ACR, handler, nullptr);
+    IRQ_Request(IRQ_PI_ACR, handler);
     __UnmaskIrq(IM_PI_ACR);
     __IPC_Reinitialize();
 

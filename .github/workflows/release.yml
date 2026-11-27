@@ -107,9 +107,9 @@ jobs:
     needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # The same pinned image as CI's Wii build, so the release is the build
+    # The same image as CI's Wii build, so the release is the build
     # CI checked.
-    container: devkitpro/devkitppc@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
+    container: ghcr.io/extremscorner/libogc2:latest
     outputs:
       version: ${{ steps.version.outputs.version }}
     env:

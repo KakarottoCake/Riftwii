@@ -45,7 +45,7 @@ bool using_d2x_sd();
 // Each call goes through one lock, so threads never use the card at once.
 // While d2x's FAT module holds the card (below), an interface that refuses
 // every start, read and write instead.
-const DISC_INTERFACE* sd_interface();
+DISC_INTERFACE* sd_interface();  // libogc2's callbacks take the interface and libfat wants it non-const
 
 // d2x's FAT module has the card for its NAND emulation (d2xnandemu.hpp),
 // with its own file system cache: a second FAT writer (libfat, the

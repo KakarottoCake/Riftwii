@@ -6,7 +6,6 @@
 #include <network.h>
 #include <ogc/lwp.h>
 #include <ogc/lwp_watchdog.h>
-#include <poll.h>
 #include <unistd.h>
 
 #include <cerrno>

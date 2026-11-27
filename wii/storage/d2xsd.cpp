@@ -91,21 +91,23 @@ bool chunked(u32 command, u32 sector, u32 count, u8* data) {
 
 // libfat's view of the device. shutdown keeps the handle: closing it
 // would shut the card down under d2x (the module's close handler does).
-bool io_startup() {
+// libogc2's DISC_INTERFACE callbacks all take the interface as their first argument.
+bool io_startup(DISC_INTERFACE*) {
     std::string ignored;
     return d2x_sd_open(ignored);
 }
-bool io_inserted() {
+bool io_inserted(DISC_INTERFACE*) {
     return g_fd >= 0 && IOS_Ioctlv(g_fd, kIsInserted, 0, 0, nullptr) == 0;
 }
-bool io_read(sec_t sector, sec_t count, void* buffer) {
+bool io_read(DISC_INTERFACE*, sec_t sector, sec_t count, void* buffer) {
     return d2x_sd_read(static_cast<u32>(sector), static_cast<u32>(count), buffer);
 }
-bool io_write(sec_t sector, sec_t count, const void* buffer) {
+bool io_write(DISC_INTERFACE*, sec_t sector, sec_t count, const void* buffer) {
     return d2x_sd_write(static_cast<u32>(sector), static_cast<u32>(count), buffer);
 }
-bool io_clear() { return true; }
-bool io_shutdown() { return true; }
+bool io_erase(DISC_INTERFACE*, sec_t, sec_t) { return false; }
+bool io_flush(DISC_INTERFACE*) { return true; }
+bool io_shutdown(DISC_INTERFACE*) { return true; }
 
 const DISC_INTERFACE g_io = {
     DEVICE_TYPE_WII_SD,
@@ -114,8 +116,12 @@ const DISC_INTERFACE g_io = {
     io_inserted,
     io_read,
     io_write,
-    io_clear,
+    io_erase,
+    io_flush,
     io_shutdown,
+    0,
+    0,
+    kSectorBytes,
 };
 
 // Every use of the card, libfat's and the raw readers' (the image scan,
@@ -133,15 +139,23 @@ struct Locked {
 };
 template <const DISC_INTERFACE* D>
 struct Serial {
-    static bool startup() { Locked l; return D->startup(); }
-    static bool inserted() { Locked l; return D->isInserted(); }
-    static bool read(sec_t sector, sec_t count, void* buffer) { Locked l; return D->readSectors(sector, count, buffer); }
-    static bool write(sec_t sector, sec_t count, const void* buffer) {
+    static DISC_INTERFACE* self() { return const_cast<DISC_INTERFACE*>(D); }
+    static bool startup(DISC_INTERFACE*) { Locked l; return D->startup(self()); }
+    static bool inserted(DISC_INTERFACE*) { Locked l; return D->isInserted(self()); }
+    static bool read(DISC_INTERFACE*, sec_t sector, sec_t count, void* buffer) {
         Locked l;
-        return D->writeSectors(sector, count, buffer);
+        return D->readSectors(self(), sector, count, buffer);
     }
-    static bool clear() { Locked l; return D->clearStatus(); }
-    static bool shutdown() { Locked l; return D->shutdown(); }
+    static bool write(DISC_INTERFACE*, sec_t sector, sec_t count, const void* buffer) {
+        Locked l;
+        return D->writeSectors(self(), sector, count, buffer);
+    }
+    static bool erase(DISC_INTERFACE*, sec_t sector, sec_t count) {
+        Locked l;
+        return D->eraseSectors(self(), sector, count);
+    }
+    static bool flush(DISC_INTERFACE*) { Locked l; return D->flush(self()); }
+    static bool shutdown(DISC_INTERFACE*) { Locked l; return D->shutdown(self()); }
     static const DISC_INTERFACE io;
 };
 template <const DISC_INTERFACE* D>
@@ -149,21 +163,26 @@ const DISC_INTERFACE Serial<D>::io = {
     DEVICE_TYPE_WII_SD,         FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_SD,
     Serial<D>::startup,         Serial<D>::inserted,
     Serial<D>::read,            Serial<D>::write,
-    Serial<D>::clear,           Serial<D>::shutdown,
+    Serial<D>::erase,           Serial<D>::flush,
+    Serial<D>::shutdown,        0,
+    0,                          kSectorBytes,
 };
 
 // What RiftWii's code gets while d2x's FAT module holds the card: nothing.
-bool refused_startup() { return false; }
-bool refused_inserted() { return false; }
-bool refused_read(sec_t, sec_t, void*) { return false; }
-bool refused_write(sec_t, sec_t, const void*) { return false; }
-bool refused_clear() { return true; }
-bool refused_shutdown() { return true; }
+bool refused_startup(DISC_INTERFACE*) { return false; }
+bool refused_inserted(DISC_INTERFACE*) { return false; }
+bool refused_read(DISC_INTERFACE*, sec_t, sec_t, void*) { return false; }
+bool refused_write(DISC_INTERFACE*, sec_t, sec_t, const void*) { return false; }
+bool refused_erase(DISC_INTERFACE*, sec_t, sec_t) { return false; }
+bool refused_flush(DISC_INTERFACE*) { return true; }
+bool refused_shutdown(DISC_INTERFACE*) { return true; }
 const DISC_INTERFACE g_refused = {
     DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_SD,
     refused_startup,    refused_inserted,
     refused_read,       refused_write,
-    refused_clear,      refused_shutdown,
+    refused_erase,      refused_flush,
+    refused_shutdown,   0,
+    0,                  kSectorBytes,
 };
 
 }  // namespace
@@ -221,9 +240,9 @@ bool d2x_sd_write(std::uint32_t sector, std::uint32_t count, const void* buffer)
 
 void use_d2x_sd(bool on) { g_active = on; }
 bool using_d2x_sd() { return g_active; }
-const DISC_INTERFACE* sd_interface() {
-    if (g_held_by_fat) return &g_refused;
-    return g_active ? &Serial<&g_io>::io : &Serial<&__io_wiisd>::io;
+DISC_INTERFACE* sd_interface() {
+    if (g_held_by_fat) return const_cast<DISC_INTERFACE*>(&g_refused);
+    return const_cast<DISC_INTERFACE*>(g_active ? &Serial<&g_io>::io : &Serial<&__io_wiisd>::io);
 }
 
 void hold_sd_for_d2x_fat(bool held) { g_held_by_fat = held; }
@@ -231,19 +250,19 @@ bool sd_held_by_d2x_fat() { return g_held_by_fat; }
 
 bool libogc_sd_start() {
     if (g_held_by_fat) return false;
-    return __io_wiisd.startup() && __io_wiisd.isInserted();
+    return __io_wiisd.startup(&__io_wiisd) && __io_wiisd.isInserted(&__io_wiisd);
 }
 
 void libogc_sd_stop() {
     // While held, libogc's driver was shut down before d2x's mount and
     // stays down: nothing to stop.
     if (g_held_by_fat) return;
-    __io_wiisd.shutdown();
+    __io_wiisd.shutdown(&__io_wiisd);
 }
 
 bool libogc_sd_inserted() {
     if (g_held_by_fat) return false;
-    return __io_wiisd.isInserted();
+    return __io_wiisd.isInserted(&__io_wiisd);
 }
 
 }  // namespace riftwii::wii

@@ -113,15 +113,15 @@ std::string mount_answer(s32 code) {
 std::string card_layout() {
     u8* sector = static_cast<u8*>(memalign(32, kCardSectorBytes));
     if (sector == nullptr) return "a layout that could not be read (no memory for one sector)";
-    const DISC_INTERFACE* card = sd_interface();
+    DISC_INTERFACE* card = sd_interface();
     std::string text;
-    if (!card->readSectors(0, 1, sector)) {
+    if (!card->readSectors(card, 0, 1, sector)) {
         text = "a layout that could not be read (sector 0 did not read)";
     } else {
         const CardVolumeStart start = find_card_volume(sector);
         const bool has_boot_sector = start.scheme == CardVolumeStart::Scheme::Mbr ||
                                      start.scheme == CardVolumeStart::Scheme::NoTable;
-        const bool boot_read = has_boot_sector && card->readSectors(start.first_sector, 1, sector);
+        const bool boot_read = has_boot_sector && card->readSectors(card, start.first_sector, 1, sector);
         text = describe_card_volume(start, boot_read ? sector : nullptr);
     }
     std::free(sector);
@@ -248,7 +248,7 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     // -101" testers' logs show on every d2x slot (a Wii U and a Wii); only
     // a Wii can confirm it. d2x's own SD device is the exception: it stays
     // open, as it carries the game on the card.
-    if (!d2x_driver) sd_interface()->shutdown();
+    if (!d2x_driver) sd_interface()->shutdown(sd_interface());
 
     const s32 first_mount = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
     s32 mounted = first_mount;

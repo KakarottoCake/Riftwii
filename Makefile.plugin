@@ -31,7 +31,7 @@ PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
 CC      := $(PREFIX)gcc
 CXX     := $(PREFIX)g++
 PYTHON  ?= python3
-LIBOGC_INC ?= $(DEVKITPRO)/libogc/include
+LIBOGC_INC ?= $(DEVKITPRO)/libogc2/wii/include
 
 PLUGINS := selftest gamecube ctgpr pads appstore
 .DEFAULT_GOAL := all
@@ -112,7 +112,7 @@ CXXFLAGS := -Os -mcpu=750 -meabi -mhard-float -msdata=none -DGEKKO -DHW_RVL \
             -fno-exceptions -fno-rtti -fno-threadsafe-statics \
             -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
             -fno-stack-protector -fno-common -ffunction-sections -fdata-sections -std=c++17 \
-            -Wall -Wextra -Werror -Iinclude -Iplugins/common -Iruntime -Iruntime/resident -Iruntime/gc \
+            -Wall -Wextra -Werror -Wno-register -Iinclude -Iplugins/common -Iruntime -Iruntime/resident -Iruntime/gc \
             -Ivendor-zstd -I$(LIBOGC_INC)
 ASFLAGS := -mcpu=750 -meabi -mregnames -Wa,-I$(RUNTIME_OUT)
 # Test builds (TEST=1 from Makefile.wii): the GameCube plugin may switch on

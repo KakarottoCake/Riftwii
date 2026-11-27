@@ -218,8 +218,8 @@ bool TestChannelPartitionLayout(std::string& error) {
         std::array<std::uint8_t, 512> source ATTRIBUTE_ALIGN(32);
         const bool mapped = game.fragments.entries.size() == 1 && game.fragments.entries.front().offset == 512 &&
                             game.fragments.entries.front().count == 1;
-        if (!mapped || !sd_interface()->readSectors(game.fragments.entries.front().sector, 1, actual.data()) ||
-            actual != expected || !sd_interface()->readSectors(static_cast<sec_t>(file.front().sector), 1, source.data()) ||
+        if (!mapped || !sd_interface()->readSectors(sd_interface(), game.fragments.entries.front().sector, 1, actual.data()) ||
+            actual != expected || !sd_interface()->readSectors(sd_interface(), static_cast<sec_t>(file.front().sector), 1, source.data()) ||
             source != original) {
             error = "the partition-layout test did not preserve the source or map the replacement header";
             return false;

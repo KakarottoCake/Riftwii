@@ -156,6 +156,9 @@ struct PickedDrive {
     bool known = false;
 };
 PickedDrive g_picked;
+// libogc3 exported the driver's sector size as usb_sector_size(); libogc2 keeps it in the
+// interface, and for a picked drive RiftWii knows it itself.
+u32 usb_sector_size() { return g_picked.open ? g_picked.sector_bytes : __io_usbstorage.bytesPerSector; }
 constexpr u32 kPickedBounce = 32 * 1024;
 
 bool reopen_picked();
@@ -200,14 +203,32 @@ bool picked_read(sec_t sector, sec_t count, void* out) {
          back ? "was opened again (a USB device change, such as a network adapter starting?)" : "is gone");
     return back && picked_read_once(sector, count, out);
 }
-bool picked_yes() { return g_picked.open; }
+bool picked_yes(DISC_INTERFACE*) { return g_picked.open; }
 bool picked_shutdown() {
     if (g_picked.open) USBStorage_Close(&g_picked.handle);
     g_picked.open = false;
     return true;
 }
-const DISC_INTERFACE kPickedIo = {DEVICE_TYPE_WII_USB, FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_USB,
-                                  picked_yes, picked_yes, picked_read, picked_write, picked_yes, picked_shutdown};
+// libogc2's DISC_INTERFACE callbacks take the interface first; its members are const, so the
+// interfaces are built whole rather than patched.
+bool picked_read_io(DISC_INTERFACE*, sec_t sector, sec_t count, void* out) { return picked_read(sector, count, out); }
+bool picked_write_io(DISC_INTERFACE*, sec_t sector, sec_t count, const void* in) { return picked_write(sector, count, in); }
+bool picked_erase_io(DISC_INTERFACE*, sec_t, sec_t) { return false; }
+bool picked_shutdown_io(DISC_INTERFACE*) { return picked_shutdown(); }
+DISC_INTERFACE picked_io() {
+    return DISC_INTERFACE{DEVICE_TYPE_WII_USB,
+                          FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_USB,
+                          picked_yes,
+                          picked_yes,
+                          picked_read_io,
+                          picked_write_io,
+                          picked_erase_io,
+                          picked_yes,
+                          picked_shutdown_io,
+                          g_picked.sectors,
+                          0,
+                          g_picked.sector_bytes};
+}
 
 // libogc's storage driver takes a USB device change reported by IOS as
 // the drive's removal and fails every read from then on: bringing up the
@@ -217,14 +238,18 @@ const DISC_INTERFACE kPickedIo = {DEVICE_TYPE_WII_USB, FEATURE_MEDIUM_CANREAD | 
 bool usb_read_sectors(sec_t sector, sec_t count, void* out) {
     UsbLocked locked;
     if (g_picked.open) return picked_read(sector, count, out);
-    if (__io_usbstorage.readSectors(sector, count, out)) return true;
-    const bool back = __io_usbstorage.isInserted();
+    if (__io_usbstorage.readSectors(&__io_usbstorage, sector, count, out)) return true;
+    const bool back = __io_usbstorage.isInserted(&__io_usbstorage);
     logf("USB: a read of sector %lu failed; the drive %s\n", static_cast<unsigned long>(sector),
          back ? "was opened again (a USB device change, such as a network adapter starting?)" : "is gone");
-    return back && __io_usbstorage.readSectors(sector, count, out);
+    return back && __io_usbstorage.readSectors(&__io_usbstorage, sector, count, out);
 }
-// libfat's usb: goes through the same retry.
-DISC_INTERFACE g_usb_io;
+bool usb_read_sectors_io(DISC_INTERFACE*, sec_t sector, sec_t count, void* out) {
+    return usb_read_sectors(sector, count, out);
+}
+// libfat's usb: goes through the same retry. Built in place by mount_usb: the interface's members are const.
+alignas(DISC_INTERFACE) unsigned char g_usb_io_storage[sizeof(DISC_INTERFACE)];
+DISC_INTERFACE& g_usb_io = *reinterpret_cast<DISC_INTERFACE*>(g_usb_io_storage);
 
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && usb_read_sectors(static_cast<sec_t>(sector), count, out);
@@ -239,7 +264,8 @@ bool d2x_usb_block_read(std::uint64_t sector, std::uint32_t count, std::uint8_t*
 bool sd_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     if (sector > 0xFFFFFFFFull) return false;
     for (int attempt = 1; attempt <= 4; ++attempt) {
-        if (sd_interface()->readSectors(static_cast<sec_t>(sector), count, out)) {
+        const DISC_INTERFACE* sd = sd_interface();
+        if (sd->readSectors(const_cast<DISC_INTERFACE*>(sd), static_cast<sec_t>(sector), count, out)) {
             if (attempt > 1) logf("SD: a read of sector %lu worked on try %d\n", static_cast<unsigned long>(sector), attempt);
             return true;
         }
@@ -298,7 +324,8 @@ bool reopen_picked() {
         if (d.vid != g_picked.vid || d.pid != g_picked.pid) continue;
         usbstorage_handle h{};
         if (USBStorage_Open(&h, d.device_id, d.vid, d.pid) < 0) continue;
-        u32 bytes = 0, sectors = 0;
+        u32 bytes = 0;
+        u64 sectors = 0;
         if (USBStorage_MountLUN(&h, g_picked.lun) >= 0 && USBStorage_ReadCapacity(&h, g_picked.lun, &bytes, &sectors) >= 0 &&
             bytes == g_picked.sector_bytes && sectors == g_picked.sectors &&
             USBStorage_Read(&h, g_picked.lun, 0, 1, g_picked.bounce) >= 0 &&
@@ -331,7 +358,8 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
     struct Candidate {
         usbstorage_handle handle{};
         u8 lun = 0;
-        u32 bytes = 0, sectors = 0;
+        u32 bytes = 0;
+        u64 sectors = 0;
         u16 vid = 0, pid = 0;
         std::uint64_t hash = 0;
         bool games = false;
@@ -349,7 +377,8 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         bool kept = false;
         const s32 luns = std::max<s32>(1, USBStorage_GetMaxLUN(&h));
         for (s32 lun = 0; lun < luns && lun < 8; ++lun) {
-            u32 bytes = 0, sectors = 0;
+            u32 bytes = 0;
+        u64 sectors = 0;
             if (USBStorage_MountLUN(&h, static_cast<u8>(lun)) < 0 ||
                 USBStorage_ReadCapacity(&h, static_cast<u8>(lun), &bytes, &sectors) < 0) {
                 continue;
@@ -460,7 +489,6 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
     g_picked.sector0_hash = c.hash;
     g_picked.known = true;
     g_picked.open = true;
-    __io_usbstorage_sector_size = c.bytes;  // as libogc's driver sets it: the rest reads it
     logf("USB: using drive %04x:%04x%s\n", c.vid, c.pid, c.games ? "" : " (no game folder found on any drive)");
     return true;
 }
@@ -481,7 +509,7 @@ public:
         constexpr std::size_t kBounceBytes = 32 * 1024;
         static std::uint8_t* bounce = nullptr;
         if (bounce == nullptr) bounce = static_cast<std::uint8_t*>(memalign(32, kBounceBytes));
-        const std::uint32_t bytes = __io_usbstorage_sector_size;
+        const std::uint32_t bytes = usb_sector_size();
         if (bounce == nullptr || bytes == 0 || bytes > kBounceBytes) return false;
         while (length > 0) {
             const std::uint64_t sector = offset / bytes;
@@ -502,7 +530,7 @@ public:
 // A drive with sectors other than 512 bytes: a Wii disc burned to a DVD in
 // a USB DVD drive, or nothing RiftWii can use.
 bool open_usb_raw_disc(std::string& error) {
-    const std::uint32_t bytes = __io_usbstorage_sector_size;
+    const std::uint32_t bytes = usb_sector_size();
     const UsbRawDisc disc;
     DiscHeader header;
     std::string why;
@@ -565,11 +593,11 @@ bool ensure_usb(std::string& error) {
         g_usb_started = true;
     } else {
         logf("USB: starting storage\n");
-        if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
+        if (!__io_usbstorage.startup(&__io_usbstorage)) { error = "USB storage did not start (use a powered USB drive)"; return false; }
         g_usb_started = true;
         logf("USB: checking for a device\n");
     }
-    if (!g_picked.open && !__io_usbstorage.isInserted()) {
+    if (!g_picked.open && !__io_usbstorage.isInserted(&__io_usbstorage)) {
         // A DVD drive answers only once its disc has spun up.
         // A LAN adapter lists as storage on IOS 58: only a real drive waits.
         u8 any = 0;
@@ -578,12 +606,12 @@ bool ensure_usb(std::string& error) {
             for (u8 i = 0; i < any && i < 8 && !drive; ++i) drive = is_mass_storage(devices[i]);
         }
         if (drive) {
-            for (int wait = 0; wait < 10 && !__io_usbstorage.isInserted(); ++wait) {
+            for (int wait = 0; wait < 10 && !__io_usbstorage.isInserted(&__io_usbstorage); ++wait) {
                 if (wait == 0) logf("USB: a device is plugged in but not ready; waiting up to 10 s\n");
                 usleep(1000000);
             }
         }
-        if (!__io_usbstorage.isInserted()) { error = "no USB mass-storage device is inserted"; return false; }
+        if (!__io_usbstorage.isInserted(&__io_usbstorage)) { error = "no USB mass-storage device is inserted"; return false; }
     }
     // libfat's mount path performs the interface setup that populates the
     // storage capacity/sector-size state. It fails on NTFS, which is fine:
@@ -594,7 +622,7 @@ bool ensure_usb(std::string& error) {
     // goes straight to the raw read. Only when the sector size is known
     // already: libfat's mount is what finds it otherwise.
     bool wbfs_drive = false;
-    if (!g_libfat_mounted && __io_usbstorage_sector_size == 512) {
+    if (!g_libfat_mounted && usb_sector_size() == 512) {
         // Room for a 4 KiB sector all the same: the size is the driver's
         // word until libfat has asked the drive. Only for this look.
         std::unique_ptr<std::uint8_t, decltype(&std::free)> block0(
@@ -605,13 +633,15 @@ bool ensure_usb(std::string& error) {
     }
     if (!g_libfat_mounted && !wbfs_drive) {
         logf("USB: mounting\n");
-        g_usb_io = g_picked.open ? kPickedIo : __io_usbstorage;
-        g_usb_io.readSectors = usb_read_sectors;
+        const DISC_INTERFACE src = g_picked.open ? picked_io() : __io_usbstorage;
+        new (g_usb_io_storage) DISC_INTERFACE{src.ioType,     src.features,       src.startup,        src.isInserted,
+                                              usb_read_sectors_io, src.writeSectors, src.eraseSectors, src.flush,
+                                              src.shutdown,   src.numberOfSectors, src.sectorsPerBlock, src.bytesPerSector};
         g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
         if (!g_libfat_mounted) logf("USB: libfat cannot mount it (not FAT32); reading it raw\n");
     }
-    logf("USB: %u-byte sectors\n", static_cast<unsigned>(__io_usbstorage_sector_size));
-    if (__io_usbstorage_sector_size != 512) {
+    logf("USB: %u-byte sectors\n", static_cast<unsigned>(usb_sector_size()));
+    if (usb_sector_size() != 512) {
         if (!open_usb_raw_disc(error)) {
             unmount_usb_games();
             return false;
@@ -1180,7 +1210,7 @@ void apply_titles(ImageCatalog& c) {
 // bounded SD remount attempt and restore the caller-selected append log.
 bool restore_sd_and_log(const char* log_path, std::string& error) {
     if (g_sd_back) return true;  // remounted right after the reload; the log is open
-    if (!fatMountSimple("sd", sd_interface())) {
+    if (!fatMountSimple("sd", const_cast<DISC_INTERFACE*>(sd_interface()))) {
         error += "; additionally could not remount SD after IOS reload";
         return false;
     }
@@ -1231,7 +1261,7 @@ bool slot_title_is_launchable(int slot, std::string& why) {
                                                          std::free);
     if (!g_tmd_view) return true;  // no evidence the slot is bad
     std::memset(g_tmd_view.get(), 0, kTmdViewBytes);
-    const s32 got = ES_GetTMDView(title, g_tmd_view.get(), size);
+    const s32 got = ES_GetTMDView(title, reinterpret_cast<u8*>(g_tmd_view.get()), size);
     if (got < 0) {
         why = "title metadata unreadable (ES " + std::to_string(got) + ")";
         return false;
@@ -1325,7 +1355,7 @@ bool prepare_channel_partition_layout(ImageGame& game, std::string& error) {
     }
     // USB DVDs use 2048-byte drive sectors for both reads and fragment
     // offsets. This header overlay supports only 512-byte sectors.
-    if (game.device == ImageDevice::Usb && __io_usbstorage_sector_size != 512) {
+    if (game.device == ImageDevice::Usb && usb_sector_size() != 512) {
         error = "the channel's replacement disc header needs 512-byte USB sectors";
         return false;
     }
@@ -1796,7 +1826,6 @@ bool write_usb_file_range(const std::string& path, std::uint64_t offset, const s
         offset > file.entry.size || length > file.entry.size - offset) return false;
     // Only file data is changed. Allocation tables and directory entries stay
     // intact, as for the runtime's card writes through these same extents.
-    const DISC_INTERFACE& io = g_picked.open ? kPickedIo : __io_usbstorage;
     std::uint8_t buffer[8192] ATTRIBUTE_ALIGN(32);
     std::uint64_t file_offset = 0;
     for (const Fragment& fragment : file.fragments) {
@@ -1812,7 +1841,9 @@ bool write_usb_file_range(const std::string& path, std::uint64_t offset, const s
             const std::uint64_t sector = fragment.sector + inside / 512;
             if (sector > 0xffffffffu || bytes / 512 > 0x100000000ull - sector) return false;
             std::memcpy(buffer, data, bytes);
-            if (!io.writeSectors(static_cast<sec_t>(sector), bytes / 512, buffer)) return false;
+            const bool wrote = g_picked.open ? picked_write(static_cast<sec_t>(sector), bytes / 512, buffer)
+                                             : __io_usbstorage.writeSectors(&__io_usbstorage, static_cast<sec_t>(sector), bytes / 512, buffer);
+            if (!wrote) return false;
             data += bytes;
             length -= bytes;
             offset += bytes;
@@ -2479,7 +2510,7 @@ void unmount_usb_games() {
 void release_usb_driver() {
     unmount_usb_games();
     if (g_picked.open) picked_shutdown();
-    else if (g_usb_started) __io_usbstorage.shutdown();
+    else if (g_usb_started) __io_usbstorage.shutdown(&__io_usbstorage);
     g_usb_started = false;
 }
 
@@ -2559,7 +2590,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
         const std::string released = release_for_reload();
         const ReloadResult r = reload_ios(slot, error, true);
         if (r == ReloadResult::Terminal) return false;
-        g_sd_back = fatMountSimple("sd", sd_interface());
+        g_sd_back = fatMountSimple("sd", const_cast<DISC_INTERFACE*>(sd_interface()));
         if (g_sd_back && log_path) LogOpen(log_path, true);
         log_release_heap(released);
         if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) {
@@ -2743,7 +2774,7 @@ bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_
     if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) return post_reload_failure(log_path, error);
     const s32 running = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
-    g_sd_back = fatMountSimple("sd", sd_interface());
+    g_sd_back = fatMountSimple("sd", const_cast<DISC_INTERFACE*>(sd_interface()));
     if (g_sd_back) {
         if (log_path) LogOpen(log_path, true);
         else LogReopen();  // the log the launch was writing
@@ -2874,7 +2905,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // An RVZ game's disc is its stub, on the card (prepare_rvz_launch).
     const ImageDevice disc_device = rvz ? ImageDevice::Sd : game.device;
     if (disc_device == ImageDevice::Sd) use_d2x_sd(true);
-    g_sd_back = fatMountSimple("sd", sd_interface());
+    g_sd_back = fatMountSimple("sd", const_cast<DISC_INTERFACE*>(sd_interface()));
     if (g_sd_back && log_path) LogOpen(log_path, true);
     log_release_heap(released);
     logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
