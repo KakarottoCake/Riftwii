@@ -116,6 +116,10 @@ private:
     float arrowLift[2] = {};
     int hoverArrow = 0;
     int textFirst = -1;
+    // Each shown row's stepper: the room between its arrows (kChipW, or on
+    // cards as much as its value needs), set with the rows' texts.
+    int stepperMiddle[kMaxVisible + 1] = {};
+    int StepperWidth(int row) const;
     bool dirty = true;
     bool cards = false;
     bool keysActive = true;
