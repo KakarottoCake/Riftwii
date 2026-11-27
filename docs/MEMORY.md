@@ -184,10 +184,12 @@ So the line must never be left to chance. `Makefile.wii` links
 `wii/core/mem1tail.o` after every library, which makes Home's 128 KiB
 scan stack the last thing in `.bss`, and `tools/check_mem1_line.py` fails
 the build unless the line is at least 4 KiB inside it. A stack needs no
-starting contents and that thread starts long after `SYS_Init`. The stack
-begins about 96 KiB below the line, so `.bss` can grow by that much
-before the check fails; then the stack's file must hold more of
-RiftWii's start-up-free buffers.
+starting contents and that thread starts long after `SYS_Init`. Every
+byte added before the stack moves it up, so the stack's file also holds
+the Wii Menu music thread's 32 KiB stack after it: by November 2611 the
+line was only 0x6C0 bytes into the scan stack, and moving the music stack
+there gave back about 30 KiB of room. When the check fails again, move
+another buffer that needs nothing before `main` into that file.
 
 ### Where the stash may load
 

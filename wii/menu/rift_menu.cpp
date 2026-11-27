@@ -72,6 +72,7 @@
 #include "bannersound.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/offlinegames.hpp"
+#include "riftwii/miidb.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/homeorder.hpp"
 #include "riftwii/bnr.hpp"
@@ -6363,6 +6364,239 @@ static std::string EmulatedNandTitleLabel(const riftwii::wii::EmuNandTitle& titl
 	return title.name.empty() ? riftwii::emunand_title_code(title.id) : title.name;
 }
 
+// What can be done with one Mii of the Miis page: copied to the other
+// side, or (from the emulated NAND only) taken out. True when it changed.
+static bool MenuOneMii(const std::string& folder, const std::string& name, std::size_t slot, bool onWii)
+{
+	using namespace riftwii::wii;
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	std::vector<MiiChange> changes;
+	const auto add = [&](const std::string& label, const std::string& note, MiiChange change) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = label;
+		row.opens = true;  // each asks first
+		rows.push_back(row);
+		help.push_back(note);
+		changes.push_back(change);
+	};
+	if (onWii) {
+		add(tr("Copy to the emulated NAND"), tr("Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."),
+			MiiChange::CopyToEmulated);
+	} else {
+		add(tr("Copy to the Wii"), tr("Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."),
+			MiiChange::CopyToWii);
+		add(tr("Remove from the emulated NAND"), tr("Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."),
+			MiiChange::RemoveFromEmulated);
+	}
+	bool changed = false;
+	EmulatorRowsPage(FlatCapped(name, 32), rows, help, [&](int clicked, int) {
+		const MiiChange change = changes[static_cast<std::size_t>(clicked)];
+		const std::string& label = rows[static_cast<std::size_t>(clicked)].label;
+		// Every change asks first (a copy may replace an older one). Into the
+		// Wii's own memory, or out of the emulated NAND: the safe answer is
+		// the lit one, as for the other changes to a NAND.
+		if (change == MiiChange::CopyToEmulated) {
+			if (ShowPopup(label, tr("{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.", {name}), tr("Copy"), tr("Cancel")) != 0) return false;
+		} else if (change == MiiChange::CopyToWii) {
+			if (ShowPopupSafeFirst(label, tr("This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.", {name}),
+				tr("Cancel"), tr("Write to Wii")) != 1) return false;
+		} else if (change == MiiChange::RemoveFromEmulated) {
+			if (ShowPopupSafeFirst(label, tr("{1} is taken out of the emulated NAND. A backup of its Miis is kept first.", {name}),
+				tr("Cancel"), tr("Remove")) != 1) return false;
+		}
+		bool ok = false;
+		std::string error;
+		{
+			const CardWriteHold hold;
+			PopupBox box(tr("Miis"), tr("Working..."), {}, {});
+			ResumeGui();
+			ok = emunand_manager_change_mii(folder, change, slot, error);
+			HaltGui();
+		}
+		if (!ok) {
+			ShowPopup(label, tr("The Mii could not be changed. See session.log for the reason."), tr("OK"));
+			return false;
+		}
+		changed = true;
+		return true;  // back to the Miis page, which reads both sides again
+	});
+	return changed;
+}
+
+// Manage emulated NAND > a folder > Miis: the Wii's Miis on the left and
+// the emulated NAND's on the right, as a two-pane file manager shows two
+// folders (a tester's idea), each A to Z. A on a Mii opens what can be done
+// with it; the first row of each side copies all of them, as Miis from Wii
+// and Miis to Wii did. Left and Right go to the other side.
+static void MenuEmulatedNandMiis(const std::string& folder)
+{
+	using namespace riftwii::wii;
+	std::vector<std::uint8_t> wiiDb, emulatedDb;
+	std::vector<riftwii::MiiEntry> miis[2];
+	std::vector<FlowRow> rows[2];
+	std::vector<std::string> help[2];
+	const auto read = [&] {
+		std::string error;
+		bool ok = false;
+		{
+			PopupBox box(tr("Miis"), tr("Reading Miis..."));
+			ResumeGui();
+			ok = emunand_manager_read_miis(folder, wiiDb, emulatedDb, error);
+			HaltGui();
+		}
+		if (!ok) {
+			logf("Emulated NAND: the Miis for %s could not be read because %s.\n", folder.c_str(), error.c_str());
+			ShowPopup(tr("Miis"), tr("The Miis could not be read. See session.log for the reason."), tr("OK"));
+			return false;
+		}
+		miis[0] = riftwii::mii_db_list(wiiDb);
+		miis[1] = riftwii::mii_db_list(emulatedDb);
+		for (int side = 0; side < 2; ++side) {
+			std::stable_sort(miis[side].begin(), miis[side].end(), [](const riftwii::MiiEntry& a, const riftwii::MiiEntry& b) {
+				return riftwii::sort_name_less(a.name, b.name);
+			});
+			rows[side].clear();
+			help[side].clear();
+			FlowRow all;
+			all.kind = FlowRow::Kind::Action;
+			// Short: half a page wide. The help line says which way it goes.
+			all.label = tr("Copy all");
+			all.opens = true;
+			all.dim = miis[side].empty();
+			rows[side].push_back(all);
+			help[side].push_back(side == 0 ? tr("Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first.")
+			                               : tr("Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."));
+			for (const riftwii::MiiEntry& mii : miis[side]) {
+				FlowRow row;
+				row.kind = FlowRow::Kind::Action;
+				row.label = mii.name.empty() ? tr("(no name)") : mii.name;
+				row.opens = true;
+				rows[side].push_back(row);
+				help[side].push_back(side == 0 ? tr("A Mii on the Wii. Press A to copy it to the emulated NAND.")
+				                               : tr("A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."));
+			}
+			if (miis[side].empty()) {
+				FlowRow none;
+				none.label = tr("No Miis");
+				rows[side].push_back(none);
+				help[side].push_back(side == 0 ? tr("The Wii has no Miis.") : tr("The emulated NAND has no Miis yet."));
+			}
+		}
+		return true;
+	};
+	if (!read()) return;
+
+	const PageBounds page{};
+	constexpr int kColumnGap = 16;
+	const int half = (page.Width() - kColumnGap) / 2;
+	const int columnX[2] = {page.left, page.left + half + kColumnGap};
+	GuiText titleTxt(tr("Miis"), 30, skin::kInk);
+	Place(titleTxt, page.left + 38, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconGear, page.left);
+	GuiText wiiHead(tr("On the Wii"), 16, skin::kInkSoft);
+	GuiText emulatedHead(tr("In the emulated NAND"), 16, skin::kInkSoft);
+	GuiText* heads[2] = {&wiiHead, &emulatedHead};
+	GuiFlowList wiiList(columnX[0], 108, half, 4);
+	GuiFlowList emulatedList(columnX[1], 108, half, 4);
+	GuiFlowList* lists[2] = {&wiiList, &emulatedList};
+	for (int side = 0; side < 2; ++side) {
+		Place(*heads[side], columnX[side] + 4, 84);
+		heads[side]->SetMaxWidth(half - 8);
+		lists[side]->SetCards(true);
+		lists[side]->SetRows(&rows[side]);
+		lists[side]->Select(0);
+	}
+	int active = 0;
+	emulatedList.SetKeysActive(false);
+	NoteCard noteCard(page.left);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, page.left + 36, NoteCard::kTextY);
+	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	SkinButton leftBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT, PAD_BUTTON_LEFT, WIIDRC_BUTTON_LEFT);
+	SkinButton rightBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT, PAD_BUTTON_RIGHT, WIIDRC_BUTTON_RIGHT);
+	HideButton(backBtn);
+	HideButton(leftBtn);
+	HideButton(rightBtn);
+	GuiPrompts prompts;
+	prompts.Add("B", tr("Back"));
+	const int choose = prompts.Add("A", tr("Open"));
+	prompts.Add("D-pad", tr("Other side"));
+	prompts.SetRightEdge(page.right);
+	GuiWindow window(screenwidth, screenheight);
+	window.Append(&titleBand);
+	window.Append(&pageIcon);
+	window.Append(&titleTxt);
+	for (int side = 0; side < 2; ++side) {
+		window.Append(heads[side]);
+		window.Append(lists[side]);
+	}
+	window.Append(&noteCard);
+	window.Append(&noteTxt);
+	window.Append(&backBtn.button);
+	window.Append(&leftBtn.button);
+	window.Append(&rightBtn.button);
+	window.Append(&prompts);
+	mainWindow->Append(&window);
+	ResumeGui();
+	const auto activate = [&](int side) {
+		active = side;
+		lists[0]->SetKeysActive(side == 0);
+		lists[1]->SetKeysActive(side == 1);
+	};
+	while (true) {
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button, &leftBtn.button, &rightBtn.button});
+		if (backBtn.Clicked() || ExitRequested) break;
+		if (leftBtn.Clicked()) activate(0);
+		if (rightBtn.Clicked()) activate(1);
+		leftBtn.button.ResetState();
+		rightBtn.button.ResetState();
+		int clicked = -1;
+		for (int side = 0; side < 2; ++side) {
+			lists[side]->GetClickedBack();
+			const int row = lists[side]->GetClicked();
+			if (row >= 0) {
+				activate(side);  // the pointer chose this side
+				clicked = row;
+			}
+		}
+		const int focused = lists[active]->Selected();
+		const auto& shownRows = rows[active];
+		if (focused >= 0 && static_cast<std::size_t>(focused) < help[active].size())
+			noteTxt.SetText(help[active][static_cast<std::size_t>(focused)].c_str());
+		prompts.SetShown(choose, focused >= 0 && static_cast<std::size_t>(focused) < shownRows.size() &&
+			shownRows[static_cast<std::size_t>(focused)].kind == FlowRow::Kind::Action && !shownRows[static_cast<std::size_t>(focused)].dim);
+		if (clicked < 0 || static_cast<std::size_t>(clicked) >= shownRows.size() ||
+			shownRows[static_cast<std::size_t>(clicked)].dim || shownRows[static_cast<std::size_t>(clicked)].kind != FlowRow::Kind::Action) {
+			ResumeGui();
+			continue;
+		}
+		mainWindow->Remove(&window);
+		bool changed = false;
+		if (clicked == 0) {
+			// The whole list, as before: the emulated NAND manager's own action.
+			changed = RunEmulatedNandAction(folder, active == 0 ? EmuNandAction::MiisToEmulated : EmuNandAction::MiisToWii, 0,
+				shownRows[0].label);
+		} else {
+			const riftwii::MiiEntry& mii = miis[active][static_cast<std::size_t>(clicked - 1)];
+			changed = MenuOneMii(folder, shownRows[static_cast<std::size_t>(clicked)].label, mii.slot, active == 0);
+		}
+		if (changed && !read()) break;
+		mainWindow->Append(&window);
+		for (int side = 0; side < 2; ++side) lists[side]->Refresh();
+		ResumeGui();
+	}
+	mainWindow->Remove(&window);
+}
+
 static void MenuEmulatedNandFolder(const std::string& folder)
 {
 	using namespace riftwii::wii;
@@ -6392,8 +6626,8 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			return false;
 		}
 		// The bounded title list determines the space needed for rows,
-		// their help and the mapping past the three tools and five headers.
-		const std::size_t rowCount = titles.size() + 8;
+		// their help and the mapping past the two tools and five headers.
+		const std::size_t rowCount = titles.size() + 7;
 		if (!riftwii::try_reserve(rows, rowCount) || !riftwii::try_reserve(help, rowCount) ||
 			!riftwii::try_reserve(rowTitles, rowCount)) {
 			ShowPopup(tr("Emulated NAND"), tr("There is not enough free memory."), tr("OK"));
@@ -6408,8 +6642,7 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 			help.push_back(note);
 			rowTitles.push_back(-1);
 		};
-		add(tr("Miis from Wii"), folder);
-		add(tr("Miis to Wii"), folder);
+		add(tr("Miis"), tr("The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."));
 		add(tr("Remove Wii settings"), tr("SYSCONF: {1}; setting.txt: {2}",
 			{sysconf ? tr("Present") : tr("Missing"), settings ? tr("Present") : tr("Missing")}));
 		struct Group {
@@ -6475,9 +6708,10 @@ static void MenuEmulatedNandFolder(const std::string& folder)
 	};
 	if (!build()) return;
 	EmulatorRowsPage(tr("Emulated NAND"), rows, help, [&](int clicked, int) {
-		if (clicked < 3) {
-			const EmuNandAction actions[] = {EmuNandAction::MiisToEmulated, EmuNandAction::MiisToWii, EmuNandAction::RemoveSettings};
-			RunEmulatedNandAction(folder, actions[clicked], 0, rows[static_cast<std::size_t>(clicked)].label);
+		if (clicked == 0) {
+			MenuEmulatedNandMiis(folder);
+		} else if (clicked == 1) {
+			RunEmulatedNandAction(folder, EmuNandAction::RemoveSettings, 0, rows[1].label);
 		} else {
 			// Copy the entry: refreshing this page invalidates the listing.
 			const int titleIndex = rowTitles[static_cast<std::size_t>(clicked)];

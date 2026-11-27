@@ -285,7 +285,7 @@ void GuiFlowList::Draw() {
     if (cards) Menu_Scissor(x0 - kCardShadow, y0, rowWidth + 2 * kCardShadow, boxH);
     else Menu_Scissor(x0, y0, rowWidth + 1, boxH);
 
-    const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
+    const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() || !keysActive ? -1 : focus);
     const int right = ControlsRight();
     // The highlight glides to the lit row, and fades in or out when there
     // is none (the pointer off the list).
@@ -594,6 +594,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
     if (AnyPointer()) return;
     hover = -1;
     hoverArrow = 0;
+    if (!keysActive) return;
     int target = focus;
     if (t->Down()) target = focus + 1;
     else if (t->Up()) target = focus - 1;
