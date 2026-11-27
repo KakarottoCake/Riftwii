@@ -129,10 +129,11 @@ bool code_with_patches(const std::vector<CodeRange>& text, const std::vector<Cod
 // PADRead to start from: the one-store reset (a flag cleared, 1 returned,
 // the flag r13- or lis-based) that the Wii Remote library calls, from
 // within 64 KiB of `wpad_probe`. Clearing it keeps the picture on, as the
-// ports' reset does in games that read GameCube controllers. 0 when none,
-// or two different ones, are called there; and 0 as unsupported (not
-// ambiguous) when the one found is called fewer than twice from within that
-// reach, or from anywhere outside it.
+// ports' reset does in games that read GameCube controllers. Of the resets
+// called from within that reach, the one called there at least twice and
+// from nowhere outside it; a reset called there only once (the Reset
+// button's, the 2006 KPAD's) is not the library's and is left out. 0 when
+// none is, or two are.
 std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std::uint32_t wpad_probe);
 
 // KPADEnableDPD(chan), which sets KPAD's camera switch for a channel, and

@@ -2011,14 +2011,60 @@ static void TestRemotesIdleReset() {
     std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
     EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), remotes);
     EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, 0), 0u);
-    // The library calling two different resets: not guessed.
+    // A second reset called once near WPADProbe (the Reset button's in
+    // Metroid: Other M and Punch-Out!!, the 2006 KPAD's in WarioWare: Smooth
+    // Moves and Rayman Raving Rabbids): not the library's, so the one it
+    // calls twice is still taken.
     Asm two = a;
     two.prologue();
     two.bl(lis_form);
     two.blr();
     code = two.bytes();
     text = {{two.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), remotes);
+    // The same with the once-called one an r13 reset right after the
+    // library's (the 2006 shape: two resets 16 bytes apart).
+    Asm kpad2006{0x80200000u, {}};
+    kpad2006.blr();
+    const std::uint32_t library_reset = idle_reset_function(kpad2006, -0x4F34, false);
+    const std::uint32_t pointer_reset = idle_reset_function(kpad2006, -0x4F38, false);
+    const std::uint32_t probe_2006 = kpad2006.here();
+    kpad2006.prologue();
+    kpad2006.bl(pointer_reset);
+    kpad2006.op(0x60000000u);
+    kpad2006.bl(library_reset);
+    kpad2006.op(0x60000000u);
+    kpad2006.bl(library_reset);
+    kpad2006.blr();
+    code = kpad2006.bytes();
+    text = {{kpad2006.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe_2006), library_reset);
+    // Two resets each called twice there: not guessed.
+    Asm both = two;
+    both.prologue();
+    both.bl(lis_form);
+    both.blr();
+    code = both.bytes();
+    text = {{both.base, code.data(), code.size()}};
     EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), 0u);
+    // A once-called second reset alongside one the game also calls from far
+    // away: neither is the library's, so none.
+    Asm far_two{0x80200000u, {}};
+    const std::uint32_t far_two_reset = idle_reset_function(far_two, -0x6034, false);
+    const std::uint32_t far_two_once = idle_reset_function(far_two, -0x6038, false);
+    const std::uint32_t probe5 = far_two.here();
+    far_two.prologue();
+    far_two.bl(far_two_reset);
+    far_two.op(0x60000000u);
+    far_two.bl(far_two_reset);
+    far_two.op(0x60000000u);
+    far_two.bl(far_two_once);
+    far_two.blr();
+    while (far_two.here() < probe5 + 0x10010) far_two.op(0x60000000u);
+    far_two.bl(far_two_reset);
+    code = far_two.bytes();
+    text = {{far_two.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe5), 0u);
     // ... but the lis form alone is taken.
     Asm lis_only{0x80200000u, {}};
     const std::uint32_t lone = lis_only.here();

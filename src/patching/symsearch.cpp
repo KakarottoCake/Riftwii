@@ -655,43 +655,60 @@ std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std
     // Remotes' one on each report (LEGO Star Wars III: 0x8080B700 from
     // 0x807C1578 and 0x807C35F8, WPADProbe at 0x807C3A10; Kamen Rider:
     // Dragon Knight: 0x8026C520 from 0x8026F988 and 0x80271864, WPADProbe
-    // at 0x80271CB0). One such target, or none.
+    // at 0x80271CB0).
     constexpr std::uint32_t kWpadReach = 0x10000;
-    std::uint32_t found = 0;
+    const auto within_reach = [&](std::uint32_t at) {
+        return at + kWpadReach >= wpad_probe && at <= wpad_probe + kWpadReach;
+    };
+    std::vector<std::uint32_t> candidates;
     for (const CodeRange& r : text) {
         if (r.bytes == nullptr) continue;  // a range with no bytes behind it (CodeRabbit on #616)
         const std::size_t words = r.size / 4;
         for (std::size_t i = 0; i < words; ++i) {
             const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
-            if (at + kWpadReach < wpad_probe || at > wpad_probe + kWpadReach) continue;
+            if (!within_reach(at)) continue;
             const std::uint32_t w = be32(r.bytes + i * 4);
             if (!is_bl(w)) continue;
             const std::uint32_t target = bl_target(at, w);
             if (!one_store_reset(text, target)) continue;
-            if (found != 0 && found != target) return 0;  // two: not guessed
-            found = target;
+            if (std::find(candidates.begin(), candidates.end(), target) == candidates.end())
+                candidates.push_back(target);
         }
     }
-    if (found == 0) return 0;
-    // It must be the Wii Remote library's own: called from inside it (near
-    // WPADProbe) at least twice, and from nowhere else, as in every one of
-    // 32 dumped games that have it (two calls each, both there). A game
-    // helper of the same shape that the window happens to reach is called
-    // from the game's own code too (CodeRabbit on #609).
-    unsigned near = 0;
-    for (const CodeRange& r : text) {
-        if (r.bytes == nullptr) continue;
-        const std::size_t words = r.size / 4;
-        for (std::size_t i = 0; i < words; ++i) {
-            const std::uint32_t w = be32(r.bytes + i * 4);
-            if (!is_bl(w)) continue;
-            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
-            if (bl_target(at, w) != found) continue;
-            if (at + kWpadReach < wpad_probe || at > wpad_probe + kWpadReach) return 0;
-            ++near;
+    // The one that is the Wii Remote library's own: called from inside it
+    // (near WPADProbe) at least twice, and from nowhere else, as in every
+    // one of 32 dumped games that have it (two calls each, both there). A
+    // game helper of the same shape that the window happens to reach is
+    // called from the game's own code too (CodeRabbit on #609). The window
+    // often reaches a second reset that is called once: the console's own
+    // Reset button's (lis form; Metroid: Other M, Punch-Out!!) or the 2006
+    // KPAD's for a moved pointer (WarioWare: Smooth Moves, Rayman Raving
+    // Rabbids). Either clears a flag the same dimming check reads, but it
+    // isn't the library's, so it's left out rather than ending the search.
+    // One such reset, or none (two: not guessed).
+    std::uint32_t found = 0;
+    for (const std::uint32_t candidate : candidates) {
+        unsigned near = 0;
+        bool called_from_outside = false;
+        for (const CodeRange& r : text) {
+            if (r.bytes == nullptr) continue;
+            const std::size_t words = r.size / 4;
+            for (std::size_t i = 0; i < words && !called_from_outside; ++i) {
+                const std::uint32_t w = be32(r.bytes + i * 4);
+                if (!is_bl(w)) continue;
+                const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+                if (bl_target(at, w) != candidate) continue;
+                if (within_reach(at))
+                    ++near;
+                else
+                    called_from_outside = true;
+            }
         }
+        if (called_from_outside || near < 2) continue;
+        if (found != 0) return 0;
+        found = candidate;
     }
-    return near >= 2 ? found : 0;
+    return found;
 }
 
 namespace {
