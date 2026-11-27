@@ -3811,7 +3811,9 @@ static int PickHomeLayout()
 }
 
 // Home's order picked on Home: saved as Settings > Home > Home order would.
-static bool ChangeHomeSort(const std::string& sort, int focus, bool sdGone, Toast& toast)
+// Home then sorts its tiles again in place, keeping the same game focused
+// (by what it is, not where it was: the new order moves it).
+static bool ChangeHomeSort(const std::string& sort, bool sdGone, Toast& toast)
 {
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	const std::string before = settings.home_sort;
@@ -3829,10 +3831,8 @@ static bool ChangeHomeSort(const std::string& sort, int focus, bool sdGone, Toas
 	}
 	logf("Home: order %s (Layout button)\n", sort.c_str());
 	g_focusRestored = true;
-	g_homeFocus = focus;
 	SetHomeNotice(std::string(tr("Home order")) + ": " + HomeSortName(sort));
 	g_homeNoticeShown = true;
-	transition::Hold(transition::Kind::Fade);
 	return true;
 }
 
@@ -9084,10 +9084,15 @@ static int MenuSource(FrontendState& state)
 				continue;
 			}
 			const int picked = PickHomeLayout();
-			const bool changed = picked >= 6
-				? ChangeHomeSort(kHomeSorts[picked - 6], grid.FocusedIndex(), g_sdGone, toast)
-				: picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button", grid.FocusedIndex(), g_sdGone, toast);
-			if (changed) {
+			if (picked >= 6) {
+				const std::string focused = focusedTile();
+				if (ChangeHomeSort(kHomeSorts[picked - 6], g_sdGone, toast)) {
+					refresh(true);
+					const int at = findTile(focused);
+					if (at >= 0) grid.Focus(at);
+				}
+			} else if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button", grid.FocusedIndex(),
+				g_sdGone, toast)) {
 				rebuildingHome = true;
 				menu = MENU_SOURCE;
 			}
