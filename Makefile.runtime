@@ -139,7 +139,8 @@ PADNOHOME := $(OUT)/riftwii_padn.bin $(OUT)/riftwii_padan.bin $(OUT)/riftwii_pad
 # Wii Remote, -DRT_PAD_FORM_POINTING for the pointing Wii Remote).
 # The stand-in's layer headers (rtgcwii.h includes them): every object that
 # includes rtgcwii.h depends on these too, or a field moved in one of them
-# leaves an object reading the old layout.
+# leaves an object reading the old layout (Super Mario Galaxy 2's Nunchuk
+# was never told: the restructure's own review build).
 STANDIN_HEADERS := runtime/rtslot.h runtime/rtsrc.h runtime/rtshape.h runtime/rtdeliver.h
 define PAD_STANDIN_BLOB
 $(OUT)/$(1):
@@ -172,10 +173,10 @@ $(OUT)/$(1)/rtsrc.o: runtime/rtsrc.c runtime/rtsrc.h runtime/rthome.h | $(OUT)/$
 $(OUT)/$(1)/rtshape.o: runtime/rtshape.c runtime/rtshape.h runtime/rtsrc.h runtime/rthome.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
-$(OUT)/$(1)/rtdeliver.o: runtime/rtdeliver.c runtime/rtdeliver.h | $(OUT)/$(1)
+$(OUT)/$(1)/rtdeliver.o: runtime/rtdeliver.c runtime/rtdeliver.h runtime/rtshape.h runtime/rtsrc.h runtime/rthome.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
-$(OUT)/$(1)/rtgcwii.o: runtime/rtgcwii.c runtime/rtgcwii.h $(STANDIN_HEADERS) runtime/rthome.h | $(OUT)/$(1)
+$(OUT)/$(1)/rtgcwii.o: runtime/rtgcwii.c runtime/rtgcwii.h runtime/rtslot.h runtime/rtsrc.h runtime/rtshape.h runtime/rtdeliver.h runtime/rthome.h | $(OUT)/$(1)
 	$(CC) $(CFLAGS) -DRT_PAD_STANDIN $(4) -c -o $$@ $$<
 
 $(OUT)/$(1)/rtrestart.o: runtime/rtrestart.c runtime/rtrestart.h | $(OUT)/$(1)
@@ -342,8 +343,13 @@ $(PADSIZES): $(PADBUILDS) Makefile.runtime
 	   echo '}'; } > $@.tmp && mv $@.tmp $@
 
 .PHONY: all clean
+# The pads plugin's copies of the pad builds, each a zstd frame (with its
+# size): fourteen builds outgrew the plugin arena as plain bytes, and pack
+# to about half (plugins/pads/padsblobs.S).
+PADZST := $(patsubst %.bin,%.zst,$(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSTANDIN))
+
 all: $(BLOB) $(PADBLOB) $(PADABLOB) $(PADPBLOB) $(PADNOHOME) $(PADSTANDIN) $(PADSIZES) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(WLOGTRACEBLOB) $(WLOGTRANSLATEBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
-     $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK) $(STUBBLOB)
+     $(GCRVZBLOB) $(GCRVZZST) $(PADZST) $(DOLPACK) $(STUBBLOB)
 
 $(DPOUT):
 	mkdir -p $@

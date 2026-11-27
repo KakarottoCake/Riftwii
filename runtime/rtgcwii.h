@@ -47,6 +47,35 @@ struct rtgcwii {
      * kpad_dpd_offset, 0: not found (the pointer shows only after the
      * C-stick moves). Loader-filled. */
     uint32_t kpad_dpd, kpad_dpd_stride, kpad_dpd_offset;
+    /* A 2006 KPAD game's WPADGetInfoAsync callback, answered for the
+     * stand-in and told at the game's next KPAD read on that channel (as a
+     * real Wii Remote's answer comes later), 0: none waiting. */
+    uint32_t info_callback[RTGCWII_CHANNELS];
+    /* 1: a 2006 KPAD game, whose WPADGetInfoAsync on the stand-in's channel
+     * gets the stand-in's info (pad_on_info); 0: a later game, where it is
+     * busy (-2), so a blocking WPADGetInfo (Mario Strikers Charged's, after
+     * its title) returns at once instead of sleeping for a reply only a real
+     * Wii Remote sends; the game skips its battery check. Loader-filled. */
+    uint32_t info_answers;
+    /* The 2006 WPAD's connect callbacks (its games have no KPAD-level
+     * one): the table of the channels' control blocks and the callback's
+     * place in one, 0: none. Loader-filled. */
+    uint32_t wpad_connect_table, wpad_connect_offset;
+    /* The stand-in below KPAD (the Wii Remote forms), for a game that reads
+     * WPAD itself (Punch-Out!!: WPADRead into its own pad manager): the data
+     * format the game last asked for on each channel (WPADSetDataFormat,
+     * answered for the stand-in), 0 until it asks. */
+    uint32_t format[RTGCWII_CHANNELS];
+    /* wpad_connect_table is the later WPAD's (find_wpad_connect_later): the
+     * game's sleeps read the pads for the stand-in only while the game
+     * itself is quiet (rtslot_quiet_due, pad_hook.c's pad_reads_at_sleep).
+     * Loader-filled. */
+    uint32_t wpad_connect_later;
+    /* WPAD's extension callbacks (the game's, WPADSetExtensionCallback):
+     * the table of the channels' control blocks and the callback's place in
+     * one (just before the connect callback's), 0: none. Told the stand-in's
+     * attachment after its "connected" (pad_tell_extension). Loader-filled. */
+    uint32_t wpad_ext_table, wpad_ext_offset;
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
@@ -121,10 +150,31 @@ int rtgcwii_should_read(struct rtgcwii* w, uint32_t now, uint32_t ticks_per_ms);
  * else the game's. */
 void rtgcwii_read_by(struct rtgcwii* w, uint32_t now, int own);
 
+/* The stand-in's raw status on `channel` (the Wii Remote forms) into `out`,
+ * for a game that reads WPAD itself: its form's buttons and acceleration
+ * and, while the camera is on (KPAD's switch, `kpad_camera`, or a data
+ * format with the camera that the game asked for), the pointer as the two
+ * dots; exactly as long as the data format the game asked for (WPADRead
+ * copies that format's size). Returns the bytes written, 0 (none) where the
+ * stand-in isn't on. In the Classic Controller form it writes nothing. */
+uint32_t rtgcwii_wpad_status(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t now, int kpad_camera);
+
+/* KPADGetUnifiedWpadStatus's raw samples for the stand-in's channel, newest
+ * first: `count` entries of `entry_bytes` (the raw report, then its data
+ * format in the entry's last-but-one byte), each `sample_ticks` older than
+ * the one before, so a shake swings through them as a real Wii Remote's
+ * samples do (Donkey Kong Country Returns' "shake to start" reads these,
+ * not KPAD's statuses). In the Nunchuk form they always carry the
+ * Nunchuk's part, as a real one's do. 0 when the channel isn't the
+ * stand-in's (nothing written). */
+uint32_t rtgcwii_unified(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t entry_bytes, uint32_t count,
+                         uint32_t now, uint32_t sample_ticks, int kpad_camera);
+
 /* --- The layers' names as the hooks and tests knew them before the
  * restructure. */
 #define RTGCWII_NO_ERROR RTSLOT_NO_ERROR
 #define RTGCWII_EMPTY_READS RTSLOT_EMPTY_READS
+#define RTGCWII_RETELLS RTSLOT_RETELLS
 #define rtgcwii_probed(w, channel, result) rtslot_probed(&(w)->slot, (channel), (result))
 #define rtgcwii_probe_count(w, channel) rtslot_probe_count(&(w)->slot, (channel))
 #define rtgcwii_real_check_due(w, now, ticks_per_ms) rtslot_real_check_due(&(w)->slot, (now), (ticks_per_ms))
@@ -137,6 +187,10 @@ void rtgcwii_read_by(struct rtgcwii* w, uint32_t now, int own);
 #define rtgcwii_still_told(w, channel) rtslot_still_told(&(w)->slot, (channel))
 #define rtgcwii_next_change(w, skip, keep, channel, reason) rtslot_next_change(&(w)->slot, (skip), (keep), (channel), (reason))
 #define rtgcwii_kpad_read(w, channel, result, error, now) rtslot_kpad_read(&(w)->slot, (channel), (result), (error), (now))
+#define rtgcwii_heard(w, channel) rtslot_heard(&(w)->slot, (channel))
+#define rtgcwii_wii_read(w, now) rtslot_wii_read(&(w)->slot, (now))
+#define rtgcwii_quiet_due(w, now, ticks_per_ms) rtslot_quiet_due(&(w)->slot, (now), (ticks_per_ms))
+#define rtgcwii_retell(w, now) rtslot_retell(&(w)->slot, (now))
 #define RTGCWII_SHAKE_G RTSHAPE_SHAKE_G
 #define RTGCWII_SHAKE_VALUE RTSHAPE_SHAKE_VALUE
 #define RTGCWII_SHAKE_FLIP RTSHAPE_SHAKE_FLIP
@@ -149,5 +203,14 @@ void rtgcwii_read_by(struct rtgcwii* w, uint32_t now, int own);
 #define RTGCWII_TICKS_PER_FRAME RTSHAPE_TICKS_PER_FRAME
 #define RTGCWII_POINTER_GAP_FRAMES RTSHAPE_POINTER_GAP_FRAMES
 #define rtgcwii_float_bits rtdeliver_float_bits
+#define RTGCWII_WPAD_CORE_BYTES RTDELIVER_WPAD_CORE_BYTES
+#define RTGCWII_WPAD_FS_BYTES RTDELIVER_WPAD_FS_BYTES
+#define RTGCWII_WPAD_ERR RTDELIVER_WPAD_ERR
+#define RTGCWII_ACC_G RTDELIVER_ACC_G
+#define RTGCWII_FS_STICK_FULL RTDELIVER_FS_STICK_FULL
+#define RTGCWII_DOT_RANGE_X RTDELIVER_DOT_RANGE_X
+#define RTGCWII_DOT_RANGE_Y RTDELIVER_DOT_RANGE_Y
+#define RTGCWII_DOT_APART RTDELIVER_DOT_APART
+#define RTGCWII_DOT_SIZE RTDELIVER_DOT_SIZE
 
 #endif

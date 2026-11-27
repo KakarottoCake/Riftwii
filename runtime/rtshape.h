@@ -148,7 +148,7 @@ void rtshape_rest(struct rtshape_out* out);
 
 /* The Wii Remote + Nunchuk's motion on `port` from sample `p` at `now`
  * into `out` (the words are left alone): the Nunchuk's stick, the pointer,
- * and the Wii Remote's accelerometer shaking while the shake's button is
+ * and both accelerometers shaking together while the shake's button is
  * held, a new step of it a jump in speed until a read takes it
  * (rtshape_take_step). */
 void rtshape_nunchuk(const struct rtshape* sh, uint32_t port, const struct rtsrc_sample* p, uint32_t now,
@@ -173,5 +173,12 @@ void rtshape_pointing(const struct rtshape* sh, uint32_t port, const struct rtsr
  * next read's has none until the shake steps again. A raw report, which has
  * no speed, leaves it (CodeRabbit CLI, #610). */
 void rtshape_take_step(struct rtshape* sh, uint32_t port);
+
+/* The Wii Remote's acceleration on `port` `ago` ticks before `now`, for a
+ * delivery that needs past moments (KPAD's raw samples, each at its own
+ * time): 0 when no time-kept shake is held (nothing written); 1 when one
+ * is but that moment was before it began (`acc` at rest); 2 with `acc` at
+ * the shake's step then. */
+int rtshape_shake_at(const struct rtshape* sh, uint32_t port, uint32_t now, uint32_t ago, int32_t acc[3]);
 
 #endif

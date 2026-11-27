@@ -13,6 +13,7 @@
 
 #define RTSLOT_SLOTS 4u
 #define RTSLOT_NO_SLOT 0xFFFFFFFFu
+#define RTSLOT_RETELLS 30u
 #define RTSLOT_NO_ERROR 0x7FFFFFFF
 #define RTSLOT_EMPTY_READS 30
 
@@ -32,7 +33,26 @@ struct rtslot {
     /* The HOME Menu's stand-in's slot (one bit) when the game knew it as the
      * permanent stand-in's as the HOME stand-in took it, 0: a Classic one. */
     uint32_t home_shaped;
+    /* Telling a game again that may hear "connected" before its own
+     * callback is set (Punch-Out!!): a slot told and not read since is told
+     * again every retell_ticks (loader-filled, 0: never), at most
+     * RTSLOT_RETELLS times while its controller stays. */
+    uint32_t retell_ticks;
+    uint32_t heard;                  /* slots the game read since they were told, one bit each */
+    uint32_t told_at[RTSLOT_SLOTS];  /* when each was told (low bit set), 0: not noted yet */
+    uint32_t retells[RTSLOT_SLOTS];  /* times told again since its controller came */
+    uint32_t retell;                 /* slots due to be told "connected" again; `told` stays set meanwhile */
+    /* When the game last read a Wii controller through a hook (low bit set),
+     * 0: never; when the first sleep that asked was; quiet already reached
+     * (kept until the next read, so the time base wrapping round can't make
+     * an old time look recent). */
+    uint32_t wii_read, quiet_from;
+    uint32_t quiet_reached;
     uint32_t probe_counts[RTSLOT_SLOTS];  /* answers each slot has had (rtslot_probe_count) */
+    /* Slots whose "connected" being told now is a retell: the first one was
+     * delivered, so a retell the game's callback can't take yet leaves the
+     * slot told (and the retell due), not unannounced (CodeRabbit CLI). */
+    uint32_t retelling;
 };
 
 /* --- Who holds a slot. */
@@ -72,6 +92,11 @@ uint32_t rtslot_probe_count(const struct rtslot* s, uint32_t slot);
  * away). */
 void rtslot_kpad_read(struct rtslot* s, uint32_t slot, int32_t result, int32_t error, uint32_t now);
 
+/* The game's own WPADRead of `slot` answered `error` (0: a report, -1: no
+ * controller), its report blank (all zeros) or not. Returns 1 when a real
+ * Wii Remote holds the slot by that answer (its report stays). */
+int rtslot_wpad_read(struct rtslot* s, uint32_t slot, int32_t error, int blank);
+
 /* Whether the real controllers' slots are due a check of their own (the
  * game's WPADProbe): some games stop reading a slot once their library
  * reports it gone, so its hooked reads and probes never tell the stand-in
@@ -107,10 +132,11 @@ int rtslot_next_tell(struct rtslot* s, uint32_t home, int remote_shapes, uint32_
 
 /* After the hook tried to tell `slot` `reason` (`delivered`: the game had a
  * callback to take it): what comes next. Not delivered: it stays to be told
- * at the next pass. Delivered "gone" on a slot a real controller took
- * meanwhile: "connected" again, so the game hears last that a controller is
- * there. */
-enum rtslot_after { RTSLOT_AFTER_NOTHING, RTSLOT_AFTER_CONNECTED };
+ * at the next pass. Delivered "connected" on a slot still announced as the
+ * stand-in's: the attachment is told too. Delivered "gone" on a slot a real
+ * controller took meanwhile: "connected" again, so the game hears last that
+ * a controller is there. */
+enum rtslot_after { RTSLOT_AFTER_NOTHING, RTSLOT_AFTER_EXTENSION, RTSLOT_AFTER_CONNECTED };
 enum rtslot_after rtslot_told(struct rtslot* s, uint32_t slot, int32_t reason, int delivered);
 
 /* A corrective "connected" (rtslot_told's RTSLOT_AFTER_CONNECTED) was just
@@ -137,6 +163,15 @@ void rtslot_connect_change(struct rtslot* s, uint32_t* leave, uint32_t* join);
 int rtslot_tell_busy(const struct rtslot* s);
 void rtslot_tell_take(struct rtslot* s);
 void rtslot_tell_give(struct rtslot* s);
+
+/* The game read the stand-in on `slot` (a KPAD read or WPADRead gave it): it
+ * has heard of it, and isn't told again. */
+void rtslot_heard(struct rtslot* s, uint32_t slot);
+
+/* At each PADRead: a slot told and not read since, retell_ticks after the
+ * telling, is due to be told "connected" again (at most RTSLOT_RETELLS
+ * times while its controller stays); it still counts as told. */
+void rtslot_retell(struct rtslot* s, uint32_t now);
 
 /* --- The HOME Menu's stand-in. */
 
@@ -169,5 +204,19 @@ uint32_t rtslot_home_announced(const struct rtslot* s, uint32_t home, int remote
  * HOME Menu was up: its own "gone" comes when that one leaves; CodeRabbit,
  * fork #22). */
 int rtslot_home_may_leave(const struct rtslot* s, uint32_t slot);
+
+/* --- The quiet rule (later-WPAD games' sleeps). */
+
+/* The game read a Wii controller through a hook at `now`. */
+void rtslot_wii_read(struct rtslot* s, uint32_t now);
+
+/* Whether a sleep should read the pads in a game whose connect callback is
+ * the later WPAD's: only while the game itself is quiet, so one that reads
+ * nothing until its callback hears of a controller (Mario Strikers
+ * Charged) gets the read that announces the stand-in, and one that reads
+ * WPAD every frame (LEGO Star Wars: The Complete Saga) never does. Quiet:
+ * no Wii controller read in 3 s since its last, or none at all 5 s after
+ * the first sleep that asked. */
+int rtslot_quiet_due(struct rtslot* s, uint32_t now, uint32_t ticks_per_ms);
 
 #endif

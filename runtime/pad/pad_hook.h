@@ -114,6 +114,23 @@ struct rt_pad_header {
     uint32_t continue_unified;
 };
 
+/* The stand-in builds' header goes on after rt_pad_header (the six other
+ * builds have none of it). */
+struct rt_pad_standin_header {
+    uint32_t hook_info;  /* WPADGetInfoAsync's (the 2006 KPAD games wait for its answer) */
+    uint32_t replay_info;
+    uint32_t continue_info;
+    /* The stand-in below KPAD, in the Wii Remote forms' builds (0 in the
+     * Classic Controller's): WPADRead's (a game that reads WPAD itself gets
+     * the stand-in's report) and WPADSetDataFormat's (answered for it). */
+    uint32_t hook_wread;
+    uint32_t replay_wread;
+    uint32_t continue_wread;
+    uint32_t hook_format;
+    uint32_t replay_format;
+    uint32_t continue_format;
+};
+
 struct rt_pad_context {
     uint32_t magic;
     uint32_t state;            /* struct gcad, in MEM2 */

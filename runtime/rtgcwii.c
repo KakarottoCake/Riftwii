@@ -150,3 +150,100 @@ void rtgcwii_camera(struct rtgcwii* w, uint32_t channel, uint32_t mode) { rtshap
 uint32_t rtgcwii_hold(const struct rtgcwii* w, uint32_t channel) {
     return rtgcwii_on(w, channel) ? w->hold[channel] : 0u;
 }
+
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+/* The raw report on `channel` in data format `report_format` (its length),
+ * the camera as the game set it (KPAD's switch, `kpad_camera`, or the format
+ * the game asked for). */
+static uint32_t rtgcwii_report(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t now, int kpad_camera,
+                               uint32_t report_format) {
+    struct rtshape_out f;
+    if (channel >= RTGCWII_CHANNELS || !rtgcwii_on(w, channel)) return 0;
+    rtgcwii_camera(w, channel, kpad_camera || rtdeliver_format_has_camera(w->format[channel]));
+    /* A look: the report has only the buttons held, so what the game's KPAD
+     * reads were last given (and what is new at its next one) and the
+     * shake's step stay for that read, as for the HOME Menu's stand-in. */
+    rtgcwii_wii_remote(w, channel, now, &f, 0);
+#ifdef RT_PAD_FORM_NUNCHUK
+    return rtdeliver_wpad(&f, report_format, (int)((w->shape.camera >> channel) & 1u), 1, out);
+#else
+    return rtdeliver_wpad(&f, report_format, (int)((w->shape.camera >> channel) & 1u), 0, out);
+#endif
+}
+
+uint32_t rtgcwii_wpad_status(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t now, int kpad_camera) {
+    /* WPADRead copies the format the game asked for: exactly that long. */
+    return rtgcwii_report(w, channel, out, now, kpad_camera, channel < RTGCWII_CHANNELS ? w->format[channel] : 0u);
+}
+
+uint32_t rtgcwii_unified(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t entry_bytes, uint32_t count,
+                         uint32_t now, uint32_t sample_ticks, int kpad_camera) {
+    uint8_t first[RTGCWII_WPAD_FS_BYTES];
+    uint32_t i, k, n, report_format;
+    if (channel >= RTGCWII_CHANNELS || entry_bytes < RTGCWII_WPAD_FS_BYTES + 2u || count == 0) return 0;
+    {
+        /* KPAD's raw samples: a real Wii Remote + Nunchuk's always carry the
+         * Nunchuk's part (KPAD sets a Nunchuk data format itself once one is
+         * plugged in), and the entries say so, so the Nunchuk form gives it
+         * whatever format the stand-in saw the game ask for. Donkey Kong
+         * Country Returns never asks, and read the Nunchuk's part as zeros
+         * (a hard pull, never a shake): its Nunchuk play never started. */
+        report_format = w->format[channel];
+#ifdef RT_PAD_FORM_NUNCHUK
+        if (report_format < RTDELIVER_FMT_FS_FIRST || report_format > RTDELIVER_FMT_FS_ACC_DPD)
+            report_format = RTDELIVER_FMT_FS_ACC_DPD;
+#endif
+        n = rtgcwii_report(w, channel, first, now, kpad_camera, report_format);
+    }
+    if (n == 0) return 0;
+    for (i = 0; i < count; ++i) {
+        uint8_t* e = out + i * entry_bytes;
+        for (k = 0; k < entry_bytes; ++k) e[k] = 0;
+        for (k = 0; k < n; ++k) e[k] = first[k];
+        e[entry_bytes - 2u] = (uint8_t)report_format;  /* the format the entry is in (CodeRabbit CLI) */
+        /* The shake at each sample's own time: a step every shake_flip
+         * ticks from when it began; a sample from before it, at rest. */
+        {
+            int32_t acc[3];
+            const int shaking = rtshape_shake_at(&w->shape, channel, now, i * sample_ticks, acc);
+            if (shaking != 0) rtdeliver_put_acc(e + 2, acc);
+            /* The Nunchuk's part, where the sample has it: zeros, except
+             * while the shake swings it with the Wii Remote (rtshape_nunchuk).
+             * The stand-in's slot never had a real Nunchuk, so the game has
+             * no calibration for one: any other steady value reads as the
+             * Nunchuk moving. Batman: The Brave and the Bold's heavy attack
+             * (a Wii Remote shake) fails against a steady 1 g there, and
+             * Donkey Kong Country Returns' Nunchuk play still needs the
+             * swing (Dolphin, 25 Nov). */
+#ifdef RT_PAD_FORM_NUNCHUK
+            if (n == RTGCWII_WPAD_FS_BYTES) {
+                for (k = 42; k < 48; ++k) e[k] = 0;
+                if (shaking == 2) rtdeliver_put_acc(e + 42, acc);
+            }
+#endif
+        }
+    }
+    return count;
+}
+#else
+uint32_t rtgcwii_unified(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t entry_bytes, uint32_t count,
+                         uint32_t now, uint32_t sample_ticks, int kpad_camera) {
+    (void)w;
+    (void)channel;
+    (void)out;
+    (void)entry_bytes;
+    (void)count;
+    (void)now;
+    (void)sample_ticks;
+    (void)kpad_camera;
+    return 0;
+}
+uint32_t rtgcwii_wpad_status(struct rtgcwii* w, uint32_t channel, uint8_t* out, uint32_t now, int kpad_camera) {
+    (void)w;
+    (void)channel;
+    (void)out;
+    (void)now;
+    (void)kpad_camera;
+    return 0;
+}
+#endif

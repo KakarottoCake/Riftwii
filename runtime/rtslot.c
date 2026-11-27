@@ -55,6 +55,25 @@ void rtslot_connect_change(struct rtslot* s, uint32_t* leave, uint32_t* join) {
     s->told = (s->told | *join) & ~*leave;
 }
 
+void rtslot_wii_read(struct rtslot* s, uint32_t now) {
+    s->wii_read = now | 1u;
+    s->quiet_reached = 0;
+}
+
+int rtslot_quiet_due(struct rtslot* s, uint32_t now, uint32_t ticks_per_ms) {
+    if (s->quiet_reached) return 1;
+    if (s->wii_read != 0) {
+        s->quiet_reached = rtslot_elapsed(now, s->wii_read) >= 3000u * ticks_per_ms;
+        return (int)s->quiet_reached;
+    }
+    if (s->quiet_from == 0) {
+        s->quiet_from = now | 1u;
+        return 0;
+    }
+    s->quiet_reached = rtslot_elapsed(now, s->quiet_from) >= 5000u * ticks_per_ms;
+    return (int)s->quiet_reached;
+}
+
 int rtslot_real_check_due(struct rtslot* s, uint32_t now, uint32_t ticks_per_ms) {
     if (s->real == 0) return 0;
     if (s->real_checked != 0 && rtslot_elapsed(now, s->real_checked) < 250u * ticks_per_ms) return 0;
@@ -65,15 +84,31 @@ int rtslot_real_check_due(struct rtslot* s, uint32_t now, uint32_t ticks_per_ms)
 int rtslot_next_change(struct rtslot* s, uint32_t skip, uint32_t keep, uint32_t* channel, int32_t* reason) {
     uint32_t leave = 0, join = 0, i;
     const uint32_t now_on = s->present & ~s->real;
-    join = now_on & ~s->told & ~skip;
+    /* A channel due to be told again is told "connected" once more; one
+     * that left before that is told it's gone (it still counts as told). */
+    /* A retell the game has heard since it came due (a read in between)
+     * is dropped, not told (CodeRabbit, fork #24); a first "connected"
+     * never waits on `heard`. */
+    join = now_on & (~s->told | (s->retell & ~s->heard)) & ~skip;
+    s->retell &= ~s->heard;
     leave = s->told & ~now_on & ~s->real & ~skip & ~keep;
+    s->retell &= now_on;
     for (i = 0; i < RTSLOT_SLOTS; ++i) {
         const uint32_t bit = 1u << i;
         if (!((join | leave) & bit)) continue;
         *channel = i;
         *reason = (join & bit) ? 0 : -1;
         if (join & bit) {
+            if ((s->told & bit) && (s->retell & bit)) {
+                s->retelling |= bit;
+            } else {
+                s->retelling &= ~bit;
+            }
             s->told |= bit;
+            s->retell &= ~bit;
+            /* A new "connected": only a read after it says the game heard
+             * it (a WPADRead before the callback was told doesn't). */
+            s->heard &= ~bit;
         } else {
             s->told &= ~bit;
         }
@@ -129,6 +164,35 @@ void rtslot_not_told(struct rtslot* s, uint32_t channel) {
     if (channel < RTSLOT_SLOTS) s->told &= ~(1u << channel);
 }
 
+void rtslot_heard(struct rtslot* s, uint32_t channel) {
+    if (channel < RTSLOT_SLOTS) s->heard |= 1u << channel;
+}
+
+void rtslot_retell(struct rtslot* s, uint32_t now) {
+    uint32_t i;
+    if (s->retell_ticks == 0) return;
+    for (i = 0; i < RTSLOT_SLOTS; ++i) {
+        const uint32_t bit = 1u << i;
+        if (!rtslot_on(s, i)) {
+            /* Gone (or a real controller's): the next controller starts afresh. */
+            s->heard &= ~bit;
+            s->retell &= ~bit;
+            s->told_at[i] = 0;
+            s->retells[i] = 0;
+            continue;
+        }
+        if (!(s->told & bit) || (s->heard & bit) || (s->retell & bit)) continue;  /* still to tell, heard, or due */
+        if (s->told_at[i] == 0) {
+            s->told_at[i] = now | 1u;
+            continue;
+        }
+        if (rtslot_elapsed(now, s->told_at[i]) < s->retell_ticks || s->retells[i] >= RTSLOT_RETELLS) continue;
+        s->retell |= bit;
+        s->told_at[i] = 0;
+        ++s->retells[i];
+    }
+}
+
 enum rtslot_owner rtslot_owner(const struct rtslot* s, uint32_t slot, uint32_t home) {
     uint32_t bit;
     if (slot >= RTSLOT_SLOTS) return RTSLOT_NOBODY;
@@ -152,20 +216,53 @@ int rtslot_next_tell(struct rtslot* s, uint32_t home, int remote_shapes, uint32_
 }
 
 enum rtslot_after rtslot_told(struct rtslot* s, uint32_t slot, int32_t reason, int delivered) {
+    const uint32_t bit = slot < RTSLOT_SLOTS ? 1u << slot : 0u;
+    int retold;
     if (slot >= RTSLOT_SLOTS) return RTSLOT_AFTER_NOTHING;
+    retold = reason == 0 && (s->retelling & bit) != 0;
+    s->retelling &= ~bit;
     if (!delivered) {
-        /* Still to tell, at the next pass. */
-        if (reason == 0) {
+        /* Still to tell, at the next pass. A retell keeps the first,
+         * delivered "connected" (a "gone" is still owed if the controller
+         * leaves) and stays due. */
+        if (retold) {
+            s->retell |= bit;
+        } else if (reason == 0) {
             rtslot_not_told(s, slot);
         } else {
             rtslot_still_told(s, slot);
         }
         return RTSLOT_AFTER_NOTHING;
     }
+    /* The attachment only for an announcement that still stands: a probe
+     * during the callback may have found a real Wii Remote, and a later
+     * one its leaving, which unannounces the slot (CodeRabbit CLI). */
+    if (reason == 0) return rtslot_on(s, slot) && (s->told & bit) ? RTSLOT_AFTER_EXTENSION : RTSLOT_AFTER_NOTHING;
     /* A real controller that came while "gone" was told: its own "connected"
      * may have come first, so the game hears last that one is there. */
-    if (reason == -1 && ((s->real >> slot) & 1u)) return RTSLOT_AFTER_CONNECTED;
+    if ((s->real >> slot) & 1u) return RTSLOT_AFTER_CONNECTED;
     return RTSLOT_AFTER_NOTHING;
+}
+
+int rtslot_wpad_read(struct rtslot* s, uint32_t slot, int32_t error, int blank) {
+    if (slot >= RTSLOT_SLOTS) return 0;
+    if (error == 0) {
+        /* A real Wii Remote's report: the stand-in steps aside, as when
+         * WPADProbe finds one. Not a blank report on a slot no real one is
+         * known on: a WPAD whose slot never had one copies its untouched
+         * entry, error 0 (Mario Strikers Charged), and no real Wii Remote's
+         * report is blank (its accelerometer never reads 0, 0, 0). */
+        if (!blank || ((s->real >> slot) & 1u)) {
+            rtslot_probed(s, slot, 0);
+            return 1;
+        }
+    } else if (error == -1) {
+        /* "No controller": a real Wii Remote that was there has left, which
+         * a game reading only WPAD learns no other way; the stand-in can
+         * come back. */
+        rtslot_probed(s, slot, -1);
+    }
+    return 0;
 }
 
 uint32_t rtslot_recheck_begin(const struct rtslot* s, uint32_t slot) { return rtslot_probe_count(s, slot); }

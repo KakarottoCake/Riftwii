@@ -24,6 +24,19 @@ _pad_blob_start:
     .long pad_hook_menu - _pad_blob_start, pad_replay_menu - _pad_blob_start, pad_continue_menu - _pad_blob_start
     .long pad_hook_select - _pad_blob_start, pad_replay_select - _pad_blob_start, pad_continue_select - _pad_blob_start
     .long pad_hook_unified - _pad_blob_start, pad_replay_unified - _pad_blob_start, pad_continue_unified - _pad_blob_start
+#ifdef RT_PAD_STANDIN
+    /* The stand-in builds' own header after it (rt_pad_standin_header). */
+    .long pad_hook_info - _pad_blob_start, pad_replay_info - _pad_blob_start, pad_continue_info - _pad_blob_start
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+    /* The stand-in below KPAD (the Wii Remote forms, the pointing one too:
+     * CodeRabbit, fork #24): WPADRead's and WPADSetDataFormat's. The
+     * Classic Controller form has none (zeros). */
+    .long pad_hook_wread - _pad_blob_start, pad_replay_wread - _pad_blob_start, pad_continue_wread - _pad_blob_start
+    .long pad_hook_format - _pad_blob_start, pad_replay_format - _pad_blob_start, pad_continue_format - _pad_blob_start
+#else
+    .long 0, 0, 0, 0, 0, 0
+#endif
+#endif
 #endif
     /* Without the HOME Menu (RT_PAD_NO_HOME) the header ends before its
      * hooks, and the blob is as it was before it but for SIProbe's hook
@@ -231,7 +244,11 @@ pad_hook_si_probe:
  * three): the original first, then pad_on_kpad(ctx, chan, status, its
  * result, error) puts the stand-in's status in and returns the count; in
  * the stand-in builds also the count the caller asked for, so a read with
- * room for none gets none. Frame: 8 chan, 12 status, 16 error, 20 count. */
+ * room for none gets none. In the stand-in builds, pad_on_kpad_enter(ctx)
+ * is asked first: with the game's OSReturnToMenu (the way back, where no
+ * sleep leaves), interrupts go on and OSReturnToMenu takes over, never to
+ * return, as from pad_hook_sleep. Frame: 8 chan, 12 status, 16 error, 20
+ * count. */
     .globl pad_hook_kpad
 pad_hook_kpad:
     stwu 1, -0x20(1)
@@ -242,6 +259,16 @@ pad_hook_kpad:
     stw 6, 0x10(1)
 #ifdef RT_PAD_STANDIN
     stw 5, 0x14(1)
+    bl 17f
+17: mflr 3
+    addi 3, 3, pad_context_data - 17b
+    bl pad_on_kpad_enter
+    cmpwi 3, 0
+    bne 18f
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x14(1)
+    lwz 6, 0x10(1)
 #endif
     bl pad_replay_kpad
     mr 6, 3
@@ -259,6 +286,17 @@ pad_hook_kpad:
     mtlr 0
     addi 1, 1, 0x20
     blr
+#ifdef RT_PAD_STANDIN
+18: mr 12, 3
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    mfmsr 11
+    ori 11, 11, 0x8000
+    mtmsr 11
+    mtctr 12
+    bctr
+#endif
 
 /* s32 WPADProbe(chan, &type): the original first, then pad_on_probe(ctx,
  * chan, type, its result) answers for the stand-in's channel. Frame: 8
@@ -347,6 +385,80 @@ pad_hook_unified:
     addi 1, 1, 0x20
     blr
 
+#ifdef RT_PAD_STANDIN
+/* s32 WPADGetInfoAsync(chan, info, callback), in the 2006 KPAD games: the
+ * original first, then pad_on_info(ctx, chan, info, callback, its result)
+ * answers for the stand-in's channel. Frame: 8 chan, 12 info, 16 callback. */
+    .globl pad_hook_info
+pad_hook_info:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    bl pad_replay_info
+    mr 7, 3
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    lwz 6, 0x10(1)
+    bl 12f
+12: mflr 3
+    addi 3, 3, pad_context_data - 12b
+    bl pad_on_info
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+/* void WPADRead(chan, status), for a game that reads WPAD itself: the
+ * original first, then pad_on_wpad_read(ctx, chan, status) puts the
+ * stand-in's report there. Frame: 8 chan, 12 status. */
+    .globl pad_hook_wread
+pad_hook_wread:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    bl pad_replay_wread
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    bl 13f
+13: mflr 3
+    addi 3, 3, pad_context_data - 13b
+    bl pad_on_wpad_read
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+/* s32 WPADSetDataFormat(chan, format): the original first, then
+ * pad_on_set_format(ctx, chan, format, its result) answers for the
+ * stand-in's channel. Frame: 8 chan, 12 format. */
+    .globl pad_hook_format
+pad_hook_format:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    bl pad_replay_format
+    mr 6, 3
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    bl 14f
+14: mflr 3
+    addi 3, 3, pad_context_data - 14b
+    bl pad_on_set_format
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+#endif
+#endif
+
 #endif
 
 /* Loader-filled: the hooked function's first word (and nops), then the
@@ -381,6 +493,13 @@ pad_continue_\name:
     PAD_REPLAY menu
     PAD_REPLAY select
     PAD_REPLAY unified
+#ifdef RT_PAD_STANDIN
+    PAD_REPLAY info
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+    PAD_REPLAY wread
+    PAD_REPLAY format
+#endif
+#endif
 #endif
 
     .balign 32

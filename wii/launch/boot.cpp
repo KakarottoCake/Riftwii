@@ -1318,19 +1318,17 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, b
     if (!gc_adapter && classic_without_usb && !gx_protected) gc_adapter = true;
     if (gc_adapter) {
         std::string why;
-        // The stand-in only where this launch can take it (not a code
+        // With the stand-in's form, which picks its pad build (fetch_pad_build),
+        // and the stand-in only where this launch can take it (not a code
         // build, nor a game that clears MEM1's top: classic_without_usb), so
         // a game with no PADRead isn't taken on for a hook it can't get
         // (CodeRabbit on #609).
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, classic_without_usb, usb,
-                                pad, why)) {
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, classic_without_usb,
+                                g_extras.gc_standin_nunchuk, g_extras.gc_standin_sideways, g_extras.gc_standin_pointing,
+                                usb, pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
             gc_adapter = false;
         }
-        // The stand-in's form, which picks its pad build (fetch_pad_build).
-        pad.standin_nunchuk = pad.standin && g_extras.gc_standin_nunchuk;
-        pad.standin_sideways = pad.standin && g_extras.gc_standin_sideways;
-        pad.standin_pointing = pad.standin && g_extras.gc_standin_pointing;
     }
     // The adapter off: the menu's adapter session is let go, except after a
     // launch the pads plugin refused: the failure screen comes next and

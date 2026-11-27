@@ -426,7 +426,7 @@ can come the same way without the DOL or other games growing.
 | Piece | Where |
 | --- | --- |
 | The request | `include/riftwii/plugin_pads.h`: `rwp_pads_request` (which build, the DOL's buffer and its size in; the bytes copied and a reason out) |
-| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the fourteen builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
+| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` unpacking the build asked for into the DOL's buffer), `padsblobs.S` (the fourteen builds as zstd frames by `.incbin`, from `build-runtime/` (`Makefile.runtime`'s `PADZST`), and a table of each frame's start and size; `launch` unpacks the one asked for with the loader's decoder) |
 | The DOL's side | `wii/hooks/padhook.cpp`: `PadsPluginForLaunch` loads the plugin while the card is RiftWii's; `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` loads it before a disc launch's IOS reload and before a channel's tries, and calls `fetch_pad_build` right after `prepare_gc_pads` |
 | The sizes | `build-runtime/riftwii_pad_sizes.h` (`Makefile.runtime`), for the copy's buffer and the game page's memory budget (`wii/menu/memorybudget.cpp`) |
 | Out of the DOL | `Makefile.wii`: the `riftwii_pad*.bin` builds out of `BINFILES` |

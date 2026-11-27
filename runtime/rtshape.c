@@ -312,9 +312,15 @@ void rtshape_nunchuk(const struct rtshape* sh, uint32_t port, const struct rtsrc
                          (sh->pointer_moved[port] != 0 && rtshape_elapsed(now, sh->pointer_moved[port]) < sh->pointer_show);
     shake = sh->shake[port];
     if (shake != 0) {
+        /* Both hands: Donkey Kong Country Returns' Nunchuk play starts a
+         * level only when the Nunchuk shakes too (Dolphin, a real Wii Remote
+         * and Nunchuk shaken together). */
         rtshape_shake(shake, out->acc, &out->acc_value, &out->acc_speed);
+        rtshape_shake(shake, out->fs_acc, &out->fs_acc_value, &out->fs_acc_speed);
     } else if ((sh->shake_jump >> port) & 1u) {
-        out->acc_speed = RTSHAPE_SHAKE_SPEED;  /* the last step, let go before a read took it */
+        /* The last step, let go before a read took it: both hands' speed. */
+        out->acc_speed = RTSHAPE_SHAKE_SPEED;
+        out->fs_acc_speed = RTSHAPE_SHAKE_SPEED;
     }
 }
 
@@ -378,6 +384,25 @@ void rtshape_pointing(const struct rtshape* sh, uint32_t port, const struct rtsr
         out->acc_speed = RTSHAPE_SHAKE_SPEED;
 }
 #endif
+
+int rtshape_shake_at(const struct rtshape* sh, uint32_t port, uint32_t now, uint32_t ago, int32_t acc[3]) {
+    uint32_t since, quarter;
+    int32_t value, speed;
+    if (port >= RTSHAPE_PORTS || sh->shake[port] == 0 || sh->shake_flip == 0 || sh->shake_from[port] == 0) return 0;
+    since = rtshape_elapsed(now, sh->shake_from[port]);
+    if (ago > since) {
+        /* Before the shake began: at rest. */
+        acc[0] = 0;
+        acc[1] = -RTHOME_AXIS_FULL;
+        acc[2] = 0;
+        return 1;
+    }
+    /* The count as rtshape_count_shake keeps it, at that moment. */
+    quarter = sh->shake_flip / RTSHAPE_SHAKE_FLIP;
+    if (quarter == 0) quarter = 1;
+    rtshape_shake((since - ago) / quarter + 1u, acc, &value, &speed);
+    return 2;
+}
 
 void rtshape_take_step(struct rtshape* sh, uint32_t port) {
     if (port < RTSHAPE_PORTS) sh->shake_jump &= ~(1u << port);

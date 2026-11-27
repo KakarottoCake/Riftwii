@@ -49,6 +49,14 @@ int32_t pad_replay_probe(int32_t chan, uint32_t* type);
 void pad_on_menu(struct rt_pad_context* c);
 int32_t pad_on_select(struct rt_pad_context* c, int32_t result);
 void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count);
+#ifdef RT_PAD_STANDIN
+int32_t pad_on_info(struct rt_pad_context* c, int32_t chan, uint8_t* info, uint32_t callback, int32_t result);
+uint32_t pad_on_kpad_enter(struct rt_pad_context* c);
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+void pad_on_wpad_read(struct rt_pad_context* c, int32_t chan, uint8_t* status);
+int32_t pad_on_set_format(struct rt_pad_context* c, int32_t chan, uint32_t format, int32_t result);
+#endif
+#endif
 #endif
 
 /* External interrupts off around the driver: PADRead runs on game
@@ -328,6 +336,39 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
  * (the unsigned difference would wrap and read as long quiet). */
 #if defined(RT_PAD_STANDIN) && !defined(RT_PAD_NO_HOME)
 static void pad_gcwii_read_pads(struct rt_pad_context* c);
+/* Whether the game has a connect callback the stand-in tells: KPAD's, or
+ * WPAD's own (rtgcwii.h). */
+static int pad_can_tell(const struct rt_pad_context* c) {
+    return c->kpad_connect != 0 ||
+           (c->gcwii != 0 && ((const struct rtgcwii*)(uintptr_t)c->gcwii)->wpad_connect_table != 0);
+}
+/* Whether the game's sleeps read the pads for it (pad_on_sleep): where its
+ * callback is KPAD's or the 2006 WPAD's; where it's the later WPAD's, only
+ * while the game is quiet (rtgcwii_quiet_due: a game that reads WPAD every
+ * frame never is, and LEGO Star Wars: The Complete Saga stopped at start-up
+ * when its sleeps read them, Dolphin 22 Nov; Mario Strikers Charged reads
+ * nothing until its callback hears of a controller). */
+static int pad_reads_at_sleep(struct rt_pad_context* c) {
+    struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
+    uint32_t msr;
+    int due;
+    if (c->kpad_connect != 0) return 1;
+    if (c->gcwii == 0 || !pad_can_tell(c)) return 0;
+    if (!w->wpad_connect_later) return 1;
+    msr = interrupts_off();
+    due = rtgcwii_quiet_due(w, now(), c->ticks_per_ms);
+    interrupts_restore(msr);
+    return due;
+}
+/* The game read a Wii controller itself (a hooked KPAD read, WPADProbe or
+ * WPADRead): its sleeps needn't (pad_reads_at_sleep). */
+static void pad_gcwii_wii_read(struct rt_pad_context* c) {
+    uint32_t msr;
+    if (!c->gcwii) return;
+    msr = interrupts_off();
+    rtgcwii_wii_read((struct rtgcwii*)(uintptr_t)c->gcwii, now());
+    interrupts_restore(msr);
+}
 #endif
 
 uint32_t pad_on_sleep(struct rt_pad_context* c) {
@@ -343,7 +384,7 @@ uint32_t pad_on_sleep(struct rt_pad_context* c) {
      * for the retrace), through the same throttle as the reads' (at most
      * every 8 ms, and only while the game's own PADRead hasn't run in
      * 50 ms). */
-    if (c->gcwii != 0 && c->kpad_connect != 0) pad_gcwii_read_pads(c);
+    if (c->gcwii != 0 && pad_reads_at_sleep(c)) pad_gcwii_read_pads(c);
 #endif
     if (c->leave_asked != RT_PAD_LEAVE_ASKED) return 0;  /* every sleep: the quick way out */
     msr = interrupts_off();
@@ -382,6 +423,47 @@ uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread) {
     if (!rtleave_self_suspend(thread, *(volatile uint32_t*)(uintptr_t)0x800000E4u, c->leave_thread)) return 0;
     return pad_on_sleep(c);
 }
+
+#if defined(RT_PAD_STANDIN) && !defined(RT_PAD_NO_HOME)
+/* The KPAD read, as the game calls it: a game whose main thread never
+ * sleeps (Excite Truck waits for each frame in a loop, Dolphin 23 Nov)
+ * leaves from here instead, on the thread that read the pads at the ask,
+ * once RT_PAD_LEAVE_FALLBACK_MS has passed with no sleep leaving, and only
+ * from a call made with interrupts on (rtleave_read_leaves): like a
+ * sleep, a call from the game's own code, where OSReturnToMenu can take
+ * over. The same quiet-save rule as pad_on_sleep's. */
+uint32_t pad_on_kpad_enter(struct rt_pad_context* c) {
+    int resident_wrote, quiet;
+    uint32_t resident_last_write, msr, t;
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED) return 0;  /* every read: the quick way out */
+    /* A fresh sample first, when one is due: a combo let go while the game
+     * wasn't polling cancels the ask there (pad_leave_check) before this
+     * takes it; one still held leaves as before (CodeRabbit on #616). */
+    /* Only from a call made with interrupts on (as the leave itself needs,
+     * rtleave_read_leaves): the sample may run the game's PADRead, WPADProbe
+     * and connect callbacks, which expect them on (CodeRabbit CLI, #616). */
+    __asm__ volatile("mfmsr %0" : "=r"(msr));
+    if (c->gcwii && (msr & 0x8000u) != 0) pad_gcwii_read_pads(c);
+    msr = interrupts_off();
+    t = now();
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED ||
+        !rtleave_read_leaves(*(volatile uint32_t*)(uintptr_t)0x800000E4u, c->leave_thread, c->leave_asked_at, t,
+                             RT_PAD_LEAVE_FALLBACK_MS * c->ticks_per_ms, (msr & 0x8000u) != 0)) {
+        interrupts_restore(msr);
+        return 0;
+    }
+    pad_check_pending(c, t);
+    pad_resident_write(c, &resident_wrote, &resident_last_write);
+    quiet = rtleave_quiet(&c->leave, t, resident_wrote, resident_last_write);
+    c->leave_asked = quiet ? RT_PAD_LEAVE_GONE : 0;
+    if (!quiet) {
+        c->leave_thread = 0;
+        c->leave_asked_at = 0;
+    }
+    interrupts_restore(msr);
+    return quiet ? c->return_to_menu : 0;
+}
+#endif
 
 #ifndef GCAD_PADS_ONLY
 /* ---- The game's own Reset (#458) ---- */
@@ -608,6 +690,39 @@ struct pad_classic {
 };
 
 static void pad_classic_status(const struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p);
+
+/* The KPAD status's device type, error, pointer flag and data format. The
+ * 2007 and later KPAD has them as four bytes at 0x5C; the 2006 one (a
+ * 136-byte status: Excite Truck, Marvel Ultimate Alliance) has the device
+ * type as a whole word at 0x5C, the pointer flag at 0x84, the error at
+ * 0x85 (copied from the WPAD status's) and no data format, with everything
+ * else where the later ones have it (Twilight Princess's KPAD read stores
+ * them so, and the game drops a sample whose error isn't 0). */
+#define PAD_KPAD_2006_BYTES 136u
+#define PAD_KPAD_2006_DPD_VALID 0x84u
+#define PAD_KPAD_2006_WPAD_ERR 0x85u
+static void pad_put_device(const struct rt_pad_context* c, uint8_t* status, uint32_t dev, uint32_t dpd_valid,
+                           uint32_t format) {
+    if (c->kpad_status_bytes == PAD_KPAD_2006_BYTES) {
+        pad_put32(status + PAD_KPAD_DEV_TYPE, dev);
+        status[PAD_KPAD_2006_WPAD_ERR] = 0;
+        status[PAD_KPAD_2006_DPD_VALID] = (uint8_t)dpd_valid;
+        return;
+    }
+    status[PAD_KPAD_DEV_TYPE] = (uint8_t)dev;
+    status[PAD_KPAD_WPAD_ERR] = 0;
+    status[PAD_KPAD_DPD_VALID] = (uint8_t)dpd_valid;
+    status[PAD_KPAD_DATA_FORMAT] = (uint8_t)format;
+}
+
+#ifdef RT_PAD_FORM_REMOTE
+/* The pointer shown: the flag alone, in the status's own layout (the HOME
+ * Menu's stand-in on a Wii Remote form's channel). */
+static void pad_put_dpd_valid(const struct rt_pad_context* c, uint8_t* status, uint32_t dpd_valid) {
+    status[c->kpad_status_bytes == PAD_KPAD_2006_BYTES ? PAD_KPAD_2006_DPD_VALID : PAD_KPAD_DPD_VALID] =
+        (uint8_t)dpd_valid;
+}
+#endif
 #ifdef RT_PAD_FORM_REMOTE
 static void pad_gcwii_home_status(struct rt_pad_context* c, uint8_t* status, const struct pad_classic* p);
 /* Whether the HOME Menu's stand-in on `chan` keeps this stand-in's shape:
@@ -778,15 +893,12 @@ static void pad_gcwii_status(struct rt_pad_context* c, uint32_t chan, uint8_t* s
 #endif
     pad_put32(status + PAD_KPAD_DIST, rtgcwii_float_bits(PAD_DIST_AT_REST));
     pad_put32(status + PAD_KPAD_VERTICAL_Y, PAD_FLOAT_ONE);
-    status[PAD_KPAD_DEV_TYPE] = PAD_DEV_STANDIN;
-    status[PAD_KPAD_WPAD_ERR] = 0;
-    status[PAD_KPAD_DPD_VALID] = (uint8_t)(f.pointer_shown ? PAD_DPD_SEEN : 0u);
     /* The camera's format only while the stand-in is on there, as the
      * unified report has it (a HOME claim kept after its GameCube controller
      * left; CodeRabbit, fork #23). */
-    status[PAD_KPAD_DATA_FORMAT] = (uint8_t)(rtslot_on(&w->slot, chan) && ((w->shape.camera >> chan) & 1u)
-                                                 ? PAD_FORMAT_STANDIN_DPD
-                                                 : PAD_FORMAT_STANDIN);
+    pad_put_device(c, status, PAD_DEV_STANDIN, f.pointer_shown ? PAD_DPD_SEEN : 0u,
+                   rtslot_on(&w->slot, chan) && ((w->shape.camera >> chan) & 1u) ? PAD_FORMAT_STANDIN_DPD
+                                                                                  : PAD_FORMAT_STANDIN);
 #ifdef RT_PAD_FORM_NUNCHUK
     pad_put32(status + PAD_KPAD_FS_STICK, rthome_float_bits(f.stick[0]));
     pad_put32(status + PAD_KPAD_FS_STICK + 4, rthome_float_bits(f.stick[1]));
@@ -817,10 +929,11 @@ static void pad_gcwii_home_status(struct rt_pad_context* c, uint8_t* status, con
     if (p->menu_open) {
         pad_put32(status + PAD_KPAD_POS_X, rthome_float_bits(p->pointer[0] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
         pad_put32(status + PAD_KPAD_POS_Y, rthome_float_bits(p->pointer[1] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
-        status[PAD_KPAD_DPD_VALID] = PAD_DPD_SEEN;
+        pad_put_dpd_valid(c, status, PAD_DPD_SEEN);
         /* The HOME Menu's pointer comes in the camera's format, as the raw
-         * status gives it (CodeRabbit on #610). */
-        status[PAD_KPAD_DATA_FORMAT] = PAD_FORMAT_STANDIN_DPD;
+         * status gives it (CodeRabbit on #610); the 2006 status has no
+         * format byte. */
+        if (c->kpad_status_bytes != PAD_KPAD_2006_BYTES) status[PAD_KPAD_DATA_FORMAT] = PAD_FORMAT_STANDIN_DPD;
     }
 }
 #else
@@ -860,10 +973,8 @@ static void pad_classic_status(const struct rt_pad_context* c, uint8_t* status, 
     pad_put32(status + PAD_KPAD_ACC_VALUE, PAD_FLOAT_ONE);
     pad_put32(status + PAD_KPAD_HORIZON_X, PAD_FLOAT_ONE);
     pad_put32(status + PAD_KPAD_VERTICAL_Y, PAD_FLOAT_ONE);
-    status[PAD_KPAD_DEV_TYPE] = PAD_DEV_CLASSIC;
-    status[PAD_KPAD_WPAD_ERR] = 0;
-    status[PAD_KPAD_DPD_VALID] = (uint8_t)(p->menu_open ? PAD_DPD_SEEN : 0u);
-    status[PAD_KPAD_DATA_FORMAT] = (uint8_t)(p->menu_open ? PAD_FORMAT_CLASSIC_POINTER : PAD_FORMAT_CLASSIC);
+    pad_put_device(c, status, PAD_DEV_CLASSIC, p->menu_open ? PAD_DPD_SEEN : 0u,
+                   p->menu_open ? PAD_FORMAT_CLASSIC_POINTER : PAD_FORMAT_CLASSIC);
     pad_put32(status + PAD_KPAD_CL_HOLD, p->hold);
     pad_put32(status + PAD_KPAD_CL_HOLD + 4, p->trig);
     pad_put32(status + PAD_KPAD_CL_HOLD + 8, p->release);
@@ -949,9 +1060,10 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     uint32_t msr, t;
     enum rtslot_owner owner;
     if (!c->home_on && !c->gcwii) return result;
+    if (chan < 0 || !pad_in_ram(status) || c->kpad_status_bytes < PAD_KPAD_END) return result;
     /* A read asking for no samples (`count`, the caller's room for them)
      * gets none written. */
-    if (chan < 0 || count <= 0 || !pad_in_ram(status) || c->kpad_status_bytes < PAD_KPAD_END) return result;
+    if (count <= 0) return result;
     if (c->gcwii) {
         /* What the game's own read found says first (a read that brought
          * samples is a real controller; "no controller" gives the channel
@@ -962,6 +1074,20 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
         msr = interrupts_off();
         rtgcwii_kpad_read(w, (uint32_t)chan, result, err, now());
         interrupts_restore(msr);
+        if ((uint32_t)chan < RTGCWII_CHANNELS) {
+            /* A 2006 KPAD game's info request answered for the stand-in
+             * (pad_on_info): its callback is told now, after the game noted
+             * it was waiting. After this read's own finding, so a WPADProbe
+             * the callback makes is the newer word; before the blob's
+             * PADRead, so this read's stand-in hears of it. */
+            uint32_t callback;
+            msr = interrupts_off();
+            callback = w->info_callback[chan];
+            w->info_callback[chan] = 0;
+            interrupts_restore(msr);
+            if (callback != 0) ((void (*)(int32_t, int32_t))(uintptr_t)callback)(chan, 0);
+        }
+        pad_gcwii_wii_read(c);
         pad_gcwii_read_pads(c);
         /* Samples the game's own read brought are a real controller's: they
          * go back as they are, even if the refresh just saw it leave (the
@@ -975,6 +1101,9 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
         /* The permanent stand-in's channel, where no real controller is. */
         if (owner == RTSLOT_STANDIN) {
             pad_gcwii_status(c, (uint32_t)chan, status, RTGCWII_TAKE_WORDS | RTGCWII_TAKE_STEP);
+#ifdef RT_PAD_FORM_REMOTE
+            rtgcwii_heard((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan);
+#endif
             if (c->kpad_takes_error && pad_in_ram(error)) *error = 0;
             interrupts_restore(msr);
             return 1;
@@ -1057,6 +1186,7 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         msr = interrupts_off();
         rtslot_probed(&w->slot, (uint32_t)chan, result);
         interrupts_restore(msr);
+        pad_gcwii_wii_read(c);
         pad_gcwii_read_pads(c);
     }
     /* Where the game's own WPADProbe found a real controller, its answer
@@ -1236,6 +1366,19 @@ static void pad_gcwii_wpad_status(uint8_t* entry, uint32_t hold, const int32_t* 
 }
 #endif
 
+/* A later KPAD's longer entry (66 bytes: Donkey Kong Country Returns,
+ * Batman: The Brave and the Bold) keeps its format in its own last-but-one
+ * byte, past the 56-byte layout's that the writers above use. */
+static void pad_unified_format(const struct rt_pad_context* c, uint8_t* entry) {
+    uint32_t k;
+    uint8_t format;
+    if (c->kpad_unified_bytes <= RTHOME_WPAD_STATUS_BYTES) return;
+    format = entry[RTHOME_WPAD_STATUS_BYTES - 2u];
+    entry[RTHOME_WPAD_STATUS_BYTES - 2u] = 0;
+    for (k = RTHOME_WPAD_STATUS_BYTES; k < c->kpad_unified_bytes; ++k) entry[k] = 0;
+    entry[c->kpad_unified_bytes - 2u] = format;
+}
+
 void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t count) {
     uint32_t msr, t, hold, trig, release, remote_hold, remote_trig, remote_release;
     int32_t axes[6], pointer[2], i;
@@ -1257,18 +1400,29 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
             const int32_t* own = (uint32_t)chan < RTGCWII_CHANNELS && ((w->shape.camera >> (uint32_t)chan) & 1u)
                                      ? w->shape.pointer[chan]
                                      : 0;
-            const int32_t* level = 0;
-#ifdef RT_PAD_FORM_POINTING
-            /* The pointing form's roll, as the KPAD read has it (looked at,
-             * nothing taken: the KPAD read takes its words and steps). */
-            struct rtshape_out turned;
-            rtgcwii_wii_remote((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, t, &turned, 0);
-            level = turned.horizon;
-#endif
-            for (i = 0; i < count; ++i)
-                pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, hold, own, level);
+            /* KPAD's raw samples, each at its own time (a sample every
+             * 5 ms, rtgcwii_unified): a shake swings through them as a
+             * real Wii Remote's do, which Donkey Kong Country Returns'
+             * "shake to start" reads; then the device and format as the
+             * KPAD read has them. */
+            rtgcwii_unified((struct rtgcwii*)(uintptr_t)c->gcwii, (uint32_t)chan, status, c->kpad_unified_bytes,
+                            (uint32_t)count, t, 5u * c->ticks_per_ms, own != 0);
+            for (i = 0; i < count; ++i) {
+                uint8_t* entry = status + (uint32_t)i * c->kpad_unified_bytes;
+                uint8_t raw[RTHOME_WPAD_STATUS_BYTES];
+                uint32_t k;
+                /* The device and format the static writer gives, over the
+                 * sample's buttons, accelerometer and dots. */
+                pad_gcwii_wpad_status(raw, hold, own, 0);
+                entry[40] = raw[40];
+                for (k = RTHOME_WPAD_STATUS_BYTES - 2u; k < c->kpad_unified_bytes; ++k) entry[k] = 0;
+                entry[c->kpad_unified_bytes - 2u] = raw[RTHOME_WPAD_STATUS_BYTES - 2u];
+            }
 #else
-            for (i = 0; i < count; ++i) rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, 0, hold);
+            for (i = 0; i < count; ++i) {
+                rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, 0, hold);
+                pad_unified_format(c, status + (uint32_t)i * c->kpad_unified_bytes);
+            }
 #endif
         }
         interrupts_restore(msr);
@@ -1302,15 +1456,150 @@ void pad_on_unified(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
             level = turned.horizon;
         }
 #endif
-        for (i = 0; i < count; ++i)
+        for (i = 0; i < count; ++i) {
             pad_gcwii_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, at, level);
+            pad_unified_format(c, status + (uint32_t)i * c->kpad_unified_bytes);
+        }
         interrupts_restore(msr);
         return;
     }
 #endif
-    for (i = 0; i < count; ++i) rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, hold);
+    for (i = 0; i < count; ++i) {
+        rthome_wpad_status(status + (uint32_t)i * c->kpad_unified_bytes, remote_hold, hold);
+        pad_unified_format(c, status + (uint32_t)i * c->kpad_unified_bytes);
+    }
     interrupts_restore(msr);
 }
+#endif
+
+#ifdef RT_PAD_STANDIN
+/* WPADGetInfoAsync(chan, info, callback): a 2006 KPAD game (Excite Truck)
+ * asks for a Wii Remote's info and uses its samples only once the answer
+ * comes. "No controller" (-1) on the stand-in's channel becomes the
+ * stand-in's info, given at once: WPADInfo's 24 bytes (the camera, speaker
+ * and attachment flags, two battery flags, then the battery level, the LED,
+ * the protocol and the firmware), battery full and the player's LED, as
+ * Dolphin's emulated Wii Remote answers; the callback is told it worked, a
+ * little later, as a real Wii Remote's answer comes. */
+#define PAD_INFO_BYTES 24u
+#define PAD_INFO_ATTACH 8u        /* the attachment flag's word */
+#define PAD_INFO_BATTERY 20u
+#define PAD_INFO_LED 21u
+#define PAD_INFO_BATTERY_FULL 4u
+#define PAD_INFO_BUSY (-2)        /* WPAD_ERR_BUSY */
+int32_t pad_on_info(struct rt_pad_context* c, int32_t chan, uint8_t* info, uint32_t callback, int32_t result) {
+    uint32_t msr, i;
+    int on, pending;
+    if (!c->gcwii || result != -1 || chan < 0 || chan >= (int32_t)RTGCWII_CHANNELS || !pad_in_ram(info) ||
+        !pad_in_ram(info + PAD_INFO_BYTES - 1))
+        return result;
+    /* The check, the answer and the callback's place taken in one go, so
+     * two requests on a channel can't both be taken: one answer at a time,
+     * as WPAD has; a request before the last one's callback is told is busy
+     * (the game asks again). */
+    msr = interrupts_off();
+    /* The permanent stand-in's own answer, whether or not the HOME Menu's
+     * stand-in has its slot for now. */
+    on = rtslot_on(&((const struct rtgcwii*)(uintptr_t)c->gcwii)->slot, (uint32_t)chan);
+    pending = ((const struct rtgcwii*)(uintptr_t)c->gcwii)->info_callback[chan] != 0;
+    /* A later game: busy, never an answer whose callback would have to wake
+     * a WPADGetInfo already asleep (rtgcwii.info_answers). */
+    if (!((const struct rtgcwii*)(uintptr_t)c->gcwii)->info_answers) pending = 1;
+    if (!on || pending) {
+        interrupts_restore(msr);
+        return on ? PAD_INFO_BUSY : result;
+    }
+    for (i = 0; i < PAD_INFO_BYTES; ++i) info[i] = 0;
+    /* An attachment in the forms that have one: the Nunchuk, and the
+     * Classic Controller (its status and extension callback say so too;
+     * CodeRabbit, fork #24). The sideways and pointing Wii Remotes have none. */
+#if defined(RT_PAD_FORM_NUNCHUK) || !defined(RT_PAD_FORM_REMOTE)
+    pad_put32(info + PAD_INFO_ATTACH, 1);
+#endif
+    info[PAD_INFO_BATTERY] = PAD_INFO_BATTERY_FULL;
+    info[PAD_INFO_LED] = (uint8_t)(1u << (uint32_t)chan);
+    /* Told at the game's next KPAD read (pad_gcwii_info_told): the game
+     * notes it is waiting once this call returns. */
+    if (callback != 0 && pad_in_ram((const void*)(uintptr_t)callback))
+        ((struct rtgcwii*)(uintptr_t)c->gcwii)->info_callback[chan] = callback;
+    interrupts_restore(msr);
+    return 0;
+}
+
+#if defined(RT_PAD_FORM_NUNCHUK) || defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+/* WPADRead(chan, status), for a game that reads WPAD itself (Punch-Out!!'s
+ * pad manager): on the stand-in's channel the report it copied (none: no
+ * Wii Remote there) becomes the stand-in's (rtgcwii_wpad_status), with the
+ * pads read first as at a KPAD read. The game reading it there has heard
+ * of the stand-in (rtgcwii_heard). */
+void pad_on_wpad_read(struct rt_pad_context* c, int32_t chan, uint8_t* status) {
+    struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
+    uint32_t msr;
+    int camera = 0, real = 0;
+    if (!c->gcwii || chan < 0 || chan >= (int32_t)RTGCWII_CHANNELS || !pad_in_ram(status) ||
+        !pad_in_ram(status + RTGCWII_WPAD_FS_BYTES - 1))
+        return;
+    pad_gcwii_wii_read(c);
+    /* The report's answer is noted before the pads are polled (as at a KPAD
+     * read), so whatever the poll then learns is newer than this report and
+     * stands (CodeRabbit on #616). */
+    {
+        /* What the game's own read says about a real Wii Remote there
+         * (rtslot_wpad_read decides, the blank-report rule included). */
+        uint32_t i, any = 0;
+        for (i = 0; i < RTGCWII_WPAD_ERR; ++i) any |= status[i];
+        msr = interrupts_off();
+        real = rtslot_wpad_read(&w->slot, (uint32_t)chan, (int8_t)status[RTGCWII_WPAD_ERR], any == 0);
+        interrupts_restore(msr);
+    }
+    /* The pads, whatever the report: a game that reads only WPAD
+     * (Punch-Out!!) polls the adapter through here for every channel. */
+    pad_gcwii_read_pads(c);
+    /* A real Wii Remote's report stays (the stand-in steps aside, as when
+     * WPADProbe finds one); otherwise the stand-in's report goes in only
+     * if the channel is still its after the poll (rtgcwii_wpad_status). */
+    if (real) return;
+#ifdef RT_PAD_FORM_POINTING
+    /* The pointing form with no camera switch found (or not in RAM): the
+     * camera counts as on, as at a KPAD read (pad_gcwii_camera_now;
+     * CodeRabbit CLI, fork #24). */
+    camera = 1;
+#endif
+    if (w->kpad_dpd != 0) {
+        /* KPAD's camera switch for this channel, as at a KPAD read. */
+        const uint8_t* wants =
+            (const uint8_t*)(uintptr_t)(w->kpad_dpd + (uint32_t)chan * w->kpad_dpd_stride + w->kpad_dpd_offset);
+        if (pad_in_ram(wants)) camera = *(const volatile uint8_t*)wants != 0;
+    }
+    msr = interrupts_off();
+    if (rtgcwii_wpad_status(w, (uint32_t)chan, status, now(), camera) != 0) rtgcwii_heard(w, (uint32_t)chan);
+    interrupts_restore(msr);
+}
+
+/* WPADSetDataFormat(chan, format): "no controller" (-1) on the stand-in's
+ * channel becomes done (0), the format noted for its reports (a game that
+ * asks for the camera's gets the pointer's dots). */
+int32_t pad_on_set_format(struct rt_pad_context* c, int32_t chan, uint32_t format, int32_t result) {
+    struct rtgcwii* w = (struct rtgcwii*)(uintptr_t)c->gcwii;
+    uint32_t msr;
+    int on;
+    if (!c->gcwii || chan < 0 || chan >= (int32_t)RTGCWII_CHANNELS) return result;
+    if (result == 0) {
+        /* A real Wii Remote took it: noted all the same, so the stand-in's
+         * reports keep the format the game last asked for if it leaves. */
+        msr = interrupts_off();
+        w->format[chan] = format;
+        interrupts_restore(msr);
+        return result;
+    }
+    if (result != -1) return result;
+    msr = interrupts_off();
+    on = rtslot_on(&w->slot, (uint32_t)chan);
+    if (on) w->format[chan] = format;
+    interrupts_restore(msr);
+    return on ? 0 : result;
+}
+#endif
 #endif
 
 /* The game's connect callback for channel `chan`, told `reason` (0:
@@ -1329,8 +1618,18 @@ static void pad_tell_connect(const struct rt_pad_context* c, uint32_t chan, int3
 static int pad_tell_connect(const struct rt_pad_context* c, uint32_t chan, int32_t reason) {
     const uint32_t stride = c->kpad_connect_info & 0xFFFFu;
     uint32_t callback;
-    if (chan >= RTHOME_CHANNELS || c->kpad_connect == 0) return 0;
-    callback = *(const volatile uint32_t*)(uintptr_t)(c->kpad_connect + chan * stride);
+    if (chan >= RTHOME_CHANNELS) return 0;
+    if (c->kpad_connect != 0) {
+        callback = *(const volatile uint32_t*)(uintptr_t)(c->kpad_connect + chan * stride);
+    } else {
+        /* The 2006 WPAD's callback, in the channel's control block. */
+        const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
+        uint32_t block;
+        if (!c->gcwii || w->wpad_connect_table == 0) return 0;
+        block = *(const volatile uint32_t*)(uintptr_t)(w->wpad_connect_table + chan * 4u);
+        if (!pad_in_ram((const void*)(uintptr_t)block)) return 0;
+        callback = *(const volatile uint32_t*)(uintptr_t)(block + w->wpad_connect_offset);
+    }
     if (callback == 0 || !pad_in_ram((const void*)(uintptr_t)callback)) return 0;
     ((void (*)(int32_t, int32_t))(uintptr_t)callback)((int32_t)chan, reason);
     return 1;
@@ -1340,6 +1639,39 @@ static int pad_tell_connect(const struct rt_pad_context* c, uint32_t chan, int32
 #endif
 
 #if defined(RT_PAD_STANDIN) && !defined(RT_PAD_NO_HOME)
+/* The attachment the stand-in's form has, as WPAD reports it: a Nunchuk
+ * (1), a Classic Controller (2); the sideways Wii Remote has none (-1). */
+#if defined(RT_PAD_FORM_SIDEWAYS) || defined(RT_PAD_FORM_POINTING)
+#define PAD_EXTENSION_TYPE (-1)
+#elif defined(RT_PAD_FORM_NUNCHUK)
+#define PAD_EXTENSION_TYPE 1
+#else
+#define PAD_EXTENSION_TYPE 2
+#endif
+
+/* WPAD's extension callback for channel `chan` (the game's own, set with
+ * WPADSetExtensionCallback; its slot is in the channel's control block)
+ * told the stand-in's attachment, as WPAD tells it once it has read a Wii
+ * Remote's extension. Super Mario Galaxy 2 notes "Nunchuk attached" only
+ * from it, and asks for a Nunchuk until it hears. Called after the connect
+ * callback, which may be what sets it (Galaxy 2's does), with interrupts
+ * as the game's PADRead had them. */
+static void pad_tell_extension(const struct rt_pad_context* c, uint32_t chan) {
+#if PAD_EXTENSION_TYPE >= 0
+    const struct rtgcwii* w = (const struct rtgcwii*)(uintptr_t)c->gcwii;
+    uint32_t block, callback;
+    if (!c->gcwii || w->wpad_ext_table == 0 || chan >= RTGCWII_CHANNELS) return;
+    block = *(const volatile uint32_t*)(uintptr_t)(w->wpad_ext_table + chan * 4u);
+    if (!pad_in_ram((const void*)(uintptr_t)block)) return;
+    callback = *(const volatile uint32_t*)(uintptr_t)(block + w->wpad_ext_offset);
+    if (callback == 0 || !pad_in_ram((const void*)(uintptr_t)callback)) return;
+    ((void (*)(int32_t, int32_t))(uintptr_t)callback)((int32_t)chan, PAD_EXTENSION_TYPE);
+#else
+    (void)c;
+    (void)chan;
+#endif
+}
+
 /* The game's connect callback hears of the permanent stand-ins coming and
  * going, one change at a time from what is true now (rtgcwii_next_change),
  * with interrupts on for the game's code. A PADRead nested in this one (an
@@ -1371,6 +1703,7 @@ static void pad_gcwii_tell(struct rt_pad_context* c) {
     const int remote_shapes = 0;
 #endif
     for (;;) {
+        enum rtslot_after after;
         int told;
         /* What to tell is rtslot's to decide (the HOME Menu's rule
          * included); the slot is looked at again before each change: a
@@ -1389,8 +1722,15 @@ static void pad_gcwii_tell(struct rt_pad_context* c) {
         interrupts_restore(msr);
         told = pad_tell_connect(c, chan, reason);
         msr = interrupts_off();
+        after = rtslot_told(&w->slot, chan, reason, told);
         skip |= 1u << chan;
-        if (rtslot_told(&w->slot, chan, reason, told) == RTSLOT_AFTER_CONNECTED) {
+        if (after == RTSLOT_AFTER_EXTENSION) {
+            /* What is plugged into it, as WPAD tells it once it has read the
+             * Wii Remote's extension. */
+            interrupts_restore(msr);
+            pad_tell_extension(c, chan);
+            msr = interrupts_off();
+        } else if (after == RTSLOT_AFTER_CONNECTED) {
             int corrected;
             interrupts_restore(msr);
             corrected = pad_tell_connect(c, chan, 0);
@@ -1496,6 +1836,10 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         for (i = 0; i < RTGCWII_CHANNELS; ++i) pad_gcwii_camera_now(c, i);
 #endif
         rtgcwii_pads(w, status, t);
+#ifdef RT_PAD_FORM_REMOTE
+        /* Only the Wii Remote forms hook WPADRead (retell_ticks stays 0 in the others). */
+        rtgcwii_retell(w, t);
+#endif
     }
 #endif
     pad_leave_check(c, status, t);
@@ -1624,7 +1968,7 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
             interrupts_restore(flags);
         }
     }
-    if (c->gcwii && c->kpad_connect != 0) pad_gcwii_tell(c);
+    if (c->gcwii && pad_can_tell(c)) pad_gcwii_tell(c);
 #else
     if (leave != RTHOME_NO_CHANNEL) pad_tell_connect(c, leave, -1);
     if (join != RTHOME_NO_CHANNEL) pad_tell_connect(c, join, 0);
