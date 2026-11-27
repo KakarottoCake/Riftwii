@@ -473,8 +473,13 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
 // code is safe with nothing of the game set up.
 bool codes_run_first(bool debugger_handler, bool start_file_pending) {
     bool first = false;
+    const std::vector<std::pair<std::uint32_t, std::uint32_t>> loader_ranges = {{kLoaderStart, kMem1End},
+                                                                                {mem::kMem2Floor, kMem2End}};
     if (!g_extras.code_builds.empty()) {
-        first = true;
+        // A build whose codes write where this loader still runs starts with
+        // the game instead, like a player's cheat does; the others run first.
+        first = g_extras.cheat_gct.empty() || gct_runs_before_start(g_extras.cheat_gct, loader_ranges);
+        if (!first) logf("Codes: the build's codes write where RiftWii's loader still runs: they start with the game\n");
     } else if (debugger_handler) {
         logf("Codes: the WiiRD debugger's handler starts with the game, not before it\n");
     } else if (start_file_pending) {
@@ -3287,6 +3292,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         exclusions.push_back(MemoryRegion{mem::kProgramArea, mem::ProgramAreaEnd() - mem::kProgramArea});
         // The start-up stash's copy: a restart after a failed launch reads the menu's font from it.
         exclusions.push_back(MemoryRegion{mem::StashArea(), stash::ReservedEnd() - mem::StashArea()});
+        // The blocks skin::Mem2Alloc handed out (menu textures, font pools,
+        // cover and sound buffers): above the stash, below arena 2's live low end.
+        const std::uint32_t arena2_lo = reinterpret_cast<std::uint32_t>(SYS_GetArena2Lo());
+        if (arena2_lo > stash::ReservedEnd()) {
+            exclusions.push_back(MemoryRegion{stash::ReservedEnd(), arena2_lo - stash::ReservedEnd()});
+        }
         for (const auto& piece : mem::HeapPieces()) {
             if (piece.second > piece.first) exclusions.push_back(MemoryRegion{piece.first, piece.second - piece.first});
         }
