@@ -5,6 +5,7 @@
 #include "hidpads.hpp"
 
 #include <gccore.h>
+#include <malloc.h>
 #include <ogc/cache.h>
 #include <ogc/ipc.h>
 #include <ogc/machine/processor.h>
@@ -13,25 +14,25 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "hidsession.hpp"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "pad_hook.h"
 #include "pentablet.h"
+#include "plugins.hpp"
 #include "riftwii/hbmsearch.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/osrestart.hpp"
+#include "riftwii/plugin_api.h"
+#include "riftwii/plugin_pads.h"
 #include "riftwii/symsearch.hpp"
-#include "riftwii_pad_bin.h"
-#include "riftwii_pada_bin.h"
-#include "riftwii_padp_bin.h"
-#include "riftwii_padn_bin.h"
-#include "riftwii_padan_bin.h"
-#include "riftwii_padpn_bin.h"
+#include "riftwii_pad_sizes.h"
 #include "rtgcad.h"
 #include "rtrestart.h"
 #include "skin.hpp"
@@ -130,6 +131,10 @@ std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 // before an IOS reload (hidsession.hpp).
 OwnHidHandle g_own;
 HidDeviceHandoff g_handoff_devices;
+// The handle take_adapter_handle took from g_own for this launch, -1:
+// none (it opened its own, or took nothing). A launch refused before the
+// game starts gives that one back (give_back_or_close).
+std::int32_t g_handed_fd = -1;
 
 // For usb_open_matrix only: the same request with its buffer in MEM1.
 std::uint32_t g_mem1_probe[8] ATTRIBUTE_ALIGN(32);
@@ -170,17 +175,40 @@ int kind_of(bool adapter_only, bool pads_only, bool home) {
     return (adapter_only ? kBlobAdapter : pads_only ? kBlobPads : kBlobFull) + (home ? 0 : kBlobNoHome);
 }
 int kind_of(const PadHook& hook) { return kind_of(hook.adapter_only, hook.pads_only, hook.home_blob); }
-const std::uint8_t* blob(int kind) {
-    static const std::uint8_t* const blobs[kBlobKinds] = {riftwii_pad_bin,  riftwii_pada_bin,  riftwii_padp_bin,
-                                                          riftwii_padn_bin, riftwii_padan_bin, riftwii_padpn_bin};
-    return blobs[kind];
+// The builds are the pads plugin's (plugins/pads, docs/PLUGINS.md "The
+// pads plugin"), not the DOL's: the DOL knows their sizes, and
+// fetch_pad_build copies the one a game takes into g_build while the card
+// is still RiftWii's, before the plugin is shut down. Only that one is
+// ever read (blob(kind) of another is a bug, and nullptr).
+static_assert(kBlobKinds == RWP_PAD_BUILDS, "padhook.cpp's builds and the pads plugin's differ");
+constexpr std::uint32_t kBuildBytes[kBlobKinds] = RIFTWII_PAD_BUILD_BYTES;
+constexpr char kPadsPlugin[] = "pads";
+std::uint8_t* g_build = nullptr;
+int g_build_kind = -1;
+bool g_pads_refused = false;  // fetch_pad_build (or the check before the adapter's handle) stopped this launch
+std::string g_pads_refusal;   // the sentence for the player when the check before the handle refused
+
+// Whether the pads plugin can be used, asked before the adapter's handle is
+// taken: refused here, the launch stops with the adapter left as the menu had
+// it, so the failure screen can start it (console, 24 Nov: refused after the
+// handle was taken and closed, the screen's adapter answered -4 to everything,
+// and a player with GameCube controllers only couldn't leave it).
+bool pads_plugin_usable() {
+    std::string message;
+    if (plugin::Use(kPadsPlugin, &message) != nullptr) return true;
+    g_pads_refused = true;
+    g_pads_refusal = !message.empty()
+                         ? message
+                         : tr("A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
+    return false;
 }
-std::uint32_t blob_size(int kind) {
-    static const std::uint32_t sizes[kBlobKinds] = {riftwii_pad_bin_size,  riftwii_pada_bin_size,
-                                                    riftwii_padp_bin_size, riftwii_padn_bin_size,
-                                                    riftwii_padan_bin_size, riftwii_padpn_bin_size};
-    return sizes[kind];
+void forget_build() {
+    std::free(g_build);
+    g_build = nullptr;
+    g_build_kind = -1;
 }
+const std::uint8_t* blob(int kind) { return kind == g_build_kind ? g_build : nullptr; }
+std::uint32_t blob_size(int kind) { return kBuildBytes[kind]; }
 const rt_pad_header& header(int kind) { return *reinterpret_cast<const rt_pad_header*>(blob(kind)); }
 // The context's size in that blob.
 std::uint32_t context_bytes(int kind) { return kind >= kBlobNoHome ? RT_PAD_CONTEXT_BASE_BYTES : RT_PAD_CONTEXT_BYTES; }
@@ -193,9 +221,33 @@ bool blob_whole(int kind) {
     // read from it.
     const std::uint32_t header_bytes =
         kind < kBlobNoHome ? sizeof(rt_pad_header) : offsetof(rt_pad_header, hook_kpad);
+    // The context's end checked by subtraction, so a huge offset can't wrap
+    // round the sum and pass (CodeRabbit on #610); the build's own size must
+    // hold its header too.
     if (size < header_bytes || h.magic != RT_PAD_MAGIC || h.version != RT_PAD_VERSION || h.size > size ||
-        h.context_offset + context_bytes(kind) > h.size)
+        h.size < header_bytes || h.context_offset > h.size || context_bytes(kind) > h.size - h.context_offset ||
+        // The context is read as an rt_pad_context: a damaged offset that
+        // isn't aligned for it is the damaged-add-on error too (CodeRabbit
+        // on #609).
+        h.context_offset % alignof(rt_pad_context) != 0)
         return false;
+    // The copy's context must be one too (plan_pad_hook reads the same
+    // bytes): a damaged one is refused here, with the damaged-add-on
+    // error, not left to turn the pads off later (CodeRabbit on #593).
+    if (reinterpret_cast<const rt_pad_context*>(blob(kind) + h.context_offset)->magic != RT_PAD_CONTEXT_MAGIC)
+        return false;
+    // Every offset after the context's (the hooks, the replays and jumps
+    // back the install writes 16 bytes at, the IPC callback) must name a
+    // word inside the blob with room for those 16 bytes: a damaged one
+    // would have the install write outside the blob's code (CodeRabbit on
+    // #593). A hook a blob doesn't have is 0, which passes.
+    constexpr std::uint32_t kSiteBytes = 16;
+    const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(&h);
+    const std::size_t first_site = offsetof(rt_pad_header, hook_read) / sizeof(std::uint32_t);
+    for (std::size_t index = first_site; index < header_bytes / sizeof(std::uint32_t); ++index) {
+        const std::uint32_t offset = words[index];
+        if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes) return false;
+    }
     return kind >= kBlobNoHome || (h.hook_kpad != 0 && h.hook_probe != 0 && h.hook_menu != 0 && h.hook_select != 0 &&
                                    h.hook_unified != 0);
 }
@@ -763,12 +815,6 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
                         std::string& why) {
     out = PadHook{};
     out.demo = demo;
-    bool whole = true;
-    for (int kind = 0; kind < kBlobKinds; ++kind) whole = whole && blob_whole(kind);
-    if (!whole) {
-        why = "the embedded pad blob is damaged";
-        return false;
-    }
     std::vector<CodeRange> text;
     for (std::size_t i = 0; i < kDolTextSections; ++i) {
         const DolSection& s = dol.sections[i];
@@ -819,6 +865,13 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     else
         logf("GameCube adapter: SIProbe not found: a game that asks it which ports have a controller sees none there\n");
 
+    // The pad code's plugin first: a launch it can't serve stops before the
+    // adapter's handle is taken (pads_plugin_usable).
+    if (!pads_plugin_usable()) {
+        why = "the pads plugin can't be used (its own line above says why); the launch stops before the adapter's "
+              "handle is taken";
+        return false;
+    }
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why, &out.devices_unknown)) {
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
@@ -840,6 +893,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
     fd = -1;
     version = 0;
     known_dev = -1;
+    g_handed_fd = -1;
     if (list_unknown != nullptr) *list_unknown = false;
     if (g_own.fd >= 0 && g_own.version == 5) {
         // The launch's own handle (look_for_gc_adapter), never shut down.
@@ -847,6 +901,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
         version = 5;
         known_dev = g_own.device;
         g_own.hand_over();  // the game's now
+        g_handed_fd = fd;
         logf("GameCube adapter: %s v5 fd %d (opened before libogc's USB), adapter device %d\n", g_usb_path_used,
              static_cast<int>(fd), static_cast<int>(known_dev));
         return true;
@@ -920,73 +975,48 @@ void close_pad_handles(PadHook& out) {
     out.ven_fd = -1;
 }
 
+// A launch the pads plugin refused after the adapter's handle was taken:
+// a handle that was the menu's session (take_adapter_handle) goes back to
+// it, still open, for the failure screen (players with only GameCube
+// controllers read it with them); any other handle is closed.
+void give_back_or_close(PadHook& out) {
+    if (out.fd >= 0 && out.fd == g_handed_fd) {
+        g_own.take_back(out.fd, out.version, out.known_dev);
+        logf("GameCube adapter: the launch stopped; fd %d goes back to the menu's adapter session\n",
+             static_cast<int>(out.fd));
+        out.fd = -1;
+    }
+    g_handed_fd = -1;
+    close_pad_handles(out);
+}
+
 }  // namespace
 
-bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                   std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
-                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
-                   std::uint32_t mem1_veneer, std::uint32_t stage_base) {
-    const bool demo = out.demo;
-    if (out.read == 0) {
-        why = "PADRead was not found";
-        return false;
-    }
+namespace {
 
-    // 1. The game's IOS calls.
-    std::vector<CodeRange> text;
-    for (std::size_t i = 0; i < kDolTextSections; ++i) {
-        const DolSection& s = dol.sections[i];
-        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
-    }
-    std::string error;
-    if (ioctl_async == 0) {
-        IpcSymbols ipc;
-        if (!find_ipc_symbols(text, ipc, error)) {
-            why = "the game's IOS_IoctlAsync was not found: " + error;
-            close_pad_handles(out);
-            return false;
-        }
-        ioctl_async = ipc.ioctl_async;
-        ioctlv_async = ipc.ioctlv_async;
-        if (ioctlv_async == 0) {
-            IpcApi api;
-            if (find_ipc_api(text, ipc, api, error)) ioctlv_async = api.async[kIpcIoctlvCmd];
-        }
-    }
-
-    // 2. /dev/usb/hid, opened by find_pad_functions.
-    if (out.version == 5 && ioctlv_async == 0) {
-        why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
-        close_pad_handles(out);
-        return false;
-    }
-
-    // 3. Memory: the blob below the MEM1 arena's top, the state at the
-    //    bottom of the MEM2 arena. For a code build both at the top of
-    //    the MEM2 arena instead, the arena's start (and the build's fixed
-    //    addresses) left alone. A pack's patch there turns it off.
-    // Only the adapter's own state when no other USB pad could be used in
-    // the game: a pad's mapping is loaded in the menu when it is plugged
-    // in there, and an Xbox 360 pad needs /dev/usb/ven opened before the
-    // launch (open_usb_ven_for_game). Without either, the four pad links,
-    // the catalog and the ven list are about 26 KB the game never uses
-    // (Project+ with the adapter had 512 bytes to spare).
-    static rthid_catalog catalog;
-    HidPadsCopyCatalog(catalog);
-    const std::uint32_t version = out.version == 4 ? 4u : 5u;
+// Which USB controllers the game's state makes room for, and so which
+// build of the pad code it takes: from the menu's catalog of USB pads and
+// the handles find_pad_functions opened. fetch_pad_build takes the
+// catalog (`snapshot`), and plan_pad_hook decides again from that same
+// copy, so the two always pick the same build. The kept catalog
+// (g_pad_kept) is what plan_pad_hook copies into the game.
+rthid_catalog g_pad_catalog;
+rthid_catalog g_pad_kept;
+void decide_pad_inputs(PadHook& out, bool code_build, bool snapshot) {
+    rthid_catalog& catalog = g_pad_catalog;
+    if (snapshot) HidPadsCopyCatalog(catalog);
     // A code build (its blob goes to MEM2's top, through veneers) takes the
     // USB controllers plugged in when it starts and no others: room for
     // those, their mappings, and the blob without what none of them needs
     // (#496). Code builds use all of the game's memory; other games keep
     // room for any pad the menu has seen, which can be plugged in mid-game.
-    const bool code_build = mem1_veneer != 0;
     // A device list that could not be read at the launch is no sign the
     // adapter is out: planned for then, as it may be plugged in.
     bool adapter_in = catalog.adapter_disabled == 0 && (out.known_dev >= 0 || out.devices_unknown);
     for (unsigned i = 0; i < catalog.known_count && i < RTHID_DEVICE_MAX; ++i) {
         if (catalog.adapter_disabled == 0 && catalog.known[i].vid_pid == GCAD_VID_PID) adapter_in = true;
     }
-    static rthid_catalog kept;
+    rthid_catalog& kept = g_pad_kept;
     std::memcpy(&kept, &catalog, offsetof(rthid_catalog, layouts));
     kept.count = 0;
     kept.layout_bytes = 0;
@@ -1040,6 +1070,172 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             if (catalog.known[i].vid_pid == GCAD_VID_PID) out.known_dev = catalog.known[i].id;
         }
     }
+}
+
+// The HOME Menu by the controller (#387) only in ordinary Wii games,
+// and only where its functions were found: a code build needs every
+// byte, and with Settings > Leaving a game on HOME only none were
+// looked for. Else the build without it, as before it.
+bool wants_home_build(const PadHook& out, bool code_build) {
+    return !code_build && out.kpad_read != 0 && out.wpad_probe != 0 && out.hbm_calc != 0 && out.hbm_select != 0;
+}
+
+}  // namespace
+
+PadsPluginForLaunch::PadsPluginForLaunch(bool wanted) {
+    // Every launch starts with no refusal: one that never asks for the pad
+    // code (fetch_pad_build) can't carry an earlier launch's over to the
+    // channel fallback (CodeRabbit CLI, #609).
+    g_pads_refused = false;
+    g_pads_refusal.clear();
+    if (!wanted) return;
+    // A refusal is logged by the loader; fetch_pad_build asks again and
+    // stops the launch with the loader's sentence if the game needs it.
+    if (plugin::Use(kPadsPlugin) != nullptr)
+        logf("GameCube adapter and USB controllers: the %s plugin loaded while the card is RiftWii's, for the pad code "
+             "later in the launch\n",
+             kPadsPlugin);
+}
+
+// Only a launch that failed and came back gets here (a started game never
+// returns): the copy goes with the plugin.
+PadsPluginForLaunch::~PadsPluginForLaunch() {
+    plugin::ShutdownAll("the launch no longer needs it");
+    forget_build();
+}
+
+bool pads_plugin_stopped_launch() { return g_pads_refused; }
+
+void pads_plugin_forget_refusal() {
+    g_pads_refused = false;
+    g_pads_refusal.clear();
+}
+
+std::string pads_plugin_refusal() { return g_pads_refusal; }
+
+void release_pads_plugin() {
+    plugin::ShutdownAll("this game takes no pad code");
+    forget_build();
+}
+
+bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message) {
+    forget_build();
+    g_pads_refused = false;
+    decide_pad_inputs(hook, code_build, true);
+    const int kind = kind_of(hook.adapter_only, hook.pads_only, wants_home_build(hook, code_build));
+    const std::uint32_t bytes = kBuildBytes[kind];
+    g_build = static_cast<std::uint8_t*>(memalign(32, (bytes + 31u) & ~31u));
+    if (g_build == nullptr) {
+        logf("GameCube adapter and USB controllers: no memory for the pad code's copy (%u bytes)\n",
+             static_cast<unsigned>(bytes));
+        message = tr("There was not enough memory for the {1} add-on. Restart RiftWii and try again.", {kPadsPlugin});
+        give_back_or_close(hook);
+        g_pads_refused = true;
+        return false;
+    }
+    rwp_pads_request request{};
+    request.size = sizeof(request);
+    request.build = static_cast<std::uint32_t>(kind);
+    request.out = g_build;
+    request.capacity = bytes;
+    // Only what this launch's loader says reaches the player: an earlier
+    // value of the caller's string never does (CodeRabbit on #616).
+    message.clear();
+    const std::int32_t result = plugin::Launch(kPadsPlugin, &request, sizeof(request), message);
+    // The copy needs none of the plugin's code: its arena goes back to the
+    // heap before anything else of the launch is placed.
+    plugin::ShutdownAll("the pad code is copied");
+    const auto fail = [&](const std::string& why, bool damaged) {
+        logf("GameCube adapter and USB controllers: the game can't start without the pad code from RiftWii's %s "
+             "plugin in %s: %s\n",
+             kPadsPlugin, plugin::Directory().c_str(), why.c_str());
+        if (damaged) message = tr("A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
+        give_back_or_close(hook);
+        forget_build();
+        g_pads_refused = true;
+        return false;
+    };
+    if (result == -1) {
+        // plugin::Launch gives its own sentence for the player with -1 (a
+        // missing plugin: "A part of RiftWii is missing ..."): kept, with a
+        // general one only where it gave none (console, 24 Nov: the general
+        // one had replaced "missing").
+        if (message.empty())
+            message = tr("A part of RiftWii couldn't be used (the {1} add-on). Update RiftWii again.", {kPadsPlugin});
+        return fail("the plugin could not be used (its own line above says why)", false);
+    }
+    if (result != RWP_PADS_COPIED)
+        return fail("build " + std::to_string(kind) + " was not copied: " +
+                        (request.error[0] != '\0' ? std::string(request.error) : std::string("no reason given")),
+                    true);
+    g_build_kind = kind;
+    if (request.written != bytes || !blob_whole(kind))
+        return fail("build " + std::to_string(kind) + " is not the one this RiftWii was built with (" +
+                        std::to_string(request.written) + " bytes, " + std::to_string(bytes) + " expected)",
+                    true);
+    logf("GameCube adapter and USB controllers: the pad code's %s build%s (%u bytes) copied from the %s plugin\n",
+         kind % kBlobNoHome == kBlobAdapter ? "adapter's" : kind % kBlobNoHome == kBlobPads ? "USB pads'" : "full",
+         kind >= kBlobNoHome ? " without the HOME Menu" : "", static_cast<unsigned>(bytes), kPadsPlugin);
+    return true;
+}
+
+namespace {
+
+}  // namespace
+
+bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
+                   std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
+                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
+                   std::uint32_t mem1_veneer, std::uint32_t stage_base) {
+    const bool demo = out.demo;
+    if (out.read == 0) {
+        why = "PADRead was not found";
+        return false;
+    }
+
+    // 1. The game's IOS calls.
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string error;
+    if (ioctl_async == 0) {
+        IpcSymbols ipc;
+        if (!find_ipc_symbols(text, ipc, error)) {
+            why = "the game's IOS_IoctlAsync was not found: " + error;
+            close_pad_handles(out);
+            return false;
+        }
+        ioctl_async = ipc.ioctl_async;
+        ioctlv_async = ipc.ioctlv_async;
+        if (ioctlv_async == 0) {
+            IpcApi api;
+            if (find_ipc_api(text, ipc, api, error)) ioctlv_async = api.async[kIpcIoctlvCmd];
+        }
+    }
+
+    // 2. /dev/usb/hid, opened by find_pad_functions.
+    if (out.version == 5 && ioctlv_async == 0) {
+        why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
+        close_pad_handles(out);
+        return false;
+    }
+
+    // 3. Memory: the blob below the MEM1 arena's top, the state at the
+    //    bottom of the MEM2 arena. For a code build both at the top of
+    //    the MEM2 arena instead, the arena's start (and the build's fixed
+    //    addresses) left alone. A pack's patch there turns it off.
+    // Only the adapter's own state when no other USB pad could be used in
+    // the game: a pad's mapping is loaded in the menu when it is plugged
+    // in there, and an Xbox 360 pad needs /dev/usb/ven opened before the
+    // launch (open_usb_ven_for_game). Without either, the four pad links,
+    // the catalog and the ven list are about 26 KB the game never uses
+    // (Project+ with the adapter had 512 bytes to spare).
+    const std::uint32_t version = out.version == 4 ? 4u : 5u;
+    const bool code_build = mem1_veneer != 0;
+    decide_pad_inputs(out, code_build, false);  // the catalog fetch_pad_build took
+    const rthid_catalog& kept = g_pad_kept;
     gcad_layout layout{};
     gcad_layout_for(&layout, out.hid_dormant ? GCAD_LINK_BYTES : GCAD_OWNER_BYTES(version), out.link_count,
                     out.ven_fd >= 0, out.map_bytes);
@@ -1047,7 +1243,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // and only where its functions were found: a code build needs every
     // byte, and with Settings > Leaving a game on HOME only none were
     // looked for. Else the blob without it, as before it.
-    out.home_blob = !code_build && out.kpad_read != 0 && out.wpad_probe != 0 && out.hbm_calc != 0 && out.hbm_select != 0;
+    out.home_blob = wants_home_build(out, code_build);
     if (!out.home_blob) {
         if (code_build && out.kpad_read != 0)
             logf("GameCube adapter: no HOME Menu by the controller in a code build (the combo is the way back)\n");
@@ -1055,6 +1251,12 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         out.kpad_unified = out.kpad_connect = 0;
     }
     const int kind = kind_of(out);
+    if (kind != g_build_kind) {
+        why = "the pad code copied at the launch is another build (" + std::to_string(g_build_kind) + ", this game takes " +
+              std::to_string(kind) + ")";
+        close_pad_handles(out);
+        return false;
+    }
     const rt_pad_header& h = header(kind);
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(out.adapter_only ? GCAD_OWNER_BYTES(version) : layout.bytes);

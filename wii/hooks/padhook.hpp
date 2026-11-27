@@ -200,6 +200,51 @@ void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out
 // their search patches).
 bool pad_read_in_place(std::uint32_t address);
 
+// After find_pad_functions: the build of the pad code this game takes (by
+// the USB controllers the menu knows and whether the HOME Menu's functions
+// were found) copied from the pads plugin (docs/PLUGINS.md, "The pads
+// plugin"), and the plugin shut down. It needs no card: PadsPluginForLaunch
+// loads the plugin before the launch hands the storage over (an IOS reload,
+// d2x's NAND emulation), and the copy comes from that loaded plugin.
+// `code_build` as plan_pad_hook will be told (a nonzero mem1_veneer).
+// False when the plugin can't give it: `message` is the sentence for the
+// player, and the launch stops (a player whose only controllers are
+// GameCube or USB ones could not play, nor leave, without it).
+bool fetch_pad_build(PadHook& hook, bool code_build, std::string& message);
+
+// Whether the last launch stopped because fetch_pad_build could not give
+// the pad code: a channel's caller then comes back to RiftWii instead of
+// letting the system start it without RiftWii's extras (wii/main.cpp).
+bool pads_plugin_stopped_launch();
+
+// No refusal from an earlier launch: for a launch path that can stop before
+// PadsPluginForLaunch clears it (boot_channel's loader checks).
+void pads_plugin_forget_refusal();
+
+// The sentence for the player when the launch stopped before the adapter's
+// handle was taken (the pads plugin couldn't be used), else empty.
+std::string pads_plugin_refusal();
+
+// A launch whose game takes no pad code after all (prepare_gc_pads turned
+// the adapter off): the plugin shut down now, before the resident runtime
+// and the extras are placed, rather than when the launch is over.
+void release_pads_plugin();
+
+// The pads plugin loaded before a launch lets go of the card (an IOS
+// reload unmounts it; d2x's NAND emulation takes it for a channel), so
+// fetch_pad_build needs no card; it stays loaded through the reload, in
+// RiftWii's own MEM2. Lives for the launch: going out of scope (a launch
+// that failed and came back, or one whose game takes no pad code) shuts
+// the plugin down if fetch_pad_build has not. `wanted`: whether the launch
+// may take pad code (boot.cpp's pads_may_be_wanted).
+class PadsPluginForLaunch {
+public:
+    explicit PadsPluginForLaunch(bool wanted);
+    ~PadsPluginForLaunch();
+    PadsPluginForLaunch(const PadsPluginForLaunch&) = delete;
+    PadsPluginForLaunch& operator=(const PadsPluginForLaunch&) = delete;
+};
+
 // The adapter's /dev/usb/hid handle for the game, with its HID version and
 // the adapter's v5 device id from the USB list (-1: none): the one
 // look_for_gc_adapter opened, else a fresh one once libogc's USB has let

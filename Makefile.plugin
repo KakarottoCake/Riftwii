@@ -33,7 +33,7 @@ CXX     := $(PREFIX)g++
 PYTHON  ?= python3
 LIBOGC_INC ?= $(DEVKITPRO)/libogc/include
 
-PLUGINS := selftest gamecube ctgpr appstore
+PLUGINS := selftest gamecube ctgpr pads appstore
 .DEFAULT_GOAL := all
 OUT     := build-plugins
 SDDIR   := $(OUT)/plugins
@@ -65,6 +65,10 @@ ctgpr_CXXFLAGS := -I$(DEVKITPRO)/portlibs/ppc/include
 # std::unordered_map's out-of-line parts (the package lists' record table and
 # the hash lists): the string hash and the bucket-count policy.
 ctgpr_LIBSTDCXX := hash_bytes.o hashtable_c++0x.o
+
+# The in-game pad code's six builds (docs/PLUGINS.md, "The pads plugin"):
+# plain C and the builds by .incbin (plugins/pads/padsblobs.S), from
+# Makefile.runtime's folder like the gamecube plugin's blobs.
 
 # The app store (docs/APPSTORE.md): its pages and downloads, the list's
 # reader and the store's rules, the zip and PNG readers and SHA-256. zlib's
@@ -134,17 +138,17 @@ STAMP_FILE := $(OUT)/build-stamp.txt
 $(shell mkdir -p $(OUT) && [ "$$(cat $(STAMP_FILE) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(STAMP_FILE))
 
 define plugin_rules
-$(OUT)/$(1)/%.o: plugins/$(1)/%.c include/riftwii/plugin_api.h
+$(OUT)/$(1)/%.o: plugins/$(1)/%.c include/riftwii/plugin_api.h Makefile.plugin
 	@mkdir -p $$(dir $$@)
-	$$(CC) $$(CFLAGS) -c -o $$@ $$<
+	$$(CC) $$(CFLAGS) -MMD -MP -c -o $$@ $$<
 
 $(OUT)/$(1)/%.o: plugins/$(1)/%.cpp include/riftwii/plugin_api.h
 	@mkdir -p $$(dir $$@)
 	$$(CXX) $$(CXXFLAGS) $$($(1)_CXXFLAGS) -MMD -MP -c -o $$@ $$<
 
-$(OUT)/$(1)/%.o: plugins/$(1)/%.S $(wildcard $(RUNTIME_OUT)/*)
+$(OUT)/$(1)/%.o: plugins/$(1)/%.S $(wildcard $(RUNTIME_OUT)/*) Makefile.plugin
 	@mkdir -p $$(dir $$@)
-	$$(CC) $$(ASFLAGS) -x assembler-with-cpp -c -o $$@ $$<
+	$$(CC) $$(ASFLAGS) -x assembler-with-cpp -MMD -MP -c -o $$@ $$<
 
 # The C++ runtime and the src/ copies, under the plugin's own folder.
 $(OUT)/$(1)/common/%.o: plugins/common/%.cpp include/riftwii/plugin_api.h

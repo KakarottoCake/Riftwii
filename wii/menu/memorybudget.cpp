@@ -11,7 +11,7 @@
 #include "resident.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii_fault_bin.h"
-#include "riftwii_pad_bin.h"
+#include "riftwii_pad_sizes.h"
 #include "riftwii_rt_rvz_zst.h"
 #include "riftwii_rt_zst.h"
 #include "riftwii_shot_bin.h"
@@ -39,6 +39,13 @@ std::uint32_t frame_bytes(const std::uint8_t* packed, std::size_t size) {
 template <typename Header>
 std::uint32_t blob_bytes(const std::uint8_t* blob) {
     return align(reinterpret_cast<const Header*>(blob)->size);
+}
+
+// The pad code's full build (the pads plugin carries the builds; the DOL
+// keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h).
+std::uint32_t pad_build_bytes() {
+    constexpr std::uint32_t kBytes[] = RIFTWII_PAD_BUILD_BYTES;
+    return align(kBytes[0]);
 }
 
 // A typical pack's redirect table and payload (a few hundred files).
@@ -110,14 +117,14 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         if (settings.screenshots != "off")
             b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
         if (adapter)
-            b.add(tr("GameCube adapter"), blob_bytes<rt_pad_header>(riftwii_pad_bin), align(sizeof(gcad_hub)));
+            b.add(tr("GameCube adapter"), pad_build_bytes(), align(sizeof(gcad_hub)));
     } else if (!protected_game && code_build && !clears_mem1_top && adapter) {
         // A code build keeps all of MEM1: the adapter's code and state both
         // go to the top of the MEM2 arena, reached through veneers in low
         // memory (wii/hooks/padhook.cpp). A game that clears MEM1's top
         // gets no adapter at all (boot.cpp), code build or not.
         b.add(tr("GameCube adapter"), 0,
-              blob_bytes<rt_pad_header>(riftwii_pad_bin) + align(sizeof(gcad_hub)));
+              pad_build_bytes() + align(sizeof(gcad_hub)));
     }
     return b;
 }

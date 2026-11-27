@@ -399,6 +399,60 @@ only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
+## The pads plugin
+
+The in-game pad code (`runtime/pad`: the GameCube adapter, the other USB
+pads and the HOME Menu by the controller) is six builds of one blob
+(`Makefile.runtime`: the full one, adapter only, other USB pads only, and
+each again without the HOME Menu). A game takes one of them, but all six
+were embedded in the DOL. They are the `pads` plugin's now
+(`plugins/pads/`), and the DOL keeps only their sizes.
+
+| Piece | Where |
+| --- | --- |
+| The request | `include/riftwii/plugin_pads.h`: `rwp_pads_request` (which build, the DOL's buffer and its size in; the bytes copied and a reason out) |
+| The plugin | `plugins/pads/pads.c` (`rwp_init`, the table, `launch` copying the build asked for), `padsblobs.S` (the six builds by `.incbin`, from `build-runtime/`, and a table of each one's start and size) |
+| The DOL's side | `wii/hooks/padhook.cpp`: `PadsPluginForLaunch` loads the plugin while the card is RiftWii's; `fetch_pad_build` decides the build (`decide_pad_inputs`, `wants_home_build`: the same answer `plan_pad_hook` gets later), copies it from the plugin into a buffer of its own and shuts the plugin down; `blob(kind)` reads that copy. `wii/launch/boot.cpp` loads it before a disc launch's IOS reload and before a channel's tries, and calls `fetch_pad_build` right after `prepare_gc_pads` |
+| The sizes | `build-runtime/riftwii_pad_sizes.h` (`Makefile.runtime`), for the copy's buffer and the game page's memory budget (`wii/menu/memorybudget.cpp`) |
+| Out of the DOL | `Makefile.wii`: the six `riftwii_pad*.bin` out of `BINFILES` |
+| Packaging | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube`, `ctgpr` and `appstore`; CI's size report lists it |
+
+**When.** The build a game takes is known only once the game is loaded
+(the search for the HOME Menu's functions reads it), but by then a launch
+may have let go of the card: an IOS reload unmounts it, and for a channel
+d2x's NAND emulation may keep it. So the plugin is loaded before that
+(`PadsPluginForLaunch`, in `boot_game` before the reload and in
+`boot_channel` before its tries), while the card is RiftWii's, and stays
+loaded through the reload in RiftWii's own MEM2 (the plugin arena at the
+top of its heap; an IOS reload uses MEM2 below `0x90800000`). Right after
+`prepare_gc_pads`, `fetch_pad_build` decides the build, has the plugin
+copy it and shuts the plugin down, so its arena is the heap's again before
+the resident runtime and the extras are placed and nothing of the launch
+lands in it. A launch that fails and comes back, or whose game takes no
+pad code, shuts it down when `PadsPluginForLaunch` goes out of scope. The
+copy itself is an ordinary heap block (the biggest build is about 33 KB)
+that lives until `install_pad_hook` has put the code into the game.
+`plan_pad_hook` decides the build again from the same catalog snapshot
+and checks it is the one copied. In-game, nothing changes: the same bytes
+go to the same place.
+
+**When the plugin is missing**, damaged or from another RiftWii, the
+launch stops with the loader's sentence ("A part of RiftWii is missing
+(the pads add-on). Update RiftWii again.") and the log line `GameCube
+adapter and USB controllers: the game can't start without the pad code
+from RiftWii's pads plugin in <folder>: ...`. Starting the game without
+the adapter instead would leave a player whose only controllers are
+GameCube or USB ones unable to play, or to leave. Only launches that
+would put the pad code in are stopped: with Settings > GameCube adapter
+Off and no USB pad plugged in, or Automatic with no adapter or USB pad
+plugged in, it is never needed. A plugged-in USB pad with a layout turns
+Off into Automatic for that launch (settle_gc_adapter), so then the pad
+code goes in and a missing plugin stops the launch too; with USB pads
+only set up, not plugged in, the plugin is loaded early in case one is
+(pads_may_be_wanted), and nothing stops if it is missing.
+
+Measured: see the pull request (the DOL and MEM1 before and after).
+
 ## The appstore plugin
 
 The app store ([APPSTORE.md](APPSTORE.md)) is a plugin with a screen of its
@@ -446,7 +500,7 @@ count it allocates for is capped by the list's rules.
 | Its own copies | `src/net/applist.cpp`, `src/net/appcatalog.cpp`, `src/fs/zipread.cpp`, `src/art/pngdecode.cpp`, `src/data/sha256.cpp` and what they call (`Makefile.plugin`'s `appstore_SRC`) |
 | Out of the DOL | `Makefile.wii`: `src/net/applist.cpp` and `src/net/appcatalog.cpp` in `EXCLUDES` |
 | Its text | `tr("...")` in `plugins/appstore/`, translated through `translate`; `tools/lang_source.py` checks them with the menu's |
-| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube` and `ctgpr` |
+| Updates | `tools/make_release_zip.py` and `tools/make_update_pack.py` require it beside `gamecube`, `ctgpr` and `pads` |
 
 ## 1. Goals and non-goals
 

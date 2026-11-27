@@ -20,6 +20,7 @@
 #include <cstdio>
 
 #include "boot.hpp"
+#include "padhook.hpp"
 #include "channel.hpp"
 #include "ctgpr.hpp"
 #include "di.hpp"
@@ -208,6 +209,23 @@ void ClearIosReloadBlock(std::string& error) {
 bool Session::ensure_probe(std::string& error) {
     if (probed) return true;
     ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
+    // The pads plugin is read from where RiftWii runs (the USB drive or the
+    // SD card, wii/core/plugins.cpp), so it is loaded before anything takes
+    // that storage away: an image's activation and a disc's cIOS reload for
+    // packs on the USB drive close the drive and bring back only the SD
+    // card, and d2x's NAND emulation then takes the card for the game's
+    // saves. A launch that turns out to take no pad code lets it go
+    // (release_pads_plugin); one that needs it and can't have it stops
+    // with the loader's reason (fetch_pad_build).
+    // A disc launch can lose the USB drive too: with the GameCube adapter
+    // on, settle_gc_adapter gives the menu's USB back before the pad code
+    // is fetched (release_menu_usb_for_game), so a RiftWii run from the
+    // drive loads its plugin here, while the drive is still mounted
+    // (CodeRabbit CLI on #593).
+    const bool plugins_off_sd = plugin::Directory().rfind("sd:", 0) != 0;
+    const bool storage_goes =
+        source.kind != LaunchSource::Kind::Disc || (usb_packs && MenuCiosSlot() == 0) || plugins_off_sd;
+    if (storage_goes && !pads_plugin) pads_plugin = std::make_shared<PadsPluginForLaunch>(LaunchMayTakePadCode());
     if (source.kind != LaunchSource::Kind::Disc) {
         bool active = false;
         // Saves on the SD card kept by d2x (wii/storage/d2xsave.hpp): the
@@ -282,6 +300,8 @@ bool Session::ensure_probe(std::string& error) {
         // emulation on only while no title runs. A game on the SD card
         // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
         // the others cannot read the game and keep the save on one card).
+        // (The pads plugin was loaded at the start, while the card was
+        // RiftWii's.)
         if (d2x_ready) {
             const int base = d2x_base(used_slot);
             std::string why;
