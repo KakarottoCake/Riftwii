@@ -69,7 +69,7 @@ EXCLUDES	+=	src/ctgpr/ctgpupdate.cpp src/ctgpr/ctgpupdater.cpp src/ctgpr/ctgppac
 # store is open. The host tests still build them (CMakeLists.txt).
 EXCLUDES	+=	src/net/applist.cpp src/net/appcatalog.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
-				channel/common
+				channel/common build-runtime
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
@@ -204,8 +204,9 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # for the recursive build after runtime-blob has completed. licence.zst
 # is made in the build (below) from LICENSE. The GameCube runtime blobs
 # (riftwii_gc*) are the gamecube plugin's (plugins/gamecube/gcblobs.S),
-# not the DOL's.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_pada.bin riftwii_padp.bin riftwii_padn.bin riftwii_padan.bin riftwii_padpn.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_wlog_trace.bin riftwii_wlog_translate.bin riftwii_vsd.bin codehandleronly.bin codehandler.bin codehandlerslota.bin riftwii_stub.bin
+# and the pad builds (riftwii_pad*) the pads plugin's (plugins/pads), not
+# the DOL's; the DOL keeps the pad builds' sizes (riftwii_pad_sizes.h).
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_wlog_trace.bin riftwii_wlog_translate.bin riftwii_vsd.bin codehandleronly.bin codehandler.bin codehandlerslota.bin riftwii_stub.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
 # the heap's after the start. The GPL's text (credits) and translations
@@ -253,7 +254,11 @@ $(BUILD): runtime-blob bearssl-lib
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
 
-plugins:
+# Run on its own (make -f Makefile.wii plugins), the runtime's blobs come
+# first: the gamecube and pads plugins take them by .incbin from
+# build-runtime, empty on a clean checkout. (Here, at the project's root,
+# not in the build's recursive plugins below, which has no Makefile.runtime.)
+plugins: runtime-blob
 	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 

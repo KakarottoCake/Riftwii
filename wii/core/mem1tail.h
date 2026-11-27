@@ -27,7 +27,13 @@
 #ifndef RIFTWII_WII_MEM1TAIL_H
 #define RIFTWII_WII_MEM1TAIL_H
 
-#define RIFTWII_HOME_SCAN_STACK_BYTES (128 * 1024)
+/* 256 KiB, though the scan itself needs far less: the stack is sized so it
+ * still spans the line. Moving the six in-game pad builds out of the DOL
+ * into the pads plugin shrank RiftWii, and with it everything before this
+ * stack, so at 128 KiB its end fell about 92 KiB short of 0x81000000.
+ * Pinning the stack to the line in the linker script, so it stops
+ * depending on the DOL's size, is planned separately. */
+#define RIFTWII_HOME_SCAN_STACK_BYTES (256 * 1024)
 #define RIFTWII_MUSIC_STACK_BYTES (32 * 1024)
 
 #ifdef __cplusplus
