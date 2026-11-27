@@ -15,4 +15,4 @@ struct tmd_view {
 };
 
 s32 ES_GetTMDViewSize(u64 title, u32* size);
-s32 ES_GetTMDView(u64 title, tmd_view* view, u32 size);
+s32 ES_GetTMDView(u64 title, u8* view, u32 size);

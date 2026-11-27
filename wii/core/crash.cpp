@@ -257,8 +257,20 @@ void* SaveReport(void*) {
 // libogc2 has no panic hook: its default exception handler calls
 // c_default_exceptionhandler (wrapped at link time, --wrap in Makefile.wii) in
 // exception context, then restores the frame and returns from the exception.
-// So: note the registers, and point the frame at CrashContinue on g_stack.
+// So: note the registers, and point the frame at a trampoline that switches
+// to g_stack and enters CrashContinue (the handler's epilogue puts sp back
+// by adding to the crashed thread's own, whatever the frame's gpr[1] says).
 extern "C" void __real_c_default_exceptionhandler(frame_context* ctx);
+extern "C" void RiftCrashTrampoline();
+extern "C" { u32 rift_crash_sp = 0; }
+extern "C" [[noreturn]] void RiftCrashEntry() { CrashContinue(); }
+asm(".pushsection .text\n"
+    ".globl RiftCrashTrampoline\n"
+    "RiftCrashTrampoline:\n"
+    "    lis 1, rift_crash_sp@ha\n"
+    "    lwz 1, rift_crash_sp@l(1)\n"
+    "    b RiftCrashEntry\n"
+    ".popsection\n");
 bool g_installed = false;
 void RiftPanic(frame_context* ctx) {
     if (g_crashing) {
@@ -282,11 +294,11 @@ void RiftPanic(frame_context* ctx) {
     const std::size_t bytes = g_stack ? g_stack_bytes : sizeof(g_fallback_stack);
     u32* top = reinterpret_cast<u32*>(stack + bytes - 16);
     top[0] = 0;  // the back chain ends here
-    ctx->gpr[1] = reinterpret_cast<u32>(top);
+    rift_crash_sp = reinterpret_cast<u32>(top);
     ctx->gpr[2] = sda2;
     ctx->gpr[13] = sda;
     ctx->lr = 0;
-    ctx->srr0 = reinterpret_cast<u32>(&CrashContinue);
+    ctx->srr0 = reinterpret_cast<u32>(&RiftCrashTrampoline);
     ctx->srr1 |= 0x8000 | 0x30 | 0x2;  // EE, IR and DR, RI
     ctx->msr = ctx->srr1;
 }

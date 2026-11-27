@@ -281,7 +281,7 @@ struct HeapSnap {
     bool in_heap[96] = {};
 };
 
-[[maybe_unused]] void Snap(HeapSnap& snap, u32 at) {
+void Snap(HeapSnap& snap, u32 at) {
     snap.from = (at - 48) & ~15u;
     for (u32 i = 0; i < 96; ++i) {
         const u32 address = snap.from + i;
@@ -311,13 +311,12 @@ void LogSnap(const HeapSnap& snap) {
 
 }  // namespace
 
-// newlib's malloc (dlmalloc 2.6): each chunk is prev_size, size (low bit:
-// the one before is in use), then for a free chunk its bin links; the top
-// chunk is __malloc_av_[2], the bins' headers sit in __malloc_av_ itself.
-// libogc2 replaces newlib's malloc with its own dlmalloc, whose chunk layout
-// is not this one: the structural walk below is kept for libogc 3 builds only
-// and libogc2 reports just the free bytes (mallinfo).
-#define MALLOC_LOCK() ((void)0)
+// libogc2's malloc is its own dlmalloc 2.8, which keeps no layout this file
+// can read, so the heap is walked with its malloc_inspect_all: every chunk it
+// reports must lie inside the heap's pieces. A chunk header overwritten with a
+// plausible size passes; one that is not plausible is reported (newlib's
+// structural walk, with its free-list checks, does not exist here).
+#define MALLOC_LOCK() ((void)0)  // malloc_inspect_all takes dlmalloc's lock itself
 #define MALLOC_UNLOCK() ((void)0)
 
 namespace {
@@ -365,12 +364,32 @@ bool CheckHeap(const char* when) {
 }
 
 namespace {
-bool WalkHeap(HeapWalk& walk, bool with_total) {
-    walk.chunks = 0;
-    if (with_total) {
-        const struct mallinfo info = mallinfo();
-        walk.free_bytes = static_cast<u32>(info.fordblks);
+struct InspectState {
+    HeapWalk* walk;
+    u32 chunks = 0;
+    u32 free_bytes = 0;
+};
+
+void InspectChunk(void* start, void* end, size_t used, void* arg) {
+    InspectState& st = *static_cast<InspectState*>(arg);
+    if (st.walk->problem[0]) return;  // the first damage is the one reported
+    const u32 from = Address(start), to = Address(end);
+    if (to <= from || (from & 7) != 0 || !InHeap(from) || !InHeap(to - 1)) {
+        std::snprintf(st.walk->problem, sizeof(st.walk->problem), "a chunk that leaves the heap: 0x%08x to 0x%08x (%u chunks in)",
+                      from, to, static_cast<unsigned>(st.chunks));
+        Snap(st.walk->bad, from);
+        return;
     }
+    ++st.chunks;
+    if (used == 0) st.free_bytes += to - from;
+}
+
+bool WalkHeap(HeapWalk& walk, bool with_total) {
+    InspectState st{&walk};
+    malloc_inspect_all(InspectChunk, &st);
+    walk.chunks = st.chunks;
+    if (walk.problem[0]) return false;
+    if (with_total) walk.free_bytes = st.free_bytes;
     return true;
 }
 }  // namespace

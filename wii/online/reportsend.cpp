@@ -23,6 +23,11 @@
 #include <ogc/conf.h>
 #include <wiiuse/wpad.h>
 
+// libogc2's wiiuse sets classic.type to 2 for a Wii U Pro Controller but has no name for it.
+#ifndef CLASSIC_TYPE_WIIU
+#define CLASSIC_TYPE_WIIU 2
+#endif
+
 #include "boot.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
@@ -547,7 +552,7 @@ std::string DescribeControllers() {
         std::string s = "Wii Remote " + std::to_string(i + 1);
         if (const WPADData* d = WPAD_Data(i)) {
             const unsigned exp = d->exp.type;
-            if (exp == WPAD_EXP_CLASSIC && false /* libogc2's wiiuse does not tell a Wii U Pro Controller from a Classic Controller */) {
+            if (exp == WPAD_EXP_CLASSIC && d->exp.classic.type == CLASSIC_TYPE_WIIU) {
                 // libogc reads it as a Classic Controller; games do not
                 // (the next launch keeps the Wii Remote log for that).
                 s = "Wii U Pro Controller " + std::to_string(i + 1);

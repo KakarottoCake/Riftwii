@@ -121,7 +121,8 @@ s32 ES_GetTMDViewSize(u64, u32* size) {
     return 0;
 }
 
-s32 ES_GetTMDView(u64 title, tmd_view* view, u32) {
+s32 ES_GetTMDView(u64 title, u8* data, u32) {
+    tmd_view* view = reinterpret_cast<tmd_view*>(data);
     view->title_id = title;
     view->num_contents = 1;
     view->contents[0].cid = 1;

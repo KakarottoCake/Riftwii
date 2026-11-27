@@ -44,6 +44,11 @@
 #include <set>
 #include <unordered_map>
 #include <wiiuse/wpad.h>
+
+// libogc2's wiiuse sets classic.type to 2 for a Wii U Pro Controller but has no name for it.
+#ifndef CLASSIC_TYPE_WIIU
+#define CLASSIC_TYPE_WIIU 2
+#endif
 #include <ogc/lwp_watchdog.h>
 
 #include "libwiigui/gui.h"
@@ -13537,7 +13542,7 @@ static ConnectedPads PadsConnectedNow()
 		// GameCube game takes it with the Classic Controller's buttons
 		// (runtime/gc/gc_pro.h), so it gets a card of its own.
 		if (d->exp.type == WPAD_EXP_CLASSIC) {
-			if (false /* libogc2's wiiuse does not tell a Wii U Pro Controller from a Classic Controller */) pads.pro = true;
+			if (d->exp.classic.type == CLASSIC_TYPE_WIIU) pads.pro = true;
 			else pads.classic = true;
 		}
 	}
