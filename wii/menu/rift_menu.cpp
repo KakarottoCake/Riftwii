@@ -20864,7 +20864,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					list.GetClicked();
 					list.GetClickedBack();
 					backBtn.button.ResetState();
-					if (picked < 0 || picked == set) stepIt = false;
+					// Games from and the memory card can hold a value their
+					// list lacks (SD with the SD card not searched, a Wii U's
+					// saved real card), shown as the first: picking even that
+					// one sets it, as the handler takes a pick as it is.
+					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource;
+					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
 					else {
 						direction = picked - set;
 						listPick = picked;
