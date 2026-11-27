@@ -3599,6 +3599,35 @@ private:
 // Short cards (two rows of them, kChoiceShortCard) put the count in the
 // top right corner, to leave room under the picture for two lines of name.
 static constexpr int kChoiceShortCard = 96;
+// The largest size from `points` down to `smallest` at which every word of
+// `text` (split at spaces and newlines) is at most `width` wide.
+static int LongestWordFits(const std::string& text, int width, int points, int smallest)
+{
+	std::vector<std::string> words;
+	std::string word;
+	for (const char c : text) {
+		if (c == ' ' || c == '\n') {
+			if (!word.empty()) words.push_back(word);
+			word.clear();
+		} else {
+			word += c;
+		}
+	}
+	if (!word.empty()) words.push_back(word);
+	for (int size = points; size > smallest; --size) {
+		bool fits = true;
+		for (const std::string& each : words) {
+			GuiText probe(each.c_str(), size, skin::kInk);
+			if (probe.GetTextWidth() > width) {
+				fits = false;
+				break;
+			}
+		}
+		if (fits) return size;
+	}
+	return smallest;
+}
+
 class HomeChoiceCards : public GuiElement {
 public:
 	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current)
@@ -3615,6 +3644,10 @@ public:
 			// (4:3 wraps "Recently played" and most translations); a tall card
 			// with a count wraps at three.
 			label->SetWrap(true, tile.w - 12, shortCard || tile.value.empty() ? 2 : 3);
+			// A word wider than the card has no place to wrap and ran edge to
+			// edge ("Jacquettes" at 4:3): the name gets smaller until its longest
+			// word fits, down to 12 points.
+			label->SetFontSize(LongestWordFits(tile.label, tile.w - 12, 15, 12));
 			// A short card and a card with no count have the picture and the
 			// name centred in the card as one block, worked out below (a short
 			// card's count sits in its top-right corner, clear of both). A tall

@@ -8,7 +8,8 @@
  * GUI class definitions
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: wrapped text can stop after a number of lines, ending in "..."; UTF-8 and layout fixes.
+ * GPL-3.0-or-later: wrapped text can stop after a number of lines, ending in "..."; UTF-8 and layout fixes;
+ * Japanese wraps at a good place rather than mid-word (November 2026).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
@@ -354,6 +355,57 @@ static wchar_t *EndWithDots(wchar_t *line, FreeTypeGX *font, int width)
 	return cut;
 }
 
+// RiftWii: where Japanese (and Chinese) text may be wrapped. It has no
+// spaces, and breaking after any character split words in two on narrow
+// cards: a line now ends at a good place when one fits (after a run of
+// hiragana, as after a particle; after closing punctuation; between
+// katakana and kanji), inside a word only when none does, and never
+// before what may not start a line (small kana, the long-vowel mark,
+// closing punctuation) or after an opening bracket.
+namespace {
+
+enum class CjkClass { Other, Hiragana, Katakana, Ideograph, Opening, Closing, NoStart };
+
+CjkClass ClassOf(wchar_t c)
+{
+	switch (c) {
+	case 0x3041: case 0x3043: case 0x3045: case 0x3047: case 0x3049: case 0x3063: case 0x3083: case 0x3085:
+	case 0x3087: case 0x308E: case 0x30A1: case 0x30A3: case 0x30A5: case 0x30A7: case 0x30A9: case 0x30C3:
+	case 0x30E3: case 0x30E5: case 0x30E7: case 0x30EE: case 0x30F5: case 0x30F6: case 0x30FC: case 0x309D:
+	case 0x309E: case 0x30FD: case 0x30FE: case 0x3005:
+		return CjkClass::NoStart;
+	case 0x3001: case 0x3002: case 0x30FB: case 0x3009: case 0x300B: case 0x300D: case 0x300F: case 0x3011:
+	case 0x3015: case 0xFF09: case 0xFF01: case 0xFF1F: case 0xFF0C: case 0xFF0E: case 0xFF1A: case 0xFF1B:
+	case 0xFF3D: case 0xFF5D:
+		return CjkClass::Closing;
+	case 0x3008: case 0x300A: case 0x300C: case 0x300E: case 0x3010: case 0x3014: case 0xFF08: case 0xFF3B:
+	case 0xFF5B:
+		return CjkClass::Opening;
+	default:
+		break;
+	}
+	if (c >= 0x3040 && c <= 0x309F) return CjkClass::Hiragana;
+	if ((c >= 0x30A0 && c <= 0x30FF) || (c >= 0xFF66 && c <= 0xFF9F)) return CjkClass::Katakana;
+	if ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF) || (c >= 0xF900 && c <= 0xFAFF))
+		return CjkClass::Ideograph;
+	return CjkClass::Other;
+}
+
+// A break after `a` when `b` follows: 2 a good one, 1 inside a word (only
+// if nothing better fits), 0 never.
+int BreakAfter(wchar_t a, wchar_t b)
+{
+	const CjkClass ca = ClassOf(a), cb = ClassOf(b);
+	if (cb == CjkClass::NoStart || cb == CjkClass::Closing || ca == CjkClass::Opening) return 0;
+	if (ca == CjkClass::Closing) return 2;
+	if (ca == CjkClass::Hiragana && cb != CjkClass::Hiragana) return 2;
+	if ((ca == CjkClass::Katakana || ca == CjkClass::NoStart) && cb == CjkClass::Ideograph) return 2;
+	if (ca == CjkClass::Ideograph && cb == CjkClass::Katakana) return 2;
+	return 1;
+}
+
+}  // namespace
+
 // RiftWii: the wrapping, from Draw, so GetLineCount can wrap before the
 // first draw (a popup spaces its parts for the lines its text takes).
 void GuiText::WrapLines(u32 textlen)
@@ -363,6 +415,10 @@ void GuiText::WrapLines(u32 textlen)
 	int linenum = 0;
 	int lastSpace = -1;
 	int lastSpaceIndex = -1;
+	// RiftWii: a break inside a CJK word, kept for when no better one
+	// (lastSpace) fits on the line.
+	int lastAny = -1;
+	int lastAnyIndex = -1;
 	int building = -1; // RiftWii: the line still at the text's length
 
 	while(ch < textlen && linenum < 20)
@@ -390,6 +446,8 @@ void GuiText::WrapLines(u32 textlen)
 			n = 0;
 			lastSpace = -1;
 			lastSpaceIndex = -1;
+			lastAny = -1;
+			lastAnyIndex = -1;
 			++ch;
 			continue;
 		}
@@ -404,6 +462,12 @@ void GuiText::WrapLines(u32 textlen)
 		{
 			if(fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
 			{
+				// RiftWii: the last good break, else one inside a word.
+				if(lastSpace < 0 && lastAny >= 0)
+				{
+					lastSpace = lastAny;
+					lastSpaceIndex = lastAnyIndex;
+				}
 				if(lastSpace >= 0)
 				{
 					textDyn[linenum][lastSpaceIndex] = 0; // discard space (or keep the CJK character), and everything after
@@ -411,6 +475,8 @@ void GuiText::WrapLines(u32 textlen)
 					lastSpace = -1; // we have used this space
 					lastSpaceIndex = -1;
 				}
+				lastAny = -1;
+				lastAnyIndex = -1;
 				++linenum;
 				n = -1;
 			}
@@ -424,10 +490,27 @@ void GuiText::WrapLines(u32 textlen)
 			lastSpace = ch;
 			lastSpaceIndex = n;
 		}
-		else if(cjk && n >= 0)
+		// RiftWii: between other letters and Japanese ("3D/パッケージ") is
+		// a good place too, unless what follows may not start a line.
+		else if(!cjk && n >= 0 && ch + 1 < textlen && text[ch + 1] >= 0x2E80 &&
+		        ClassOf(text[ch + 1]) != CjkClass::NoStart && ClassOf(text[ch + 1]) != CjkClass::Closing)
 		{
 			lastSpace = ch;
 			lastSpaceIndex = n + 1;
+		}
+		else if(cjk && n >= 0 && ch + 1 < textlen)
+		{
+			const int quality = BreakAfter(text[ch], text[ch + 1]);
+			if(quality == 2)
+			{
+				lastSpace = ch;
+				lastSpaceIndex = n + 1;
+			}
+			else if(quality == 1)
+			{
+				lastAny = ch;
+				lastAnyIndex = n + 1;
+			}
 		}
 		++ch;
 		++n;
