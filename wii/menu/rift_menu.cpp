@@ -19870,7 +19870,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kBorders: return "video picture black bars";
 			case kVideoMode: return "video picture tv ntsc pal 480p 240p hz progressive";
 			case kAspect: return "video picture widescreen 16:9 4:3 tv";
-			case kGameLanguage: return "language";
+			case kLanguage: case kGameLanguage: return "language";
 			case kGameCios: case kIos: return "cios ios d2x";
 			case kWiiSaves: return "save saves nand";
 			case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: return "nand emunand saves wad";
@@ -19884,6 +19884,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kNintendontImport: return "controller layout ini import";
 			case kUsbInput: return "usb controller keyboard mouse";
 			case kHomeTiles: return "layout view covers grid shelf";
+			case kHomeSort: return "home order sort";
+			case kReturnTo: return "quit exit game wii menu";
 			case kWidescreen: return "video 16:9 4:3 tv";
 			case kScreenSize: return "video overscan tv edges";
 			case kTheme: case kThemeBrowse: return "look colors colours";
@@ -20898,8 +20900,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// Quitting a game with its test switch on: a pick, even
 					// the one in use, takes the switch out (its help says A
 					// here does).
+					// Menu IOS whose saved slot is no longer installed: the
+					// list marks IOS 58, the slot that is used, and picking it
+					// saves it.
+					const bool iosSlotGone = std::find(iosChoices.begin(), iosChoices.end(), iosSlot) == iosChoices.end();
 					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource ||
-						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto"));
+						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto")) ||
+						(actedAction == kIos && iosSlotGone);
 					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
 					else {
 						direction = picked - set;
@@ -21633,7 +21640,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					std::size_t at = 0;
 					while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
 					const int n = static_cast<int>(iosChoices.size());
-					iosSlot = iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
+					if (listPick >= 0 && listPick < n) iosSlot = iosChoices[static_cast<std::size_t>(listPick)];
+					else iosSlot = iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
 					if (riftwii::wii::SaveMenuIos(iosSlot)) {
 						logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
 						noteTxt.SetText(MenuIosNote(iosSlot).c_str());

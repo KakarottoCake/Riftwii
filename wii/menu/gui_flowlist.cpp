@@ -599,8 +599,13 @@ void GuiFlowList::Update(GuiTrigger* t) {
         }
         // Let go: a press that stayed put acts on its row.
         if (!dragging && !grabTrack && pointing && RowAt(px, py) == grabRow && Actionable(grabRow)) {
-            (grabPart == Part::Back ? clickedBack : clicked) = grabRow;
-            clickStepped = grabPart == Part::Forward;
+            // A Back release leaves a forward press still waiting as it was.
+            if (grabPart == Part::Back) {
+                clickedBack = grabRow;
+            } else {
+                clicked = grabRow;
+                clickStepped = grabPart == Part::Forward;
+            }
             soundClick->Play();
         } else if (!dragging) {
             fling = 0;
