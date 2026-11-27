@@ -165,10 +165,13 @@ int GuiFlowList::RowAt(int x, int y) const {
     return index < Count() ? index : -1;
 }
 
-GuiFlowList::Part GuiFlowList::PartAt(int row, int x) const {
+GuiFlowList::Part GuiFlowList::PartAt(int row, int x, int y) const {
     if (row < 0) return Part::None;
     const FlowRow& r = (*rows)[row];
-    if (r.kind == FlowRow::Kind::Option && !r.dim) {
+    // Under SetNotesUnder the arrows are on the top line; the explanation
+    // under them is the row's (A there opens the choice's list).
+    const bool onControlLine = !(notesUnder && !r.detail.empty()) || y < RowTop(row) + kCardGap + LineHeight(r) + 2;
+    if (r.kind == FlowRow::Kind::Option && !r.dim && onControlLine) {
         // The arrows' hit areas reach a little past the buttons.
         const int right = ControlsRight();
         const int stepperW = StepperWidth(row);
@@ -635,7 +638,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
             return;
         }
         const int row = RowAt(px, py);
-        const Part part = PartAt(row, px);
+        const Part part = PartAt(row, px, py);
         if ((row != hover || part != hoverPart) && Actionable(row)) soundOver->Play();
         hover = row;
         hoverPart = part;

@@ -98,7 +98,7 @@ private:
     int MaxScroll() const;
     void ScrollTo(float y);
     int RowAt(int x, int y) const;
-    Part PartAt(int row, int x) const;
+    Part PartAt(int row, int x, int y) const;
     bool Actionable(int row) const;
     bool OnTrack(int x, int y) const;
     // -1 on the up arrow, 1 on the down arrow (while shown), else 0.

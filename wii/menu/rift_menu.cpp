@@ -19934,6 +19934,23 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		const auto it = settings.other.find("settings_advanced");
 		return it != settings.other.end() && it->second == "on";
 	};
+	// The values Games from offers (SD only while the SD card is searched)
+	// and the GameCube memory cards this console has: the picker lists these
+	// and the handlers step through or take them, so the two always agree.
+	const auto homeSourceChoices = [&]() {
+		std::vector<std::string> sources{"all", "sd", "usb", "wii", "gamecube"};
+		if (settings.sd_games == "off") sources.erase(sources.begin() + 1);
+		return sources;
+	};
+	const auto gcCardChoices = []() {
+		std::vector<std::string> cards{"own", "shared"};
+		// The real cards only where the Wii has GameCube slots.
+		if (!riftwii::wii::is_wii_u()) {
+			cards.push_back("real");
+			cards.push_back("real_b");
+		}
+		return cards;
+	};
 	// A choice's values in the order its handler steps through them, named
 	// (and each one's note, where it has one), and which is set: -1 for a
 	// row that is not a list. Picking value i steps the handler i - set.
@@ -20000,12 +20017,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kSdGames:
 				return two(settings.sd_games == "off", tr("Look for them"), tr("Don't look"));
 			case kHomeSource: {
-				static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii", "gamecube"};
+				const std::vector<std::string> sources = homeSourceChoices();
 				int set = 0;
-				for (int i = 0; i < 5; ++i) {
-					if (settings.home_source == kSourceChoices[i]) set = i;
-					labels.push_back(HomeSourceName(kSourceChoices[i]));
-					notes.push_back(HomeSourceNote(kSourceChoices[i]));
+				for (std::size_t i = 0; i < sources.size(); ++i) {
+					if (settings.home_source == sources[i]) set = static_cast<int>(i);
+					labels.push_back(HomeSourceName(sources[i]));
+					notes.push_back(HomeSourceNote(sources[i]));
 				}
 				return set;
 			}
@@ -20063,11 +20080,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return settings.gc_adapter == "on" ? 1 : settings.gc_adapter == "off" ? 2 : 0;
 			}
 			case kGcCard: {
-				std::vector<std::string> cards{"own", "shared"};
-				if (!riftwii::wii::is_wii_u()) {
-					cards.push_back("real");
-					cards.push_back("real_b");
-				}
+				const std::vector<std::string> cards = gcCardChoices();
 				int set = 0;
 				for (std::size_t i = 0; i < cards.size(); ++i) {
 					if (settings.gc_card == cards[i]) set = static_cast<int>(i);
@@ -20485,6 +20498,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		// advanced ones are left out unless shown (a search finds them all).
 		std::vector<FlowRow> kept;
 		std::vector<RowAction> keptActions;
+		allHays.clear();
 		const bool showAdvanced = searching || advancedShown();
 		bool anyAdvanced = false;
 		for (std::size_t i = 0; i < rows.size(); ++i) {
@@ -20524,17 +20538,18 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	if (searching) {
 		const auto typed = [&](const std::string& text, std::string& matches, std::string& next) {
 			query = text;
-			allHays.clear();
 			build();
 			// The keys still worth pressing: those that leave something found.
 			next.clear();
-			const std::string typedLower = lowerAscii(TrimSearch(text));
+			// As typed, a space at its end kept: "memory " then "c" is
+			// "memory c", which the memory card's rows match.
+			std::string typedLower = lowerAscii(text);
+			typedLower.erase(0, typedLower.find_first_not_of(' ') == std::string::npos ? typedLower.size()
+				: typedLower.find_first_not_of(' '));
 			for (const char c : std::string("abcdefghijklmnopqrstuvwxyz0123456789 :-")) {
-				const std::string longer = typedLower + c;
 				for (const std::string& hay : allHays) {
-					const bool fits = c == ' ' ? !typedLower.empty() && hayMatches(hay, typedLower)
-						: hay.find(longer.substr(longer.rfind(' ') + 1)) != std::string::npos &&
-						  (typedLower.find(' ') == std::string::npos || hayMatches(hay, longer));
+					const bool fits = c == ' ' ? !typedLower.empty() && typedLower.back() != ' ' && hayMatches(hay, typedLower)
+						: hayMatches(hay, typedLower + c);
 					if (fits) {
 						next += c;
 						break;
@@ -20820,6 +20835,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			// Picking value i steps the row's own handler (below) by i - set at
 			// once, so whatever that value asks (a warning) is asked once.
 			bool stepIt = true;
+			int listPick = -1;  // the value picked from the list, else -1 (stepped)
 			const RowAction actedAction = actions[static_cast<std::size_t>(acted)];
 			const FlowRow& actedRow = rows[static_cast<std::size_t>(acted)];
 			if (direction > 0 && !list.LastClickStepped() && actedRow.kind == FlowRow::Kind::Option && !actedRow.dim) {
@@ -20849,7 +20865,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					list.GetClickedBack();
 					backBtn.button.ResetState();
 					if (picked < 0 || picked == set) stepIt = false;
-					else direction = picked - set;
+					else {
+						direction = picked - set;
+						listPick = picked;
+					}
 				}
 			}
 			if (actedAction == kAdvanced) {
@@ -20981,18 +21000,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeSource: {
-					static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii", "gamecube"};
-					constexpr int kSources = 5;
-					int at = 0;
-					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
-					// With the SD scan off SD would list nothing: stepped over. GameCube stays, it lists USB games too.
-					const bool sdScanned = settings.sd_games != "off";
-					for (int tries = 0; tries < kSources; ++tries) {
-						at = ((at % kSources) + kSources + direction) % kSources;
-						const std::string choice = kSourceChoices[at];
-						if (sdScanned || choice != "sd") break;
-					}
-					settings.home_source = kSourceChoices[at];
+					// With the SD scan off SD would list nothing: not offered.
+					// GameCube stays, it lists USB games too.
+					const std::vector<std::string> sources = homeSourceChoices();
+					settings.home_source = listPick >= 0 && listPick < static_cast<int>(sources.size())
+						? sources[static_cast<std::size_t>(listPick)]
+						: StepList(sources, settings.home_source, direction);
 					saveAndNote(help(kHomeSource));
 					rebuild();
 					break;
@@ -21062,6 +21075,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						if (kept.empty()) settings.other.erase(it);
 						else it->second = kept;
 						logf("Settings: debug_off returnto taken out (%s left)\n", kept.empty() ? "nothing" : kept.c_str());
+						// Picked from the list (Back to RiftWii, Wii Menu): that one too.
+						if (listPick >= 0) settings.return_to = listPick == 1 ? "menu" : "riftwii";
 					} else {
 						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
 					}
@@ -21074,13 +21089,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kGcCard: {
-					// The real cards only where the Wii has GameCube slots.
-					std::vector<std::string> cards{"own", "shared"};
-					if (!riftwii::wii::is_wii_u()) {
-						cards.push_back("real");
-						cards.push_back("real_b");
-					}
-					settings.gc_card = StepList(cards, settings.gc_card, direction);
+					const std::vector<std::string> cards = gcCardChoices();
+					settings.gc_card = listPick >= 0 && listPick < static_cast<int>(cards.size())
+						? cards[static_cast<std::size_t>(listPick)]
+						: StepList(cards, settings.gc_card, direction);
 					saveAndNote(help(kGcCard));
 					rebuild();
 					break;
