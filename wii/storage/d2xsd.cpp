@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "d2xsd.hpp"
+#include "../core/mem1tail.h"
 
 #include <gccore.h>
 #include <ogc/cache.h>
@@ -39,7 +40,8 @@ std::atomic<bool> g_held_by_fat{false};
 std::string g_last_error;
 u32 g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
-u8 g_bounce[kBounceSectors * kSectorBytes] ATTRIBUTE_ALIGN(32);
+static_assert(kBounceSectors * kSectorBytes <= RIFTWII_BOUNCE_BYTES, "bounce buffer too small");
+u8* const g_bounce = riftwii_d2xsd_bounce;
 
 bool transfer(u32 command, u32 sector, u32 count, void* buffer) {
     if (g_fd < 0 || count == 0) return false;

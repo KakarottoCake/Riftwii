@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "usbcatalog.hpp"
+#include "../core/mem1tail.h"
 
 #include <fat.h>
 #include <gccore.h>
@@ -2619,7 +2620,7 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
     if (list.entries.empty()) return true;  // nothing to read; d2x's own probe judges it
-    static std::uint8_t first[32 * 1024] ATTRIBUTE_ALIGN(32);  // one sector of any size
+    std::uint8_t* const first = riftwii_usbcat_bounce;  // one sector of any size
     const std::uint32_t first_sector = list.entries[0].sector;
     bool read = false;
     std::string last_why;

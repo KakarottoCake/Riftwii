@@ -35,6 +35,11 @@
  * depending on the DOL's size, is planned separately. */
 #define RIFTWII_HOME_SCAN_STACK_BYTES (256 * 1024)
 #define RIFTWII_MUSIC_STACK_BYTES (32 * 1024)
+/* Three 32 KiB bounce buffers (DI, d2x SD, USB catalog) that need nothing
+ * before main. They sit after the scan stack so the stack starts that much
+ * lower: a CI build whose .bss was larger than a local one left the line
+ * below the stack. */
+#define RIFTWII_BOUNCE_BYTES (32 * 1024)
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +48,9 @@ extern "C" {
 extern unsigned char riftwii_home_scan_stack[RIFTWII_HOME_SCAN_STACK_BYTES];
 /* wii/menu/wiimenusounds.cpp's music thread. */
 extern unsigned char riftwii_music_stack[RIFTWII_MUSIC_STACK_BYTES];
+extern unsigned char riftwii_di_bounce[RIFTWII_BOUNCE_BYTES];
+extern unsigned char riftwii_d2xsd_bounce[RIFTWII_BOUNCE_BYTES];
+extern unsigned char riftwii_usbcat_bounce[RIFTWII_BOUNCE_BYTES];
 
 #ifdef __cplusplus
 }

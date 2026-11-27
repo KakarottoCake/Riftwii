@@ -4,6 +4,12 @@
  * reference nothing, as every library has been searched before it. */
 #include "mem1tail.h"
 
+/* Bounce buffers, after the scan stack (mem1tail.h); defined first, as GCC lays out
+ * this file's buffers in reverse. */
+__attribute__((aligned(32))) unsigned char riftwii_di_bounce[RIFTWII_BOUNCE_BYTES];
+__attribute__((aligned(32))) unsigned char riftwii_d2xsd_bounce[RIFTWII_BOUNCE_BYTES];
+__attribute__((aligned(32))) unsigned char riftwii_usbcat_bounce[RIFTWII_BOUNCE_BYTES];
+
 /* The Wii Menu music thread's stack, which must lie after the scan stack
  * (mem1tail.h says why). GCC lays this file's buffers out in the reverse
  * of their order here, so it comes first; tools/check_mem1_line.py fails
