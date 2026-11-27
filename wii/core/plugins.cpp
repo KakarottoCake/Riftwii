@@ -522,10 +522,11 @@ const rwp_host kHost = {
     pluginhost::RenamePath,
     pluginhost::ListDirectory,
     pluginhost::SdFreeKib,
+    pluginscreen::AskRisky,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 64 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 65 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 

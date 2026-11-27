@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/modcover.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <iterator>
 
@@ -70,8 +71,63 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out) {
     return true;
 }
 
-std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written_out) {
+namespace {
+
+constexpr const char kMadeForLine[] = "# for:";
+
+// What custom_prefix gives: four capital letters and digits.
+bool is_custom_prefix(const std::string& prefix) {
+    if (prefix.size() != 4) return false;
+    for (const char c : prefix)
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
+    return true;
+}
+
+}  // namespace
+
+bool custom_games_made_for(const std::string& text, std::set<std::string>& out) {
+    out.clear();
+    std::size_t at = 0;
+    while (at < text.size()) {
+        std::size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        at = end + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+        if (line[0] != '#') return false;  // the comments come first
+        if (line.compare(0, sizeof(kMadeForLine) - 1, kMadeForLine) != 0) continue;
+        std::size_t word = sizeof(kMadeForLine) - 1;
+        while (word < line.size()) {
+            while (word < line.size() && line[word] == ' ') ++word;
+            const std::size_t stop = std::min(line.find(' ', word), line.size());
+            if (stop == word) break;
+            const std::string prefix = line.substr(word, stop - word);
+            if (!is_custom_prefix(prefix) || out.size() >= kMaxCustomGames) {
+                out.clear();
+                return false;
+            }
+            out.insert(prefix);
+            word = stop;
+        }
+        return true;
+    }
+    return false;
+}
+
+std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written_out,
+                                   const std::set<std::string>& made_for) {
     std::string out = "# GameTDB's custom games (mods) for the player's games, made by RiftWii from wiitdb.xml\n";
+    if (!made_for.empty()) {
+        std::string line = kMadeForLine;
+        std::size_t kept = 0;
+        for (const std::string& prefix : made_for) {
+            if (!is_custom_prefix(prefix) || kept >= kMaxCustomGames) continue;
+            line += " " + prefix;
+            ++kept;
+        }
+        out += line + "\n";
+    }
     std::size_t written = 0;
     for (const CustomGame& g : games) {
         if (written >= kMaxCustomGames) break;
@@ -165,6 +221,19 @@ std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::stri
         found = g.id;
     }
     return stock_matches ? std::string() : found;
+}
+
+const CustomGame* find_gametdb_entry(const std::vector<CustomGame>& entries, const std::string& id) {
+    if (!is_custom_id(id)) return nullptr;
+    for (const CustomGame& entry : entries)
+        if (entry.id == id) return &entry;
+    return nullptr;
+}
+
+std::string profile_cover_id(const std::vector<CustomGame>& entries, const Profile& profile) {
+    // A typed entry may have been checked in the database rather than the mod index.
+    if (is_custom_id(profile.gametdb_id)) return profile.gametdb_id;
+    return mod_cover_id(entries, profile.game_id, profile.name);
 }
 
 bool is_tile_art_name(const std::string& name) {

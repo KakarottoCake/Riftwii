@@ -24,6 +24,8 @@ constexpr AppCategory kCategories[] = {
     {"internet", "Internet", "Browse, chat and read on the internet."},
     {"online", "Online services", "Bring the Wii's online play and channels back."},
     {"loaders", "Loaders", "Start games and apps from USB drives and SD cards."},
+    // Mods come from their own list, opened from a game's Mods page.
+    {"mods", "Mods", "Riivolution mods for your games, from GameBanana."},
     {"more", "More", "Everything else."},
 };
 constexpr std::size_t kCategoryCount = sizeof(kCategories) / sizeof(kCategories[0]);
@@ -90,13 +92,104 @@ std::size_t app_category_index(const char* key) {
     return kCategoryCount - 1;
 }
 
-std::string app_record_text(const AppListing& app) {
-    return std::string("version=") + app.version + "\nsha256=" + app.sha256 + "\n";
+const char* const kAppProgramFiles[4] = {"boot.dol", "boot.elf", "meta.xml", "icon.png"};
+
+namespace {
+
+// A path under the card's root as the store writes one: plain names
+// joined by '/', none "." or "..", no backslash, ':' or control characters.
+bool RecordPathOk(const std::string& path) {
+    if (path.empty() || path.size() > 255 || path.front() == '/' || path.back() == '/') return false;
+    std::size_t start = 0;
+    while (start <= path.size()) {
+        std::size_t end = path.find('/', start);
+        if (end == std::string::npos) end = path.size();
+        const std::string part = path.substr(start, end - start);
+        if (part.empty() || part == "." || part == "..") return false;
+        for (const char c : part) {
+            if (static_cast<unsigned char>(c) < 0x20 || c == '\\' || c == ':') return false;
+        }
+        start = end + 1;
+    }
+    return true;
+}
+
+// A file line's "<size> <crc> " (decimal, then eight hex digits), by hand:
+// the store's plugin has no sscanf. `used` is where the path starts.
+bool ReadRecordNumbers(const std::string& value, std::uint32_t& size, std::uint32_t& crc, std::size_t& used) {
+    std::size_t at = 0;
+    std::uint64_t number = 0;
+    while (at < value.size() && value[at] >= '0' && value[at] <= '9' && at < 10) {
+        number = number * 10 + static_cast<std::uint64_t>(value[at] - '0');
+        ++at;
+    }
+    if (at == 0 || number > 0xFFFFFFFFull || at >= value.size() || value[at] != ' ') return false;
+    size = static_cast<std::uint32_t>(number);
+    ++at;
+    crc = 0;
+    for (int digit = 0; digit < 8; ++digit, ++at) {
+        if (at >= value.size()) return false;
+        const char c = value[at];
+        std::uint32_t nibble;
+        if (c >= '0' && c <= '9') nibble = static_cast<std::uint32_t>(c - '0');
+        else if (c >= 'a' && c <= 'f') nibble = static_cast<std::uint32_t>(c - 'a' + 10);
+        else return false;
+        crc = (crc << 4) | nibble;
+    }
+    if (at >= value.size() || value[at] != ' ') return false;
+    used = at + 1;
+    return true;
+}
+
+// The app's own folder on the card, "apps/<id>/".
+std::string OwnFolder(const AppListing& app) { return std::string("apps/") + app.id + "/"; }
+
+// Whether `path` (lower case) is one of the app's program files: a mod's
+// XML, or an app's boot.dol, boot.elf, meta.xml and icon.png.
+bool IsProgramFile(const AppListing& app, const std::string& lower) {
+    std::vector<std::string> programs;
+    if (app.mod) programs.push_back(app.program);
+    else
+        for (const char* name : kAppProgramFiles) programs.push_back(OwnFolder(app) + name);
+    for (std::string program : programs) {
+        for (char& c : program) c = Lower(c);
+        if (lower == program) return true;
+    }
+    return false;
+}
+
+// Whether `path` is where the app's own files go: apps/<id>/, or a mod's
+// own folders (a copy of the mod put there by hand, which the player chose
+// to replace). Not riivolution/: every pack keeps its XMLs there, so a file
+// the store did not put there may be another pack's, and is kept (the
+// mod's own XML is its program, replaced before this is asked).
+bool InOwnFolders(const AppListing& app, const std::string& path) {
+    if (!app.mod) return path.compare(0, OwnFolder(app).size(), OwnFolder(app)) == 0;
+    for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
+        const std::string data = std::string(app.data_folders[i]) + "/";
+        if (path.compare(0, data.size(), data) == 0) return true;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::string app_record_text(const AppListing& app, const std::vector<AppRecordFile>& files, bool removed) {
+    std::string text = std::string("version=") + app.version + "\nsha256=" + app.sha256 + "\n";
+    if (removed) text += "removed=1\n";
+    // "files=" says the list follows, even when it is empty.
+    text += "files=" + std::to_string(files.size()) + "\n";
+    for (const AppRecordFile& file : files) {
+        char numbers[32];
+        std::snprintf(numbers, sizeof(numbers), "%u %08x ", static_cast<unsigned>(file.size), static_cast<unsigned>(file.crc));
+        text += std::string("file=") + numbers + file.path + "\n";
+    }
+    return text;
 }
 
 bool app_record_parse(const std::string& text, AppRecord& out) {
     out = AppRecord{};
-    if (text.size() > 512) return false;
+    if (text.size() > kAppRecordMaxBytes) return false;
     std::size_t at = 0;
     while (at < text.size()) {
         std::size_t end = text.find('\n', at);
@@ -107,18 +200,124 @@ bool app_record_parse(const std::string& text, AppRecord& out) {
         const std::size_t equals = line.find('=');
         if (equals == std::string::npos) continue;
         const std::string key = line.substr(0, equals), value = line.substr(equals + 1);
-        if (key == "version") out.version = value.substr(0, 31);
-        else if (key == "sha256") out.sha256 = value;
+        if (key == "version") {
+            out.version = value.substr(0, 31);
+        } else if (key == "sha256") {
+            out.sha256 = value;
+        } else if (key == "removed") {
+            out.removed = value == "1";
+        } else if (key == "files") {
+            out.has_files = true;
+        } else if (key == "file" && end < text.size() && out.files.size() < kAppMaxFiles) {
+            // "<size> <crc> <path>"; a last line without its newline may
+            // have been cut off, and is left out.
+            std::uint32_t size = 0, crc = 0;
+            std::size_t used = 0;
+            if (ReadRecordNumbers(value, size, crc, used)) {
+                const std::string path = value.substr(used);
+                if (RecordPathOk(path) && app_record_find(out, path) == nullptr) out.files.push_back({path, size, crc});
+            }
+        }
     }
     return IsHex(out.sha256);
 }
 
-bool app_installable(const AppListing& app) { return app.format == AppFormat::Zip || app.format == AppFormat::Dol; }
+const AppRecordFile* app_record_find(const AppRecord& record, const std::string& path) {
+    for (const AppRecordFile& file : record.files) {
+        if (file.path == path) return &file;
+    }
+    return nullptr;
+}
 
-AppState app_state(const AppListing& app, bool folder_exists, const AppRecord* record) {
-    if (record != nullptr && folder_exists)
+bool app_install_replaces(const AppListing& app, const std::string& path, AppFileOnCard on_card, const AppRecord* record) {
+    // The program itself is always the new one: a boot.dol changed since
+    // was put there by hand, and keeping it would leave the old version
+    // under the new version's note.
+    // Case ignored, as app_plan_install does: FAT does not tell BOOT.DOL
+    // from boot.dol.
+    std::string lower = path;
+    for (char& c : lower) c = Lower(c);
+    if (IsProgramFile(app, lower)) return true;
+    switch (on_card) {
+        case AppFileOnCard::Absent:
+        case AppFileOnCard::AsInstalled:
+            return true;
+        case AppFileOnCard::Changed:
+            return false;
+        case AppFileOnCard::NotOurs:
+            break;
+    }
+    // A file the store did not put there: in a data folder it is the
+    // player's (a save, a setting), always kept. In the app's own folder it
+    // is replaced only when the store has no list of what it installed.
+    // A mod's own folders are its pack's (and riivolution/).
+    if (!InOwnFolders(app, path)) return false;
+    return record == nullptr || !record->has_files;
+}
+
+std::vector<std::string> app_remove_files(const AppListing& app, const AppRecord* record,
+                                          const std::vector<AppFileOnCard>& on_card) {
+    std::vector<std::string> files;
+    if (record == nullptr || !record->has_files) {
+        if (app.mod) {
+            files.push_back(app.program);
+            return files;
+        }
+        for (const char* name : kAppProgramFiles) files.push_back(OwnFolder(app) + name);
+        return files;
+    }
+    for (std::size_t i = 0; i < record->files.size() && i < on_card.size(); ++i) {
+        if (on_card[i] == AppFileOnCard::AsInstalled) files.push_back(record->files[i].path);
+    }
+    return files;
+}
+
+bool app_installable(const AppListing& app) {
+    // RiftWii's own entry: installing over the running RiftWii would leave
+    // its channel and its old files behind; its own updater does that job.
+    if (app.riftwii) return false;
+    return app.format == AppFormat::Zip || app.format == AppFormat::Dol;
+}
+
+namespace {
+
+// "2611-252" as 2611 and 252; false for anything else. A test or dev
+// build's version carries its commit after another dash
+// ("2611-243-gc84f96e1"): only the release part before it counts.
+bool ParseRiftWiiVersion(const std::string& full, unsigned& month, unsigned& count) {
+    const std::size_t suffix = full.find('-', 5);
+    const std::string text = suffix == std::string::npos ? full : full.substr(0, suffix);
+    const std::size_t dash = text.find('-');
+    if (dash != 4 || text.size() < 6 || text.size() > 12) return false;
+    month = 0;
+    count = 0;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (i == dash) continue;
+        const char c = text[i];
+        if (c < '0' || c > '9') return false;
+        unsigned& part = i < dash ? month : count;
+        part = part * 10 + static_cast<unsigned>(c - '0');
+    }
+    return true;
+}
+
+}  // namespace
+
+int riftwii_version_order(const std::string& a, const std::string& b) {
+    unsigned a_month, a_count, b_month, b_count;
+    if (!ParseRiftWiiVersion(a, a_month, a_count) || !ParseRiftWiiVersion(b, b_month, b_count)) return 0;
+    if (a_month != b_month) return a_month < b_month ? -1 : 1;
+    if (a_count != b_count) return a_count < b_count ? -1 : 1;
+    return 0;
+}
+
+AppState app_state(const AppListing& app, bool program_exists, const AppRecord* record) {
+    if (app.riftwii) return AppState::ThisRiftWii;
+    // A note left for the saves of a removed app counts as no install.
+    if (record != nullptr && record->removed) record = nullptr;
+    if (record != nullptr && program_exists)
         return record->sha256 == app.sha256 ? AppState::Installed : AppState::Update;
-    if (folder_exists) return AppState::OnCard;
+    if (program_exists) return AppState::OnCard;
     return app_installable(app) ? AppState::Get : AppState::PcOnly;
 }
 
@@ -143,14 +342,15 @@ int app_match_rank(const AppListing& app, const std::string& typed) {
     return rank;
 }
 
-std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed) {
+std::string app_search_next(const AppListing* apps, std::size_t count, const std::string& typed,
+                            bool (*keep)(const AppListing&)) {
     static const char kCandidates[] = "abcdefghijklmnopqrstuvwxyz0123456789-'. ";
     std::string next;
     for (const char* c = kCandidates; *c; ++c) {
         if (*c == ' ' && (typed.empty() || typed.back() == ' ')) continue;
         const std::string trial = typed + *c;
         for (std::size_t i = 0; i < count; ++i) {
-            if (app_matches(apps[i], trial)) {
+            if ((keep == nullptr || keep(apps[i])) && app_matches(apps[i], trial)) {
                 next += *c;
                 break;
             }
@@ -184,10 +384,11 @@ bool app_plan_install(const AppListing& app, const std::vector<ZipEntry>& entrie
         total += entry.unpacked_size;
         if (plan.size() + 1 > max_files) return Fail(error, "the zip file holds more files than the app list says");
         if (total > max_bytes) return Fail(error, "the zip file unpacks to more than the app list says");
-        if (key == own + "boot.dol" || key == own + "boot.elf") has_boot = true;
+        if (IsProgramFile(app, key) && (app.mod || key == own + "boot.dol" || key == own + "boot.elf")) has_boot = true;
         plan.push_back({i, path});
     }
-    if (!has_boot) return Fail(error, "the zip file has no boot.dol for the app");
+    if (!has_boot) return Fail(error, app.mod ? "the zip file has no Riivolution XML for the mod"
+                                              : "the zip file has no boot.dol for the app");
     return true;
 }
 

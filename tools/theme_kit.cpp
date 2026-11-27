@@ -95,6 +95,8 @@ std::string StarterIni() {
          "# Wood grain along Home's shelf: yes or no (no: a smooth shelf with a thin\n"
          "# accent line). A theme's own shelf.png wins.\n"
          "shelf_grain = no\n"
+         "# A frame (cover_tile.png) round every cover on Home, not only the lit one.\n"
+         "cover_frames = no\n"
          "\n"
          "[backdrop]\n"
          "# Thin horizontal stripes across the backdrop: yes or no.\n"

@@ -27,6 +27,7 @@ std::string app_json(const std::string& id = "snes9xgx", const std::string& repl
         "\"released\":\"2026-11-18\",\"category\":\"emulators\",\"description\":\"Super Nintendo Emulator\","
         "\"license\":\"GPL-2.0\",\"page\":\"https://github.com/dborth/snes9xgx\","
         "\"icon\":\"https://riftwii.github.io/apps/icons/" + id + ".png\",\"platforms\":[\"wii\",\"vwii\"],"
+        "\"controllers\":[\"wiimote\",\"classic\",\"gamecube\",\"zapper\"],"
         "\"data_folders\":[\"snes9xgx\"],"
         "\"download\":{\"url\":\"https://github.com/dborth/snes9xgx/releases/download/5.0.6/Snes9xGX-5.0.6.zip\","
         "\"format\":\"zip\",\"size\":2500000,\"sha256\":\"" + std::string(kSha) + "\",\"files\":40,"
@@ -86,6 +87,11 @@ void test_reads_an_app() {
     EXPECT_EQ(a.unpacked_size, 6000000u);
     EXPECT_TRUE(a.format == AppFormat::Zip);
     EXPECT_EQ(a.platforms, kAppOnWii | kAppOnVWii);
+    // A controller this RiftWii does not know ("zapper") is passed over.
+    EXPECT_EQ(a.controllers, kAppWiiRemote | kAppClassic | kAppGameCube);
+    EXPECT_TRUE(app_needs_no_wii_remote(a.controllers));
+    EXPECT_TRUE(!app_needs_no_wii_remote(kAppWiiRemote | kAppNunchuk | kAppKeyboard));
+    EXPECT_TRUE(!app_needs_no_wii_remote(0));
     EXPECT_EQ(a.install_count, 2);
     EXPECT_EQ(a.data_folder_count, 1);
     EXPECT_EQ(std::string(a.data_folders[0]), "snes9xgx");
@@ -155,6 +161,16 @@ void test_app_rules() {
     // Platforms: at least one the list knows.
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[]"));
     EXPECT_TRUE(left_out("\"platforms\":[\"wii\",\"vwii\"]", "\"platforms\":[\"switch\"]"));
+    // Controllers: no field is "not known"; a broken list (more than five
+    // names, not strings) only loses the pictures, not the app.
+    EXPECT_TRUE(!left_out("\"controllers\":[\"wiimote\",", "\"controllers2\":[\"wiimote\","));
+    for (const char* broken_list : {"\"controllers\":[\"a\",\"b\",\"c\",\"wiimote\",", "\"controllers\":[7,\"wiimote\","}) {
+        const Parsed broken = parse(list_json(app_json("snes9xgx", "\"controllers\":[\"wiimote\",", broken_list)));
+        EXPECT_TRUE(broken.ok);
+        EXPECT_EQ(broken.count, 1u);
+        EXPECT_EQ(broken.skipped, 0u);
+        if (broken.count == 1) EXPECT_EQ(broken.apps[0].controllers, 0u);
+    }
     // An app named as its own better replacement.
     EXPECT_TRUE(left_out("\"platforms\"", "\"newer\":\"snes9xgx\",\"platforms\""));
     EXPECT_TRUE(!left_out("\"platforms\"", "\"newer\":\"snes9xgx-ultimate\",\"platforms\""));
@@ -274,6 +290,17 @@ void test_hostile_lists() {
     EXPECT_TRUE(!app_id_ok("RiftWii"));
     EXPECT_TRUE(!app_id_ok("riftwii_channel"));
     EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"RIFTWII\""));
+    EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"riftwii_channel\""));
+    // RiftWii's own entry, spelled exactly, is read and marked: the store
+    // shows it and never installs or removes it.
+    {
+        const Parsed self = parse(list_json(app_json(kRiftWiiAppId)));
+        EXPECT_TRUE(self.ok);
+        EXPECT_EQ(self.count, 1u);
+        EXPECT_TRUE(self.count == 1 && self.apps[0].riftwii);
+        const Parsed other = parse(list_json(app_json()));
+        EXPECT_TRUE(other.count == 1 && !other.apps[0].riftwii);
+    }
     // FAT drops a trailing dot or space: "boot.dol." would land on boot.dol.
     const Parsed p = parse(list_json(app_json()));
     std::string path;
@@ -314,10 +341,13 @@ void test_checks_on_their_own() {
     EXPECT_TRUE(!app_category_ok("game tools"));
     EXPECT_TRUE(app_data_folder_ok("fceugx"));
     EXPECT_TRUE(!app_data_folder_ok("NANDS"));
-    EXPECT_TRUE(app_download_url_ok("https://hbbarchive.oscwii.org/legacy/danbo.zip"));
+    EXPECT_TRUE(app_download_url_ok("https://static.wiidatabase.de/InspectMii.zip"));
+    // An archive.org copy spells the archived address's colon as %3A.
+    EXPECT_TRUE(app_download_url_ok(
+        "https://web.archive.org/web/20160810115829id_/http%3A//www.nongnu.org/tong/tong-wii.zip"));
     EXPECT_TRUE(app_download_url_ok("http://www.toxicbreakfast.com/cgi-bin/download?file=yahtzwii.zip"));
     EXPECT_TRUE(!app_page_url_ok("http://www.toxicbreakfast.com/"));
-    EXPECT_TRUE(!app_download_url_ok("https://hbbarchive.oscwii.org"));
+    EXPECT_TRUE(!app_download_url_ok("https://static.wiidatabase.de"));
     EXPECT_TRUE(!app_download_url_ok("https://.org/a"));
     EXPECT_TRUE(!app_download_url_ok("https://[::1]/a"));
     EXPECT_TRUE(app_icon_url_ok("https://riftwii.github.io/apps/icons/a.png"));
@@ -340,6 +370,91 @@ void test_theme_list_still_reads() {
 
 }  // namespace
 
+// A Riivolution mod as tools/mod_list.py writes it.
+std::string mod_json(const std::string& replace_from = "", const std::string& replace_to = "") {
+    std::string text =
+        "{\"id\":\"gb678330\",\"kind\":\"mod\",\"name\":\"Beta Planets\",\"author\":\"someone\","
+        "\"version\":\"1.0\",\"released\":\"2026-05-18\",\"category\":\"mods\",\"game\":\"Super Mario Galaxy\","
+        "\"games\":[\"RMG\"],\"description\":\"Good Egg Galaxy with the demo's planets.\","
+        "\"page\":\"https://gamebanana.com/mods/678330\",\"platforms\":[\"wii\",\"vwii\"],"
+        "\"download\":{\"url\":\"https://gamebanana.com/dl/1705368\",\"format\":\"zip\",\"size\":1838758,"
+        "\"sha256\":\"" + std::string(kSha) + "\",\"files\":12,\"unpacked_size\":4000000},"
+        "\"program\":\"riivolution/BetaPlanets.xml\",\"root\":\"Beta Planets v1/\",\"data_folders\":[\"BetaPlanets\"],"
+        "\"install\":[{\"from\":\"riivolution/\",\"to\":\"riivolution/\"},"
+        "{\"from\":\"BetaPlanets/\",\"to\":\"BetaPlanets/\"}]}";
+    if (!replace_from.empty()) {
+        const std::size_t at = text.find(replace_from);
+        if (at == std::string::npos) {
+            std::cerr << "test bug: no " << replace_from << std::endl;
+            g_failures++;
+        } else {
+            text.replace(at, replace_from.size(), replace_to);
+        }
+    }
+    return text;
+}
+
+bool mod_left_out(const std::string& from, const std::string& to) {
+    const Parsed p = parse(list_json(mod_json(from, to)));
+    return p.ok && p.count == 0 && p.skipped == 1;
+}
+
+void test_mods() {
+    const Parsed p = parse(list_json(mod_json()));
+    EXPECT_TRUE(p.ok);
+    EXPECT_EQ(p.count, 1u);
+    if (p.count != 1) return;
+    const AppListing& m = p.apps[0];
+    EXPECT_TRUE(m.mod);
+    EXPECT_EQ(std::string(m.root), "Beta Planets v1/");
+    EXPECT_EQ(std::string(m.game), "Super Mario Galaxy");
+    EXPECT_EQ(std::string(m.program), "riivolution/BetaPlanets.xml");
+    EXPECT_EQ(m.game_count, 1);
+    EXPECT_TRUE(app_mod_for_game(m, "RMGE01"));
+    EXPECT_TRUE(app_mod_for_game(m, "RMGP01"));
+    EXPECT_TRUE(!app_mod_for_game(m, "SB4E01"));
+    // Its files come from under its root, into riivolution/ and its folder.
+    std::string path;
+    EXPECT_TRUE(app_install_path(m, "Beta Planets v1/riivolution/BetaPlanets.xml", path));
+    EXPECT_EQ(path, "riivolution/BetaPlanets.xml");
+    EXPECT_TRUE(app_install_path(m, "Beta Planets v1/BetaPlanets/ObjectData/Planet.arc", path));
+    EXPECT_EQ(path, "BetaPlanets/ObjectData/Planet.arc");
+    EXPECT_TRUE(!app_install_path(m, "riivolution/BetaPlanets.xml", path));  // outside the root
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/readme.txt", path));
+    // Riivolution's redirected saves are never written.
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/save/RMGE/GameData.bin", path));
+    EXPECT_TRUE(!app_install_path(m, "Beta Planets v1/riivolution/Save/x.bin", path));
+    // ... nor by a single-file rule, nor named as the mod's XML.
+    AppListing single = m;
+    std::snprintf(single.install[single.install_count].from, sizeof(single.install[0].from), "payload.xml");
+    std::snprintf(single.install[single.install_count].to, sizeof(single.install[0].to), "riivolution/save/profile.xml");
+    ++single.install_count;
+    EXPECT_TRUE(!app_install_path(single, "Beta Planets v1/payload.xml", path));
+    const Parsed saved = parse(list_json(mod_json("riivolution/BetaPlanets.xml", "riivolution/save/BetaPlanets.xml")));
+    EXPECT_TRUE(saved.ok && saved.count == 0 && saved.skipped == 1);
+    // An app is never a mod: apps may not write riivolution/ or use "mods".
+    EXPECT_TRUE(left_out("\"to\":\"snes9xgx/\"", "\"to\":\"riivolution/\""));
+    EXPECT_TRUE(left_out("\"category\":\"emulators\"", "\"category\":\"mods\""));
+    EXPECT_TRUE(!parse(list_json(app_json())).apps[0].mod);
+    // A mod's own rules.
+    EXPECT_TRUE(mod_left_out("\"category\":\"mods\"", "\"category\":\"games\""));
+    EXPECT_TRUE(mod_left_out("\"kind\":\"mod\"", "\"kind\":\"theme\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"BetaPlanets/x.xml\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"riivolution/../boot.dol\""));
+    EXPECT_TRUE(mod_left_out("\"program\":\"riivolution/BetaPlanets.xml\"", "\"program\":\"riivolution/a.txt\""));
+    EXPECT_TRUE(mod_left_out("\"root\":\"Beta Planets v1/\"", "\"root\":\"../\""));
+    EXPECT_TRUE(mod_left_out("\"root\":\"Beta Planets v1/\"", "\"root\":\"Beta Planets v1\""));
+    EXPECT_TRUE(mod_left_out("\"games\":[\"RMG\"]", "\"games\":[\"rmg\"]"));
+    EXPECT_TRUE(mod_left_out("\"game\":\"Super Mario Galaxy\"", "\"game\":\"\""));
+    EXPECT_TRUE(mod_left_out("\"to\":\"BetaPlanets/\"", "\"to\":\"apps/\""));
+    EXPECT_TRUE(mod_left_out("\"data_folders\":[\"BetaPlanets\"]", "\"data_folders\":[\"private\"]"));
+    // A mod without game IDs is read, and matches no game.
+    const Parsed none = parse(list_json(mod_json("\"games\":[\"RMG\"]", "\"games\":[]")));
+    EXPECT_TRUE(none.count == 1 && !app_mod_for_game(none.apps[0], "RMGE01"));
+    // An unknown kind is left out (a later list's).
+    EXPECT_TRUE(left_out("\"id\":\"snes9xgx\"", "\"id\":\"snes9xgx\",\"kind\":\"theme\""));
+}
+
 int main() {
     test_reads_an_app();
     test_list_level_errors();
@@ -350,6 +465,7 @@ int main() {
     test_duplicates_and_room();
     test_install_paths();
     test_hostile_lists();
+    test_mods();
     test_checks_on_their_own();
     test_theme_list_still_reads();
     if (g_failures) {

@@ -75,6 +75,8 @@ GXColor Colour(uint32_t value, int alpha) {
         case RWP_COLOR_ACCENT: c = skinns::kAccent; break;
         case RWP_COLOR_ON_BAND: c = skinns::kInk; break;
         case RWP_COLOR_CARD: c = skinns::kCard; break;
+        case RWP_COLOR_WARN: c = skinns::kWarn; break;
+        case RWP_COLOR_FIELD: c = skinns::kChipOff; break;
         default:
             c = GXColor{static_cast<u8>(value >> 24), static_cast<u8>(value >> 16), static_cast<u8>(value >> 8),
                         static_cast<u8>(value)};
@@ -162,7 +164,10 @@ public:
             } else if (c.kind == RWP_DRAW_SKIN && c.arg == RWP_SKIN_PICTURE && c.text != nullptr) {
                 // Looked up now: the plugin's string is gone once the frame is handed over.
                 const std::string name(c.text, strnlen(c.text, 40));
-                const skinns::Tex* picture = &skinns::Picture(name);
+                // "control_<type>": the controller picture a game's page shows
+                // for that GameTDB type (Kenney's, in the theme's glyph colour).
+                const bool control = name.compare(0, 8, "control_") == 0;
+                const skinns::Tex* picture = control ? &skinns::ControlIcon(name.substr(8)) : &skinns::Picture(name);
                 if (picture->data) pictures_[i] = picture;
             } else if (c.kind == RWP_DRAW_PROMPT) {
                 if (c.text != nullptr && ButtonName(c.arg) != nullptr)
@@ -229,12 +234,9 @@ public:
         if (t->Right()) input_.pressed |= RWP_KEY_RIGHT;
         if (prompts_) {
             prompts_->Update(t);
-            // A prompt pointed at and pressed is its button, A's press not.
-            const int clicked = prompts_->GetClicked();
-            if (clicked >= 0 && static_cast<std::size_t>(clicked) < promptList_.size()) {
-                input_.pressed &= ~RWP_KEY_A;
-                input_.pressed |= promptList_[clicked].first;
-            }
+            // The prompts are hints, not buttons: A with the pointer on
+            // their band presses nothing, rather than the page's lit item.
+            if (input_.pointer && input_.y >= GuiPrompts::CardTop()) input_.pressed &= ~RWP_KEY_A;
         }
     }
 
@@ -257,7 +259,12 @@ private:
             look.size = size;
             look.width = c.w;
             look.lines = lines;
-            text->SetText(wanted.c_str());
+            // Shown as it is: the plugin translated its own words already,
+            // and a mod or app name that happens to match a menu string
+            // ("Quiet") must not be translated by the menu's catalogue.
+            wchar_t* wide = charToWideChar(wanted.c_str());
+            text->SetWText(wide);
+            delete[] wide;
             text->SetFontSize(size);
             if (lines > 0) {
                 text->SetWrap(true, c.w, lines);
@@ -449,6 +456,9 @@ private:
     std::vector<std::pair<uint32_t, std::string>> promptList_;
     int promptEdge_ = 600;
     rwp_input input_{};
+    // The A waiting in input_.pressed is the A prompt's: kept until the plugin
+    // takes its input, so a later controller's update (or a later frame with
+    // the pointer still on the prompt) does not drop it.
     volatile uint32_t frames_ = 0;
 };
 
@@ -574,7 +584,10 @@ int32_t TextWidth(const char* text, uint32_t size) {
     // The font is shared with the GUI thread, which must not draw meanwhile.
     if (g_canvas) H().halt();
     GuiText probe(nullptr, clamped, skinns::kInk);
-    probe.SetText(key.c_str() + key.find(':') + 1);
+    // As Canvas::Text draws it: as it is, not through the menu's catalogue.
+    wchar_t* wide = charToWideChar(key.c_str() + key.find(':') + 1);
+    probe.SetWText(wide);
+    delete[] wide;
     const int width = probe.GetTextWidth();
     if (g_canvas) H().resume();
     if (g_widths.size() >= kMaxWidthCache) g_widths.clear();
@@ -634,6 +647,19 @@ int32_t AskChoice(const char* title, const char* text, const char* yes, const ch
     H().resume();
     // ShowPopup: 0 the first button, 1 the second.
     return answer == 0 ? 1 : 0;
+}
+
+int32_t AskRisky(const char* title, const char* text, const char* safe, const char* risky) {
+    if (!H().popup_safe_first || !safe || !risky) return 0;
+    H().halt();
+    if (g_canvas) g_canvas->SetState(STATE::DISABLED);
+    const int answer = H().popup_safe_first(title ? title : "", text ? text : "", safe, risky);
+    if (g_canvas) {
+        g_canvas->SetState(STATE::DEFAULT);
+        g_canvas->ForgetInput();
+    }
+    H().resume();
+    return answer == 1 ? 1 : 0;
 }
 
 }  // namespace riftwii::wii::pluginscreen

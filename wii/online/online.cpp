@@ -673,6 +673,88 @@ void FetchPacks() {
     }
 }
 
+// The in-app update's pack on the card (kUpdatePackPart), read a piece at
+// a time: parse_theme_pack's reader, and its files copied or compared
+// without ever holding one whole (the menu font is MB on its own).
+constexpr const char* kUpdatePackPart = "sd:/riftwii/update-pack.part";
+
+class PackFile {
+public:
+    explicit PackFile(const char* path) : path_(path) {}
+    ~PackFile() {
+        if (file_) std::fclose(file_);
+    }
+    PackFile(const PackFile&) = delete;
+    PackFile& operator=(const PackFile&) = delete;
+
+    bool open() {
+        file_ = std::fopen(path_, "rb");
+        return file_ != nullptr;
+    }
+
+    bool read(std::size_t at, std::uint8_t* out, std::size_t count) {
+        if (!file_ || std::fseek(file_, static_cast<long>(at), SEEK_SET) != 0) return false;
+        return std::fread(out, 1, count, file_) == count;
+    }
+
+    ThemePackReader reader() {
+        return [this](std::size_t at, std::uint8_t* out, std::size_t count) { return read(at, out, count); };
+    }
+
+    // Whether `path` holds exactly the pack's bytes [offset, offset + size).
+    bool same_as(const std::string& path, std::size_t offset, std::size_t size) {
+        struct stat st;
+        if (stat(path.c_str(), &st) != 0 || static_cast<std::size_t>(st.st_size) != size) return false;
+        FILE* f = std::fopen(path.c_str(), "rb");
+        if (!f) return false;
+        std::uint8_t theirs[4096];
+        std::uint8_t ours[4096];
+        bool same = true;
+        for (std::size_t at = 0; same && at < size;) {
+            const std::size_t want = std::min(sizeof(theirs), size - at);
+            same = std::fread(theirs, 1, want, f) == want && read(offset + at, ours, want) &&
+                   std::memcmp(theirs, ours, want) == 0;
+            at += want;
+        }
+        std::fclose(f);
+        return same;
+    }
+
+    // The pack's bytes [offset, offset + size) written to `path`, through a
+    // ".part" file as write_file does, so a cut leaves the old file.
+    bool copy_to(const std::string& path, std::size_t offset, std::size_t size, std::string& error) {
+        const std::string temp = path + ".part";
+        FILE* f = std::fopen(temp.c_str(), "wb");
+        if (!f) {
+            error = "cannot write " + temp;
+            return false;
+        }
+        std::uint8_t chunk[4096];
+        bool ok = true;
+        for (std::size_t at = 0; ok && at < size;) {
+            const std::size_t want = std::min(sizeof(chunk), size - at);
+            ok = read(offset + at, chunk, want) && std::fwrite(chunk, 1, want, f) == want;
+            at += want;
+        }
+        if (std::fclose(f) != 0) ok = false;
+        if (!ok) {
+            std::remove(temp.c_str());
+            error = "cannot write " + temp + " (card full?)";
+            return false;
+        }
+        std::remove(path.c_str());
+        if (std::rename(temp.c_str(), path.c_str()) != 0) {
+            error = "cannot rename " + temp;
+            return false;
+        }
+        return true;
+    }
+
+private:
+    const char* path_;
+    FILE* file_ = nullptr;
+};
+
 // Whether `path` holds exactly these bytes.
 bool SameFile(const std::string& path, const std::uint8_t* data, std::size_t size) {
     struct stat st;
@@ -1007,30 +1089,53 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
                 ", so its plugins cannot be checked. Download it from " + kReleasesPage + " instead";
         return false;
     }
-    PackDownload pack;
-    if (!pack.Reserve(note.pack, error)) return false;
+    if (!riftwii_release_asset_url(note.pack.url) || note.pack.size == 0 || note.pack.size > kMaxUpdatePackBytes) {
+        error = std::string("the update pack has no release URL or no known size within the 16 MiB limit");
+        return false;
+    }
     // The pack is several MB, as long a download as the DOL: a tester's
-    // Wii spent about six minutes here with the bar standing still.
-    logf("Update: downloading %s (%u bytes) for the plugins\n", kUpdatePackAsset,
-         static_cast<unsigned>(note.pack.size));
+    // Wii spent about six minutes here with the bar standing still. It goes
+    // to the card as it comes, not into memory: a menu showing hundreds of
+    // games' covers had no block of its size left (2611-198, 351 games).
+    logf("Update: downloading %s (%u bytes) for the plugins, to %s\n", kUpdatePackAsset,
+         static_cast<unsigned>(note.pack.size), kUpdatePackPart);
     report(UpdateStep::DownloadingPlugins, 0, note.pack.size);
     const std::uint64_t total = note.pack.size;
     const HttpProgress got = [&report, total](std::size_t received) {
         report(UpdateStep::DownloadingPlugins, std::min<std::uint64_t>(received, total), total);
     };
-    if (!pack.Fetch(note.pack, error, got)) {
+    FileDownload download;
+    if (!HttpDownloadToFile(note.pack.url, kUpdatePackPart, note.pack.size, download, error, 30000, got,
+                            HttpRedirects::GitHubRelease)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
-    logf("Update: %s downloaded (%u bytes); checking it\n", kUpdatePackAsset, static_cast<unsigned>(pack.size()));
-    report(UpdateStep::CheckingPlugins, pack.size(), pack.size());
-    if (!pack.Check(note.pack, error)) return false;
+    // Gone however this ends: the next update fetches it again.
+    struct RemovePack {
+        ~RemovePack() { std::remove(kUpdatePackPart); }
+    } remove_pack;
+    logf("Update: %s downloaded (%u bytes); checking it\n", kUpdatePackAsset, static_cast<unsigned>(download.length));
+    report(UpdateStep::CheckingPlugins, download.length, download.length);
+    if (download.length != note.pack.size) {
+        error = std::string(kUpdatePackAsset) + " did not arrive whole";
+        return false;
+    }
+    if (!DigestMatches(download.digest, note.pack.sha256)) {
+        error = std::string(kUpdatePackAsset) + " does not match GitHub's SHA-256";
+        return false;
+    }
+    PackFile pack(kUpdatePackPart);
+    if (!pack.open()) {
+        error = std::string("cannot read back ") + kUpdatePackPart;
+        return false;
+    }
+    const std::size_t size = static_cast<std::size_t>(download.length);
     // The themes part ends where the apps part, with the plugins, starts.
     ThemePack themes;
     std::size_t split = 0;
     ThemePack apps;
-    if (!parse_theme_pack(pack.data(), pack.size(), themes, error, kThemePackHeader, &split) ||
-        !parse_theme_pack(pack.data() + split, pack.size() - split, apps, error, kAppsPackHeader)) {
+    if (!parse_theme_pack(pack.reader(), size, 0, themes, error, kThemePackHeader, &split) ||
+        !parse_theme_pack(pack.reader(), size, split, apps, error, kAppsPackHeader)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
@@ -1040,7 +1145,6 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     report(UpdateStep::WritingPlugins, 0, 0);
     // Loaded faces stay in MEM2; prevent first-time Korean reads during writes.
     const fullfont::ClosedHold font_hold("an update rewrites it");
-    const std::uint8_t* const bytes = pack.data() + split;
     unsigned written = 0;
     unsigned same = 0;
     // A file half written is worse than none: the power button waits.
@@ -1048,11 +1152,11 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     for (const UpdateWrite& w : writes) {
         if (w.dol) break;  // the caller's, last
         MakeFoldersFor(w.path);
-        if (SameFile(w.path, bytes + w.offset, w.size)) {
+        if (pack.same_as(w.path, w.offset, w.size)) {
             ++same;
             continue;
         }
-        if (!write_file(w.path, bytes + w.offset, w.size, error)) {
+        if (!pack.copy_to(w.path, w.offset, w.size, error)) {
             error = "the update's file " + w.path + " could not be written (" + error + "); RiftWii was not changed";
             return false;
         }
@@ -1109,29 +1213,6 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         if (step == UpdateStep::WritingDol) p.share = 0.96;
         progress(p);
     };
-    logf("Update: downloading %s for %s (riftwii.dol, %u bytes)\n", latest.c_str(), where.c_str(),
-         static_cast<unsigned>(note.dol.size));
-    report(UpdateStep::DownloadingDol, 0, dol_total);
-    std::vector<std::uint8_t> body;
-    // GitHub's redirect answers are small; the DOL is the bulk (headers
-    // make the count a hair early, so it is capped at the size).
-    // Keep reporting bytes even when GitHub gave no DOL size (total 0).
-    const HttpProgress got = [&report, dol_total](std::size_t received) {
-        report(UpdateStep::DownloadingDol, dol_total != 0 ? std::min<std::uint64_t>(received, dol_total) : received,
-               dol_total);
-    };
-    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) return false;
-    // A tester's Wii crashed half a minute into an update with nothing
-    // after the line above: this one tells the DOL's download from the
-    // update pack's and the writes that follow it.
-    logf("Update: riftwii.dol downloaded (%u bytes); checking it and fetching the update pack next\n",
-         static_cast<unsigned>(body.size()));
-    report(UpdateStep::CheckingDol, body.size(), body.size());
-    if (note.dol.size != 0 && body.size() != note.dol.size) {
-        error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
-                std::to_string(note.dol.size);
-        return false;
-    }
     // GitHub gives every asset a SHA-256; without one the download cannot
     // be told from a damaged or swapped one, so it is not installed.
     if (note.dol.sha256.empty()) {
@@ -1139,33 +1220,74 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
                 std::string(kReleasesPage) + " instead";
         return false;
     }
-    if (!Sha256Matches(body.data(), body.size(), note.dol.sha256)) {
+    // Straight to the card beside the running DOL as it arrives, never
+    // whole in memory: a menu with hundreds of games' covers had no room
+    // for it and the copies a growing buffer makes (2611-198, 351 games,
+    // out of memory at this download). It only replaces boot.dol once it
+    // and the plugins are checked and written.
+    const std::string fresh = where + ".new";
+    const std::string old = where + ".old";
+    logf("Update: downloading %s for %s (riftwii.dol, %u bytes) to %s\n", latest.c_str(), where.c_str(),
+         static_cast<unsigned>(note.dol.size), fresh.c_str());
+    report(UpdateStep::DownloadingDol, 0, dol_total);
+    // GitHub's redirect answers are small; the DOL is the bulk (headers
+    // make the count a hair early, so it is capped at the size).
+    // Keep reporting bytes even when GitHub gave no DOL size (total 0).
+    const HttpProgress got = [&report, dol_total](std::size_t received) {
+        report(UpdateStep::DownloadingDol, dol_total != 0 ? std::min<std::uint64_t>(received, dol_total) : received,
+               dol_total);
+    };
+    FileDownload dol;
+    if (!HttpDownloadToFile(note.dol.url, fresh, 16u << 20, dol, error, 30000, got, HttpRedirects::GitHubRelease))
+        return false;
+    // Until the swap, a failure leaves no new DOL behind.
+    struct RemoveUnlessKept {
+        const std::string& path;
+        bool keep = false;
+        ~RemoveUnlessKept() {
+            if (!keep) std::remove(path.c_str());
+        }
+    } remove_fresh{fresh};
+    // A tester's Wii crashed half a minute into an update with nothing
+    // after the line above: this one tells the DOL's download from the
+    // update pack's and the writes that follow it.
+    logf("Update: riftwii.dol downloaded (%u bytes); checking it and fetching the update pack next\n",
+         static_cast<unsigned>(dol.length));
+    report(UpdateStep::CheckingDol, dol.length, dol.length);
+    if (note.dol.size != 0 && dol.length != note.dol.size) {
+        error = "the download has " + std::to_string(dol.length) + " bytes, GitHub says " +
+                std::to_string(note.dol.size);
+        return false;
+    }
+    if (!DigestMatches(dol.digest, note.dol.sha256)) {
         error = "the download does not match GitHub's SHA-256";
         return false;
     }
+    // The header is all parse_dol_header reads; the image's size is then
+    // checked against the whole file's.
+    std::uint8_t head[kDolHeaderBytes];
+    FILE* dol_file = std::fopen(fresh.c_str(), "rb");
+    const bool head_read = dol_file && std::fread(head, 1, sizeof(head), dol_file) == sizeof(head);
+    if (dol_file) std::fclose(dol_file);
     DolHeader header;
-    if (!parse_dol_header(body.data(), body.size(), header, error)) {
-        error = "the download is not a DOL: " + error;
+    if (!head_read || !parse_dol_header(head, sizeof(head), header, error)) {
+        error = "the download is not a DOL: " + (head_read ? error : std::string("it is too short"));
         return false;
     }
-    if (header.image_size() > body.size()) {
+    if (header.image_size() > dol.length) {
         error = "the download is shorter than its DOL header says";
         return false;
     }
     // The plugins before anything of the DOL: a cut after them leaves the
     // old DOL, which still has its own plugins.
     if (!WriteUpdatePlugins(note, latest, where, error, report)) return false;
-    logf("Update: writing riftwii.dol (%u bytes) to the SD card\n", static_cast<unsigned>(body.size()));
-    report(UpdateStep::WritingDol, 0, body.size());
-    // New file first, then the swap; the old one stays as boot.dol.old.
+    logf("Update: putting riftwii.dol (%u bytes) in place on the SD card\n", static_cast<unsigned>(dol.length));
+    report(UpdateStep::WritingDol, 0, dol.length);
+    // The new file is there; then the swap, the old one kept as boot.dol.old.
     // Nothing may stop it half way (the power button waits for it).
     const CardWriteHold hold;
-    const std::string fresh = where + ".new";
-    const std::string old = where + ".old";
-    if (!write_file(fresh, body, error)) return false;
     struct stat st;
-    if (stat(fresh.c_str(), &st) != 0 || static_cast<std::size_t>(st.st_size) != body.size()) {
-        std::remove(fresh.c_str());
+    if (stat(fresh.c_str(), &st) != 0 || static_cast<std::uint64_t>(st.st_size) != dol.length) {
         error = "the new DOL did not land whole on the card";
         return false;
     }
@@ -1180,11 +1302,12 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         error = "cannot put the new DOL in place";
         return false;
     }
+    remove_fresh.keep = true;
     UpdateMetaVersion(where, latest);
     note.installed = latest;
     WriteUpdateNote(note);
     logf("Update: %s installed in %s (%u bytes, SHA-256 checked)\n", latest.c_str(), where.c_str(),
-         static_cast<unsigned>(body.size()));
+         static_cast<unsigned>(dol.length));
     return true;
 }
 

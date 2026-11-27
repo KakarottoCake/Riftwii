@@ -463,6 +463,47 @@ struct Painter {
 
     Canvas Disc() const { return GlossyDisc(40); }
 
+    // The Rift Store's button on Home's bar: Lucide's "shopping-bag" icon
+    // (ISC license, https://lucide.dev, NOTICE.md), its outline on Lucide's
+    // 24-unit grid drawn 2 pixels in on the menu icons' 28-pixel square,
+    // in the glyph colour as the other bar buttons' pictures are.
+    Canvas ShoppingBag() const {
+        Canvas c(28, 28);
+        constexpr float kIn = 2.0f;      // Lucide's 24 units centred in 28 pixels
+        constexpr float kWidth = 2.7f;   // as heavy as the magnifier's (Search), drawn at half size beside it
+        const auto stroke = [&](float x0, float y0, float x1, float y1) {
+            c.line(x0 + kIn, y0 + kIn, x1 + kIn, y1 + kIn, kWidth, glyph);
+        };
+        // An arc as short strokes, `from` to `to` degrees (y down: 90 is below).
+        const auto arc = [&](float cx, float cy, float r, float from, float to) {
+            constexpr int kSteps = 10;
+            constexpr float kDegree = 3.14159265f / 180.0f;
+            for (int i = 0; i < kSteps; ++i) {
+                const float a0 = (from + (to - from) * i / kSteps) * kDegree;
+                const float a1 = (from + (to - from) * (i + 1) / kSteps) * kDegree;
+                stroke(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+            }
+        };
+        // The bag: straight sides, round bottom corners, a top that narrows
+        // to the handle's opening.
+        stroke(3, 6.667f, 3, 20);
+        arc(5, 20, 2, 180, 90);
+        stroke(5, 22, 19, 22);
+        arc(19, 20, 2, 90, 0);
+        stroke(21, 20, 21, 6.667f);
+        stroke(21, 6.667f, 20.6f, 5.467f);
+        stroke(20.6f, 5.467f, 18.6f, 2.8f);
+        stroke(18.6f, 2.8f, 17, 2);
+        stroke(17, 2, 7, 2);
+        stroke(7, 2, 5.4f, 2.8f);
+        stroke(5.4f, 2.8f, 3.4f, 5.467f);
+        stroke(3.4f, 5.467f, 3, 6.667f);
+        // The fold across its top, and the handle hanging below it.
+        stroke(3.103f, 6.034f, 20.897f, 6.034f);
+        arc(12, 10, 4, 0, 180);
+        return c;
+    }
+
     // The Disc Channel's face with no disc in, as the Wii Menu shows it:
     // white (the theme's tile colour), a soft grey step just below the middle like a glossy floor,
     // lighter again towards the foot (shades measured from the Wii Menu in
@@ -604,6 +645,36 @@ struct Painter {
         // The strip along the foot, under a hairline.
         c.rect(0, 196, w, h - 196, rgba(0xE3E5E9));
         c.rect(0, 195, w, 1.5f, rgba(0xC9CCD2));
+        return c;
+    }
+
+    // The back of a game's box without art, as the shelf lays it out when a
+    // theme has no blank_back: a grey band along the top, lines of text, a
+    // rating box and a barcode, and the three places the menu sets crops of
+    // the cover in (a big one, x 13-147 and y 31-105; two small ones, y
+    // 114-148, x 13-77 and 83-147) left as pale grey. The menu itself
+    // draws that layout in the game's colour; this is the theme kit's
+    // template for a theme that wants its own.
+    Canvas BlankBack() const {
+        constexpr int w = 160, h = 224;
+        Canvas c(w, h);
+        c.rounded_gradient(0, 0, w, h, 0, rgba(0xF8F8F7), rgba(0xEEEEEC));
+        c.rect(0, 0, w, 19, rgba(0xCED0D4));
+        c.rect(0, 19, w, 2, rgba(0x9EA3AC));
+        const Rgba place = rgba(0x969AA0);
+        c.rect(13, 31, 134, 74, place);
+        c.rect(13, 114, 64, 34, place);
+        c.rect(83, 114, 64, 34, place);
+        const Rgba text = rgba(0xB0B2B6);
+        c.rect(13, 159, 134, 3, text);
+        c.rect(13, 167, 134, 3, text);
+        c.rect(13, 175, 93, 3, text);
+        c.rect(13, 190, 19, 23, rgba(0x1E1E20));
+        c.rect(106, 193, 41, 18, rgba(0xFFFFFF));
+        for (int i = 0; i < 9; ++i) {
+            const float x = 108.0f + i * 4.2f;
+            c.rect(x, 195, i % 3 == 0 ? 2.0f : 1.0f, 14, rgba(0x181818));
+        }
         return c;
     }
 
@@ -1325,6 +1396,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_star", [](const Painter& q) { return q.Star(false); }},
         {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
+        {"icon_store", [](const Painter& q) { return q.ShoppingBag(); }},
         {"disc_channel", [](const Painter& q) { return q.DiscChannelFace(); }},
         {"disc_channel_disc", [](const Painter& q) { return q.SilverDisc(); }},
         {"tile9", [](const Painter& q) { return q.TileNine(false, false); }},
@@ -1348,6 +1420,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_gamecube", [](const Painter& q) { return q.GameCubePad(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
         {"blank_cover", [](const Painter& q) { return q.BlankCover(); }},
+        {"blank_back", [](const Painter& q) { return q.BlankBack(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
         {"pointer3", [](const Painter& q) { return Painter::Hand(q.pointer[2]); }},

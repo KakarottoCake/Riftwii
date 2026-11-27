@@ -318,9 +318,10 @@ a game GameTDB has no cover for shows its name. To use your own cover,
 put a PNG named after the game's ID in `riftwii/covers` on the SD card
 or the USB drive: `sd:/riftwii/covers/RMCE01.png`. For a mod's own Home
 tile, add its tile key: `sd:/riftwii/covers/RMCE01@retro-rewind.png`
-(a tile without one shows the game's cover). Some mods are on GameTDB
-as games of their own (Retro Rewind, Project+): a mod's tile named
-like one, and like no other, gets that cover, kept under the tile key.
+(a tile without cover art of its own shows the game's cover). Some mods are
+on GameTDB as games of their own (Retro Rewind, Project+). Pick a
+**GameTDB entry** for the tile, or let RiftWii find one clear match by name.
+That cover is kept under the tile key.
 Your own cover comes
 before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
@@ -567,9 +568,10 @@ USB drive: choose another Saves option on its page.
 - **Region strings fix** (off unless you turn it on) is for a game from
   another region: where the game looks up the console's country names, it
   finds its own region's.
-- **Game language** tells the game the console is set to another
-  language. Pick one the game has: a game missing it may stop (Super
-  Mario Galaxy 2 from the US has no German, and freezes).
+- **Game language** normally uses the Wii's language. If the disc's region
+  doesn't use that language, RiftWii tries the region's default (for example,
+  English for a US disc on a Japanese Wii). You can still choose a language
+  yourself. Pick one the game has: a game missing it may stop.
 - **cIOS** (SD and USB games) picks the d2x slot the game runs under,
   248 to 252. *Automatic* uses the Menu IOS slot if that is a d2x cIOS.
   Otherwise it first tries the d2x cIOS whose base is the IOS the game asks
@@ -595,6 +597,21 @@ these mods...** adds a named tile with its own mods, cheats, saves and
 options. You can keep several setups for the same game. Open that tile's
 Mods page to **Rename this tile...** or **Remove this tile from Home**.
 Removing it keeps the game and the mod files.
+
+When making the tile, choose a **GameTDB entry** to give it that entry's
+cover, box, 3D cover and **About** details. Press OK to keep GameTDB's name
+for it, or edit the name to use your own. On an existing tile, open
+**Options > GameTDB entry** to change the choice; the list starts on the
+one saved. A name you typed or set with **Rename this tile...** always
+wins. A tile that kept GameTDB's name takes the new entry's name when you
+pick another entry. **Automatic** matches covers by the tile's name, as
+before, shows the base game's details, and says which entry the name
+matches now. Going back to it gives a tile that had GameTDB's name the name
+it had before (or the mod's name). **Type an ID** looks up a six-character
+code in the GameTDB data already on the SD card, even if the entry isn't
+in the list for this game; an ID GameTDB doesn't have changes nothing.
+RiftWii saves the choice with the tile in `sd:/riftwii/profiles.txt`.
+It changes what the tile shows, not the game or mods it starts.
 
 In every list, hold A and move the Wii Remote to drag it (a quick flick
 keeps it going); the D-pad works too. A longer list has up and down
@@ -942,7 +959,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Games > Install WAD files**. These copies stay on
+and pick **Settings > Games > Manage emulated NAND > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -2238,13 +2255,22 @@ requires the title to be installed there and asks twice. Only that title's
 save folder is written; its program, ticket and system files are kept.
 These tools copy saves, so the source stays in place.
 
-**Miis from Wii** and **Miis to Wii** copy the complete Mii database,
-replacing all Miis at the destination. The old database is saved next to
-the emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`; a backup taken
-from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
-number. Writing Miis to the Wii asks twice and requires a database the
-same size as the Wii's current one. The files are copied as they are;
-RiftWii does not edit individual Miis or repair damaged databases.
+**Miis** shows the Wii's Miis on the left and the emulated NAND's on the
+right, each A to Z by name. Left and Right on the D-pad go to the other
+side. Press A on a Mii to copy it to the other side: it takes a free place
+there, or replaces its own older copy (the same Mii ID), and the other
+Miis stay. A Mii in the emulated NAND can also be removed from it. Miis
+can't be removed from the Wii here, because game saves on the Wii find
+their Miis by ID. **Copy all**, at the top of each side, replaces every
+Mii on the other side, as the old Miis from Wii and Miis to Wii did.
+
+Before a change, the database being changed is backed up next to the
+emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`, or
+`RFL_DB.dat.wii.bak0` for the Wii's. Later backups use the next free
+number. Every change asks first. Copy all to the Wii asks twice; a single
+Mii copied to the Wii asks once, with Cancel lit. A damaged database (its check
+does not match) is not changed. An emulated NAND with no Miis yet gets a
+database made from the Wii's, with its Miis taken out.
 
 **Copy to <folder>** copies the whole title to another emulated NAND:
 its program, save and ticket, the shared contents it uses and its entry in

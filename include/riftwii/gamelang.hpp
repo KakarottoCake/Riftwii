@@ -23,6 +23,10 @@ constexpr int kGameLanguages = 10;
 const char* game_language_name(int code);
 bool parse_game_language(const std::string& s, int& code);
 
+// Keep an explicit choice. In console mode, return a patch only if the
+// disc's region needs a different default language.
+int resolve_disc_language(int choice, int console_language, char disc_region);
+
 // Patches every SCGetLanguage in `bytes`. Returns how many it changed.
 unsigned patch_game_language(std::uint8_t* bytes, std::size_t size, int code);
 

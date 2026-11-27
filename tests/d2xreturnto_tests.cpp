@@ -100,12 +100,17 @@ int main() {
     base = 0;
     prepare_d2x_return_to(kChannel);
     CHECK(opens == 0 && requests == 0 && logs.empty());
+    CHECK(!d2x_return_to_accepted(kChannel));
+    CHECK(!d2x_return_to_accepted(0));
 
     base = 56;
     prepare_d2x_return_to(kChannel);
     CHECK(accepted_title == kChannel);
     CHECK(requests == 1 && closes == 1);
     CHECK(logs.size() == 1 && logs.back().find("accepted") != std::string::npos);
+    // The launch leaves the game unpatched only for the title d2x took.
+    CHECK(d2x_return_to_accepted(kChannel));
+    CHECK(!d2x_return_to_accepted(0x0001000152465457ull));
 
     // The probe identifies a title. Preparing again before handoff must
     // retain the accepted setting rather than send a refused late request.
@@ -116,6 +121,7 @@ int main() {
     // A real reload (including the same slot) loses both ES title context
     // and the setting. Preparation must send the request again.
     forget_d2x_return_to();
+    CHECK(!d2x_return_to_accepted(kChannel));
     title_running = false;
     accepted_title = 0;
     prepare_d2x_return_to(kChannel);
@@ -132,6 +138,7 @@ int main() {
     request_result = -1017;
     prepare_d2x_return_to(kChannel);
     CHECK(requests == 5 && accepted_title == 0);
+    CHECK(!d2x_return_to_accepted(kChannel));
     request_result = 0;
     open_result = -6;
     prepare_d2x_return_to(kChannel);
@@ -140,6 +147,7 @@ int main() {
     open_result = 42;
     prepare_d2x_return_to(kChannel);
     CHECK(requests == 6 && accepted_title == kChannel);
+    CHECK(d2x_return_to_accepted(kChannel));
 
     return failures == 0 ? 0 : 1;
 }

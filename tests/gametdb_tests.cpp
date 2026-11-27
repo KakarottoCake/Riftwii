@@ -90,6 +90,7 @@ static void test_custom_type() {
     GameInfo custom;
     EXPECT_TRUE(parse_wiitdb_game("<game name=\"Newer\"><id>SMNE02</id><type>CUSTOM</type></game>", "EN", custom));
     EXPECT_TRUE(custom.custom);
+    EXPECT_EQ(custom.title, "Newer");
     GameInfo lower;
     EXPECT_TRUE(parse_wiitdb_game("<game><id>SMNE03</id><type> custom </type></game>", "EN", lower));
     EXPECT_TRUE(lower.custom);
@@ -103,6 +104,7 @@ static void test_custom_type() {
     std::map<std::string, GameInfo> back;
     EXPECT_TRUE(parse_game_infos(text, back));
     EXPECT_TRUE(back["SMNE02"].custom);
+    EXPECT_EQ(back["SMNE02"].title, "Newer");
     EXPECT_FALSE(back["RMCE01"].custom);
     EXPECT_FALSE(game_infos_have_types("# GameTDB game details, made by RiftWii from wiitdb.zip\n[RMCE01]\nplayers=4\n"));
 }

@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <zlib.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -53,6 +54,13 @@ constexpr int kPoolMax = (kPictureBudget - kBannerPoolMax * kEmulatorBannerPixel
 static_assert(kPoolMax == 369);
 // Before the grid says how many: four pages and the game page.
 constexpr int kPoolMin = 49;
+// MEM2 the covers leave to everything else: the shelf's boxes (about
+// 4 MB, taken as the shelf first needs them), downloads and the heap the
+// menu's lists grow into. The slots never come back once taken, and a
+// library of 351 games and 50 channels that had them all (2611-198) ran
+// out of memory at its next download. Its covers take turns instead: the
+// slots longest not drawn are read again when their games come back.
+constexpr std::size_t kKeepFreeForOthers = 12u << 20;
 
 std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".rwc"; }
 // An empty file: GameTDB had no cover when it was written.
@@ -429,6 +437,16 @@ void Reserve(int covers) {
     if (covers > kPoolMax) covers = kPoolMax;
     if (covers <= g_slots || covers <= g_reserveAsked) return;
     g_reserveAsked = covers;
+    const int wanted = covers;
+    const u32 arena_free = reinterpret_cast<u32>(SYS_GetArena2Hi()) - reinterpret_cast<u32>(SYS_GetArena2Lo());
+    const int room = arena_free > kKeepFreeForOthers
+        ? static_cast<int>((arena_free - kKeepFreeForOthers) / kCoverPixelBytes) : 0;
+    covers = std::min(covers, std::max(kPoolMin, g_slots + room));
+    if (covers <= g_slots) {
+        logf("Covers: room for %d covers (%d wanted); they take turns, so %u KB of MEM2 stay for the rest\n", g_slots,
+             wanted, static_cast<unsigned>(arena_free >> 10));
+        return;
+    }
     for (int more = covers - g_slots; more > 0; more /= 2) {
         u8* block = skin::Mem2Alloc(static_cast<std::size_t>(more) * kCoverPixelBytes);
         if (!block) continue;
@@ -437,7 +455,7 @@ void Reserve(int covers) {
         g_slots += more;
         break;
     }
-    logf("Covers: room for %d covers (%d wanted); MEM2 arena left: %u KB\n", g_slots, covers,
+    logf("Covers: room for %d covers (%d wanted); MEM2 arena left: %u KB\n", g_slots, wanted,
          static_cast<unsigned>((reinterpret_cast<u32>(SYS_GetArena2Hi()) - reinterpret_cast<u32>(SYS_GetArena2Lo())) >> 10));
 }
 

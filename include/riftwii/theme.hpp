@@ -20,6 +20,7 @@
 //              frames = 24             (a looping backdrop: 2 to 60 frames,
 //              fps = 12                1 to 30 a second)
 //   [shape]   shelf_grain = yes        (yes/no)
+//   [shape]   cover_frames = yes       (yes/no)
 //
 // Anything missing keeps the default (RiftWii's own light look). Anything
 // wrong is skipped with a note, never an error: a broken theme still
@@ -86,6 +87,9 @@ struct Theme {
     // [shape] shelf_grain: wood grain along Home's shelf; without it the
     // shelf is smooth with an accent-coloured line along its front edge.
     bool shelf_grain = false;
+    // [shape] cover_frames: cover_tile.png round every cover in Home's
+    // covers view, not only the lit one (a theme whose covers sit in frames).
+    bool cover_frames = false;
     bool gloss = false;    // [shape] gloss: a shine across the top of buttons and tiles
     // [shape] bar: "dip" (the Wii Menu's: the bar sinks in the middle and
     // the clock sits in the dip) or "bump" (it rises there, the clock above).

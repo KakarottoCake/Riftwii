@@ -31,6 +31,9 @@ bool g_pointing = false;
 float g_x = 0, g_y = 0;
 u32 g_press = 0;
 int g_press_frames = 0;
+// gcpress: a GameCube controller's button on port 1, for one frame.
+u16 g_pad_press = 0;
+int g_pad_press_frames = 0;
 u32 g_held = 0, g_held_new = 0;
 float g_from_x = 0, g_from_y = 0, g_to_x = 0, g_to_y = 0;
 int g_glide = 0, g_glide_frames = 0;
@@ -126,6 +129,12 @@ void Advance(const void* xfb, int width, int height) {
             words.next(name);
             g_press = ButtonNamed(name);
             g_press_frames = g_press ? 1 : 0;
+            g_wait = 2;
+        } else if (cmd == "gcpress") {
+            std::string name;
+            words.next(name);
+            g_pad_press = name == "A" ? PAD_BUTTON_A : name == "B" ? PAD_BUTTON_B : 0;
+            g_pad_press_frames = g_pad_press ? 1 : 0;
             g_wait = 2;
         } else if (cmd == "hold") {
             std::string name;
@@ -238,6 +247,11 @@ void GuiScriptApply() {
         w->btns_d |= g_press;
         w->btns_h |= g_press;
         --g_press_frames;
+    }
+    if (g_pad_press_frames > 0) {
+        userInput[0].pad.btns_d |= g_pad_press;
+        userInput[0].pad.btns_h |= g_pad_press;
+        --g_pad_press_frames;
     }
 }
 

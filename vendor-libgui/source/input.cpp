@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC), and a USB keyboard, mouse and pen tablet (and the uDraw) on channel 1's controls.
+ * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC), a USB keyboard, mouse and pen tablet (and the uDraw) on channel 1's controls, and a GameCube controller's pointer gone when it is unplugged.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -26,8 +26,18 @@
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
 #include "loadersettings.hpp"
+#include "wpadqueue.hpp"
 
 static void UpdatePadPointers();
+// Riftwii: whether a GameCube controller is on each channel this frame,
+// in the Wii's own port or the adapter's (UpdatePads, for the pointers).
+static bool padPlugged[4] = {false, false, false, false};
+
+static void ConfigureRemotePointer(int channel)
+{
+	WPAD_SetDataFormat(channel, WPAD_FMT_BTNS_ACC_IR);
+	WPAD_SetVRes(channel, screenwidth, screenheight);
+}
 
 int rumbleRequest[4] = {0,0,0,0};
 GuiTrigger userInput[4];
@@ -41,7 +51,8 @@ static int rumbleCount[4] = {0,0,0,0};
 void UpdatePads()
 {
 	WPAD_ScanPads();
-	PAD_ScanPads();
+	// libogc's answer is a bit (1 << port) for each port with a controller.
+	const u32 portsPlugged = PAD_ScanPads();
 
 	// The Wii U GamePad is a single controller behind FIX94's direct-I2C
 	// driver; it reports on channel 0 when one is connected. Everywhere
@@ -87,6 +98,9 @@ void UpdatePads()
 	riftwii::wii::GcAdapterMenuPads(adapter);
 	for (int i = 0; i < 4; i++)
 	{
+		padPlugged[i] = (portsPlugged & (1u << i)) || adapter.present[i];
+		// A USB keyboard presses channel 1's pad buttons (usbinput.hpp).
+		if (i == 0 && riftwii::wii::UsbInputKeyboardConnected()) padPlugged[i] = true;
 		const u16 held = adapter.present[i] ? adapter.pads[i].buttons : 0;
 		userInput[i].pad.btns_d |= held & ~adapterHeld[i];
 		userInput[i].pad.btns_u |= adapterHeld[i] & ~held;
@@ -182,6 +196,8 @@ static void UpdatePadPointers()
 	const float kRemoteMove = 40.0f;
 	const int kSteadyFrames = 10;   // about a sixth of a second: a stray light never lasts that long
 	const int kPadHold = 90;        // a second and a half
+	const int kGoneFrames = 30;     // half a second without the controller: unplugged, not a missed read
+	static int padGone[4] = {0, 0, 0, 0};  // frames in a row with no controller on the channel
 	static int irSteady[4] = {0, 0, 0, 0};  // frames in a row with the Remote's own pointer valid
 	static int padQuiet[4] = {kPadHold, kPadHold, kPadHold, kPadHold};  // frames since the pad was last used
 	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
@@ -196,6 +212,8 @@ static void UpdatePadPointers()
 	static float wroteX[4], wroteY[4], wroteA[4];   // what this function left
 	static float givenX[4], givenY[4], givenA[4];   // what libogc had given
 	static bool wrote[4] = {false, false, false, false};
+	static bool remoteConnected[4] = {};
+	static u32 cameraReport[4] = {};
 	// The tilt: held stiller than the pointer (its shake swings the
 	// pointer most at the screen's sides), let go as the Remote turns.
 	const float kTiltRestHz = 0.3f;
@@ -226,8 +244,25 @@ static void UpdatePadPointers()
 		if (!w) continue;
 		// Only a connected remote's data is refreshed by the scan; on an
 		// empty channel ir.valid is still the pointer written last frame.
-		u32 type = 0;
-		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
+		const bool remote = WPAD_Probe(i, nullptr) == WPAD_ERR_NONE;
+		if (remote != remoteConnected[i]) {
+			remoteConnected[i] = remote;
+			cameraReport[i] = 0;
+			wrote[i] = false;
+			steadyOn[i] = false;
+			irSteady[i] = 0;
+			if (remote) ConfigureRemotePointer(i);
+		}
+		if (remote && w->err == WPAD_ERR_NONE && (w->data_present & WPAD_DATA_IR)) {
+			// On reconnect libogc can switch to reports with an attachment
+			// while the camera still sends the wider format. Reassert its
+			// mode once the actual report arrives, not during the handshake.
+			const u32 report = w->data_present & (WPAD_DATA_IR | WPAD_DATA_EXPANSION);
+			if (report != cameraReport[i]) {
+				riftwii::wii::WpadRefreshCameraMode(i);
+				cameraReport[i] = report;
+			}
+		}
 		if (!remote) w->ir.valid = 0;
 		if (wrote[i] && w->ir.x == wroteX[i] && w->ir.y == wroteY[i] && w->ir.angle == wroteA[i]) {
 			w->ir.x = givenX[i];
@@ -355,6 +390,18 @@ static void UpdatePadPointers()
 			sy = userInput[i].WPAD_StickY(0) * 100 / 128;
 		}
 		const float r = sqrtf((float)(sx * sx + sy * sy));
+		// A controller unplugged takes its pointer with it (a tester: a
+		// controller moved from port 4 to port 1, then unplugged, left its
+		// pointer on screen for good). The channel goes back to its
+		// Remote, if it has one, and the next controller starts afresh.
+		padGone[i] = padPlugged[i] || classic ? 0 : (padGone[i] < kGoneFrames ? padGone[i] + 1 : kGoneFrames);
+		// The D-pad's mode is left alone: a Wii Remote's D-pad uses it too,
+		// with no controller plugged in, and it hides the pointer anyway.
+		if (padGone[i] >= kGoneFrames && padHas[i]) {
+			padHas[i] = false;
+			placed[i] = false;
+			if (!(remote && w->ir.valid)) w->ir.valid = 0;
+		}
 		// The Wii Remote's own buttons are the low 16 bits; a Classic
 		// Controller's are the high ones.
 		const bool remotePressed = remote && (w->btns_d & 0xFFFF);
@@ -490,10 +537,7 @@ void SetupPads()
 	// channels only: the menu never reads the Balance Board's slot. (The
 	// crash with a board on was its missing command queue: wpadqueue.cpp.)
 	for (int chan = WPAD_CHAN_0; chan <= WPAD_CHAN_3; ++chan)
-	{
-		WPAD_SetDataFormat(chan, WPAD_FMT_BTNS_ACC_IR);
-		WPAD_SetVRes(chan, screenwidth, screenheight);
-	}
+		ConfigureRemotePointer(chan);
 
 	for(int i=0; i < 4; i++)
 	{

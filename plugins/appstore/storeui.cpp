@@ -24,16 +24,21 @@ constexpr int kSmallSize = 18;
 constexpr int kBodySize = 20;
 
 constexpr int kBand = 72;        // the title band's height
+// The store front's: the filter button and the counts under it, with room
+// between the counts and the band's lower edge.
+constexpr int kFrontBand = 82;
 constexpr int kAppBand = 118;    // an app page's band, with its facts
 constexpr int kBarTop = 404;     // where the page's bottom band (and its prompts) begins
+// The top of the host's prompt buttons (GuiPrompts::CardTop): an A with the
+// pointer below it is a prompt's, or the host has already dropped it.
+constexpr int kPromptTop = 418;
 constexpr int kGap = 14;
 constexpr int kLine = 26;     // a line of body text
 constexpr int kFactRow = 28;  // a row of an app's facts
 
-constexpr std::uint32_t kWarn = 0xB45F06FFu;  // an update waiting, readable on the light cards
-constexpr std::uint32_t kNoteFill = 0xFDF3DCFFu;
-constexpr std::uint32_t kNoteInk = 0x6B4A06FFu;
-constexpr std::uint32_t kIconPlace = 0xD8E2ECFFu;
+// The theme's colours, so a dark theme's tiles read as well as a light one's.
+constexpr std::uint32_t kWarn = RWP_COLOR_WARN;        // an update waiting, Wii only
+constexpr std::uint32_t kIconPlace = RWP_COLOR_FIELD;  // where an icon goes until it is in
 
 // The frame's draw list. Texts are kept until the frame is handed over.
 class Frame {
@@ -125,12 +130,50 @@ struct Hit {
 
 int Width(const std::string& text, int size) { return Host().text_width(text.c_str(), static_cast<std::uint32_t>(size)); }
 
+// The largest size from `largest` down to `smallest` (2 at a time) at which
+// `text` fits `width`; `smallest` when none does (the text is cut there).
+// Mod names from GameBanana run long ("Kaizo Mario Galaxy: Legacy Edition").
+int FitSize(const std::string& text, int width, int largest, int smallest) {
+    for (int size = largest; size > smallest; size -= 2) {
+        if (Width(text, size) <= width) return size;
+    }
+    return smallest;
+}
+
+// `text` cut at a space into a first line that fits `width` at `size` and the
+// rest. False when it has no such space (one long word): it stays one line.
+bool SplitInTwo(const std::string& text, int size, int width, std::string& first, std::string& second) {
+    // The space nearest the middle among those where both halves fit, so
+    // "The Extraordinarily Long-Named..." doesn't leave "The" alone; else
+    // the last space whose first half fits (the second is cut).
+    std::size_t last_fit = std::string::npos;
+    std::size_t balanced = std::string::npos;
+    std::size_t balanced_off = std::string::npos;
+    const std::size_t middle = text.size() / 2;
+    for (std::size_t at = text.find(' '); at != std::string::npos; at = text.find(' ', at + 1)) {
+        if (Width(text.substr(0, at), size) > width) break;
+        last_fit = at;
+        if (Width(text.substr(at + 1), size) <= width) {
+            const std::size_t off = at > middle ? at - middle : middle - at;
+            if (off < balanced_off) {
+                balanced = at;
+                balanced_off = off;
+            }
+        }
+    }
+    const std::size_t best = balanced != std::string::npos ? balanced : last_fit;
+    if (best == std::string::npos) return false;
+    first = text.substr(0, best);
+    second = text.substr(best + 1);
+    return true;
+}
+
 std::string Plural(std::size_t count, const char* one, const char* many) {
     return count == 1 ? tr(one) : tr(many, std::to_string(count));
 }
 
 enum class Page { Front, Grid, App };
-enum class GridKind { Category, Search, Mine };
+enum class GridKind { Category, Search, Mine, GameMods };
 
 // The ids of the things on a page that are not tiles.
 constexpr int kHitPrevious = 1002;
@@ -139,13 +182,21 @@ constexpr int kHitAction = 1004;
 constexpr int kHitNewer = 1005;
 constexpr int kHitPage = 1006;
 constexpr int kHitRetry = 1007;
+constexpr int kHitFilter = 1008;
 
 class StoreScreen {
 public:
-    explicit StoreScreen(const rwp_screen_info& info) : info_(info) {
+    StoreScreen(const rwp_screen_info& info, std::uint32_t console, const char* game_id, const char* game_name)
+        : info_(info), console_(console) {
         left_ = info.safe_x + 8;
         right_ = info.safe_x + info.safe_w - 8;
         middle_ = info.left + info.width / 2;
+        // Opened from a game's Mods page: that game's Riivolution mods.
+        if (game_id != nullptr && game_id[0] != '\0') {
+            game_id_ = game_id;
+            game_name_ = game_name != nullptr && game_name[0] != '\0' ? game_name : game_id;
+            store_.SetListUrl(kModListUrl);
+        }
     }
 
     std::int32_t Run() {
@@ -163,6 +214,11 @@ public:
             if (Host().screen_frame(frame_.Data(), frame_.Count(), &input) != 0) break;
             input_ = input;
             leave = Handle();
+            // The mods' list is in: straight to the game's mods.
+            if (!game_id_.empty() && !opened_game_mods_ && store_.list_state == ListState::Ready) {
+                opened_game_mods_ = true;
+                OpenGameMods();
+            }
         }
         // An install still running is stopped (nothing of it is kept); a list,
         // an icon or a removal ends on its own. Its end is waited for with a
@@ -181,6 +237,8 @@ public:
     }
 
     bool Changed() const { return store_.changed; }
+    // RiftWii's own page asked for its update check.
+    bool CheckUpdate() const { return check_update_; }
 
 private:
     // ---- Drawing ----
@@ -204,7 +262,12 @@ private:
             Picture(picture, x, 16, 40);
             x += 52;
         }
-        if (!title.empty()) frame_.Text(x, 20, kTitleSize, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, right_ - x - right);
+        if (!title.empty()) {
+            const int room = right_ - x - right;
+            const int size = FitSize(title, room, kTitleSize, 22);
+            // Smaller text moves down by half the difference, to stay centred.
+            frame_.Text(x, 20 + (kTitleSize - size) / 2, size, RWP_COLOR_ON_BAND, title, RWP_ALIGN_LEFT, room);
+        }
     }
 
     // A theme picture (docs/THEMES.md), `size` pixels square: the theme's
@@ -226,7 +289,11 @@ private:
         frame_.Picture(name, own, x, y, size, size);
     }
 
-    static std::string CategoryPicture(const AppCategory& category) { return std::string("store_") + category.key; }
+    static std::string CategoryPicture(const AppCategory& category) {
+        // Mods have the menu's own Mods picture (the game page's).
+        if (std::strcmp(category.key, kModCategory) == 0) return "icon_mods";
+        return std::string("store_") + category.key;
+    }
 
     void Prompt(std::uint32_t key, const std::string& label) { prompts_.push_back({key, label}); }
 
@@ -243,23 +310,56 @@ private:
     // The store front: the categories as tiles, each with its icon, and a
     // line under them of what the lit one holds.
     void DrawFront() {
-        Band(tr("Rift Store"), kBand, "store_logo", 280);  // the counts on the right
+        if (!game_id_.empty()) {
+            Band(tr("Mods for {1}", game_name_), kBand, "icon_mods", 0);
+            if (ListReady()) Message(tr("Getting the list of mods..."));
+            return;
+        }
+        Band(tr("Rift Store"), kFrontBand, "store_logo", 280);  // the counts on the right
         if (!ListReady()) return;
 
         CountCategories();
-        std::size_t installed = 0;
+        // Both counts are of the apps the filter lets through.
+        std::size_t shown = 0, installed = 0;
         for (const App& app : store_.apps) {
-            if (app.state == AppState::Installed || app.state == AppState::Update) ++installed;
+            if (!Shown(app)) continue;
+            ++shown;
+            if (app.state == AppState::Installed || app.state == AppState::Update ||
+                app.state == AppState::ThisRiftWii)
+                ++installed;
         }
-        frame_.Text(right_, 30, kSmallSize, RWP_COLOR_INK_SOFT,
-                    Plural(store_.apps.size(), "1 app", "{1} apps") + "  \xC2\xB7  " +
-                        tr("{1} installed", std::to_string(installed)),
-                    RWP_ALIGN_RIGHT, 270);
+        const std::string counts = Plural(shown, "1 app", "{1} apps") + "  \xC2\xB7  " +
+                                   Plural(installed, "1 installed", "{1} installed");
+        // The filter: a button at the band's right (- or pointed at and A),
+        // filled while it is on; the counts under it are what it lets through.
+        // Not a prompt: a fifth one did not fit a 4:3 menu's bottom band.
+        const std::string filter = tr("Without a Wii Remote");
+        const int filter_w = 10 + 20 + 8 + Width(filter, kSmallSize) + 14;
+        const int filter_x = right_ - filter_w;
+        // Level with the title: higher would be in the TV's overscan.
+        frame_.Card(filter_x, 14, filter_w, 28, focus_ == kHitFilter, no_remote_);
+        frame_.Button(filter_x + 10, 18, 20, RWP_KEY_MINUS);
+        frame_.Text(filter_x + 38, 16, kSmallSize, RWP_COLOR_INK, filter);
+        hits_.push_back({filter_x, 14, filter_w, 28, kHitFilter});
+        // Clear of the band's lower edge (Bookshelf's is a thick plank).
+        frame_.Text(right_, 47, kSmallSize, RWP_COLOR_INK_SOFT, counts, RWP_ALIGN_RIGHT, 270);
+        if (shown == 0 && no_remote_) {
+            // The filter let nothing through: the list has no app marked
+            // as working without a Wii Remote (yet).
+            // Wrapped (on one line the longer translations were cut), so
+            // drawn from its left: the host centres only a single line.
+            frame_.Text(left_ + 20, 180, 22, RWP_COLOR_INK,
+                        tr("No app in the list is marked as working without a Wii Remote. Press - to show them all."),
+                        RWP_ALIGN_LEFT, right_ - left_ - 40, 3);
+        } else if (shown == 0) {
+            // A list that loaded but has no app this store can show.
+            Message(tr("The list has no apps."));
+        }
 
         // Four across on a 16:9 menu; three on a 4:3 one, where four would
         // cut the longer names ("Online services"). The tiles share the room
         // above the line; the icon is as big as their height lets it be.
-        constexpr int kTop = 88;
+        constexpr int kTop = kFrontBand + 14;
         constexpr int kAboutY = 368;
         const int columns = FrontColumns();
         const int rows = (static_cast<int>(shown_categories_.size()) + columns - 1) / columns;
@@ -299,14 +399,31 @@ private:
         Prompt(RWP_KEY_TWO, updates ? tr("My apps ({1})", std::to_string(updates)) : tr("My apps"));
     }
 
+    void ToggleFilter() {
+        Host().sound(RWP_SOUND_CLICK);
+        no_remote_ = !no_remote_;
+        CountCategories();
+    }
+
+    // Whether the filter lets `app` through: with it on, only apps the
+    // list says work with a Classic or GameCube controller.
+    bool Shown(const App& app) const { return !no_remote_ || app_needs_no_wii_remote(app.listing->controllers); }
+
+    // Listed for the Wii only, on a Wii U in Wii mode.
+    bool OtherConsole(const AppListing& listing) const {
+        return console_ == RWP_CONSOLE_VWII && (listing.platforms & kAppOnVWii) == 0;
+    }
+
     bool ListReady() {
         if (store_.list_state == ListState::Ready) return true;
         if (store_.list_state == ListState::Loading) {
-            Message(tr("Getting the list of apps..."));
+            Message(game_id_.empty() ? tr("Getting the list of apps...") : tr("Getting the list of mods..."));
             const std::uint32_t sweep = (input_.frame * 12) % 1000;
             frame_.Progress(middle_ - 140, 236, 280, 14, sweep);
         } else {
-            Message(tr("Could not get the list of apps: {1}", store_.list_error), 170);
+            Message(game_id_.empty() ? tr("Could not get the list of apps: {1}", store_.list_error)
+                                     : tr("Could not get the list of mods: {1}", store_.list_error),
+                    170);
             const int w = Width(tr("Try again"), kNameSize) + 64;
             const int x = middle_ - w / 2;
             frame_.Card(x, 260, w, 48, true);
@@ -322,7 +439,9 @@ private:
         std::size_t count = 0;
         categories_ = app_categories(count);
         category_counts_.assign(count, 0);
-        for (const App& app : store_.apps) ++category_counts_[app_category_index(app.listing->category)];
+        for (const App& app : store_.apps) {
+            if (Shown(app)) ++category_counts_[app_category_index(app.listing->category)];
+        }
         shown_categories_.clear();
         for (std::size_t i = 0; i < count; ++i) {
             if (category_counts_[i] > 0) shown_categories_.push_back(i);
@@ -341,12 +460,16 @@ private:
     void DrawGrid() {
         std::string picture;
         if (grid_kind_ == GridKind::Category) picture = CategoryPicture(categories_[grid_category_]);
+        if (grid_kind_ == GridKind::GameMods) picture = "icon_mods";
         const int pages = PageCount();
-        // Room on the right for the page and its arrows, when there are pages.
-        Band(grid_title_, kBand, picture, pages > 1 ? 280 : 0);
+        const std::string page_text =
+            pages > 1 ? tr("Page {1} of {2}", std::to_string(grid_page_ + 1), std::to_string(pages)) : std::string();
+        // Room on the right for the page and its two arrows, when there are pages.
+        const int page_room = pages > 1 ? Width(page_text, kNameSize) + 2 * 44 + 3 * 12 + 16 : 0;
+        Band(grid_title_, kBand, picture, page_room);
         // The page and its arrows at the band's right.
         if (pages > 1) {
-            const std::string text = tr("Page {1} of {2}", std::to_string(grid_page_ + 1), std::to_string(pages));
+            const std::string& text = page_text;
             const int text_w = Width(text, kNameSize);
             const int next_x = right_ - 44;
             const int previous_x = next_x - 12 - text_w - 12 - 44;
@@ -357,8 +480,11 @@ private:
             hits_.push_back({next_x, 14, 44, 44, kHitNext});
         }
         if (grid_.empty()) {
-            Message(grid_kind_ == GridKind::Search ? tr("No app matches {1}.", search_)
-                                                   : tr("No apps from here are on the SD card yet."));
+            if (grid_kind_ == GridKind::GameMods)
+                Message(tr("GameBanana has no Riivolution mods for this game yet."));
+            else
+                Message(grid_kind_ == GridKind::Search ? tr("No app matches {1}.", search_)
+                                                       : tr("No apps from here are on the SD card yet."));
         }
         const int columns = GridColumns();
         const int w = (right_ - left_ - (columns - 1) * kGap) / columns;
@@ -371,17 +497,37 @@ private:
             shown.push_back(index);
             const int tx = left_ + (k % columns) * (w + kGap), ty = 92 + (k / columns) * (h + kGap);
             frame_.Card(tx, ty, w, h, focus_ == k);
-            Icon(app, tx + w / 2 - 64, ty + 12);
-            frame_.Text(tx + w / 2, ty + 68, kNameSize, RWP_COLOR_INK, app.listing->name, RWP_ALIGN_CENTER, w - 16);
+            const std::string name = app.listing->name;
+            const int room = w - 16;
+            const int size = FitSize(name, room, kNameSize, kSmallSize);
+            std::string first, second;
+            const bool two_lines = Width(name, size) > room && SplitInTwo(name, kSmallSize, room, first, second);
             std::uint32_t colour = RWP_COLOR_INK_SOFT;
             const std::string note = StateNote(app, colour);
-            frame_.Text(tx + w / 2, ty + 94, kSmallSize, colour, note, RWP_ALIGN_CENTER, w - 16);
+            if (two_lines) {
+                // The icon moves up a little to make room for the second line.
+                Icon(app, tx + w / 2 - 64, ty + 6);
+                frame_.Text(tx + w / 2, ty + 56, kSmallSize, RWP_COLOR_INK, first, RWP_ALIGN_CENTER, room);
+                frame_.Text(tx + w / 2, ty + 76, kSmallSize, RWP_COLOR_INK, second, RWP_ALIGN_CENTER, room);
+            } else {
+                Icon(app, tx + w / 2 - 64, ty + 12);
+                frame_.Text(tx + w / 2, ty + 68 + (kNameSize - size) / 2, size, RWP_COLOR_INK, name, RWP_ALIGN_CENTER, room);
+            }
+            // The maker (or state) line at one height on every tile, so a row
+            // mixing one- and two-line names keeps it straight.
+            frame_.Text(tx + w / 2, ty + 97, kSmallSize, colour, note, RWP_ALIGN_CENTER, room);
             hits_.push_back({tx, ty, w, h, k});
         }
         // What the lit app is, under the tiles.
         if (focus_ >= 0 && focus_ < static_cast<int>(shown.size())) {
-            frame_.Text(middle_, 92 + 2 * (h + kGap) + 2, kSmallSize, RWP_COLOR_INK_SOFT,
-                        store_.apps[shown[focus_]].listing->description, RWP_ALIGN_CENTER, right_ - left_);
+            const AppListing& lit = *store_.apps[shown[focus_]].listing;
+            std::string line = lit.description;
+            if (grid_kind_ == GridKind::GameMods) {
+                line = lit.name;
+                if (lit.author[0]) line += std::string("  \xC2\xB7  ") + lit.author;
+            }
+            frame_.Text(middle_, 92 + 2 * (h + kGap) + 2, kSmallSize, RWP_COLOR_INK_SOFT, line, RWP_ALIGN_CENTER,
+                        right_ - left_);
         }
         store_.WantIcons(shown, input_.frame);
         Prompt(RWP_KEY_B, tr("Back"));
@@ -416,7 +562,18 @@ private:
             case AppState::PcOnly:
                 colour = RWP_COLOR_INK_SOFT;
                 return tr("Get it on a PC");
+            case AppState::ThisRiftWii:
+                if (UpdateWaiting(app)) {
+                    colour = kWarn;
+                    return tr("Update");
+                }
+                colour = RWP_COLOR_ACCENT;
+                return tr("Installed");
             case AppState::Get:
+                if (OtherConsole(*app.listing)) {
+                    colour = kWarn;
+                    return tr("Wii only");
+                }
                 break;
         }
         colour = RWP_COLOR_INK_SOFT;
@@ -431,10 +588,40 @@ private:
         const AppCategory* categories = app_categories(count);
         Band("", kAppBand);
         frame_.Text(left_, 14, kSmallSize, RWP_COLOR_INK_SOFT, tr(categories[app_category_index(listing.category)].name));
-        frame_.Text(left_, 38, kTitleSize, RWP_COLOR_ON_BAND, listing.name, RWP_ALIGN_LEFT, right_ - left_);
+        const int title_size = FitSize(listing.name, right_ - left_, kTitleSize, 22);
+        frame_.Text(left_, 38 + (kTitleSize - title_size) / 2, title_size, RWP_COLOR_ON_BAND, listing.name,
+                    RWP_ALIGN_LEFT, right_ - left_);
         std::string byline = listing.author;
         if (listing.version[0]) byline += std::string("  \xC2\xB7  ") + listing.version;
-        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, byline, RWP_ALIGN_LEFT, right_ - left_);
+        // The controllers it works with, at the band's right, as the list
+        // says: the pictures a game's page shows for GameTDB's controllers,
+        // drawn by the menu (a USB keyboard has none, and is left out here).
+        static const struct {
+            std::uint8_t bit;
+            const char* picture;
+        } kControllers[] = {{kAppWiiRemote, "control_wiimote"},
+                            {kAppNunchuk, "control_nunchuk"},
+                            {kAppClassic, "control_classiccontroller"},
+                            {kAppGameCube, "control_gamecube"}};
+        int icons_x = right_;
+        for (int i = 3; i >= 0; --i) {
+            if ((listing.controllers & kControllers[i].bit) == 0) continue;
+            icons_x -= 32;
+            frame_.Picture(kControllers[i].picture, 0, icons_x, 74, 32, 32);
+            icons_x -= 6;
+        }
+        int byline_end = icons_x < right_ ? icons_x - 16 : right_;
+        if (icons_x < right_) {
+            // Said what the pictures are, before them, when the byline
+            // still fits whole beside the words (a 4:3 menu's often doesn't).
+            const std::string works = tr("Works with");
+            const int label_left = icons_x - 4 - Width(works, kSmallSize);
+            if (left_ + Width(byline, kSmallSize) + 24 <= label_left) {
+                frame_.Text(icons_x - 4, 82, kSmallSize, RWP_COLOR_INK_SOFT, works, RWP_ALIGN_RIGHT);
+                byline_end = label_left - 24;
+            }
+        }
+        frame_.Text(left_, 82, kSmallSize, RWP_COLOR_INK_SOFT, byline, RWP_ALIGN_LEFT, byline_end - left_);
 
         // The icon, and the one big action beside it.
         const int row = kAppBand + 18;
@@ -475,8 +662,9 @@ private:
             const int ny = below;
             below = ny + 40 + 12;
             const bool lit = focus_ == kHitNewer;
-            frame_.Rect(left_, ny, text_w, 40, lit ? 0xF7E3B0FFu : kNoteFill, true);
-            frame_.Text(left_ + 16, ny + 9, kSmallSize, kNoteInk,
+            // Pressed to open that app: a card, as every button is.
+            frame_.Card(left_, ny, text_w, 40, lit);
+            frame_.Text(left_ + 16, ny + 9, kSmallSize, RWP_COLOR_INK,
                         tr("{1} does the same and is kept up to date.", store_.apps[newer].listing->name), RWP_ALIGN_LEFT,
                         text_w - 32);
             hits_.push_back({left_, ny, text_w, 40, kHitNewer});
@@ -552,7 +740,7 @@ private:
         const Fact all[] = {
             {"store_size", tr("Size"), SizeText(listing.size)},
             {"store_date", tr("Released"), listing.released},
-            {"store_console", tr("Works on"), consoles},
+            listing.mod ? Fact{"store_console", tr("Game"), listing.game} : Fact{"store_console", tr("Works on"), consoles},
             {"store_license", tr("License"), listing.license},
         };
         std::vector<const Fact*> facts;
@@ -578,6 +766,7 @@ private:
             case AppState::Update: return tr("Update");
             case AppState::OnCard: return tr("Replace");
             case AppState::PcOnly: return tr("Get it on a PC");
+            case AppState::ThisRiftWii: return UpdateWaiting(app) ? tr("Update") : tr("Check for updates");
             case AppState::Get: break;
         }
         return tr("Install");
@@ -587,11 +776,17 @@ private:
         const std::string size = SizeText(app.listing->size);
         switch (app.state) {
             case AppState::Installed: return tr("Installed, version {1}", app.listing->version);
-            case AppState::Update: return tr("Version {1}, {2}", app.listing->version, size);
+            case AppState::Update:
+                // The install question says the rest.
+                if (OtherConsole(*app.listing)) return tr("Version {1}, for the Wii only", app.listing->version);
+                return tr("Version {1}, {2}", app.listing->version, size);
             case AppState::OnCard: return tr("It is on the SD card already. Put version {1} in its place.", app.listing->version);
             case AppState::PcOnly: return tr("The Wii can't unpack it: scan the code.");
+            case AppState::ThisRiftWii: return tr("You have RiftWii {1}.", Host().version());
             case AppState::Get: break;
         }
+        // Short, as the card has one line; the warning is asked before installing.
+        if (OtherConsole(*app.listing)) return tr("Listed for the Wii only, {1}", size);
         return tr("To the SD card, {1}", size);
     }
 
@@ -654,12 +849,22 @@ private:
         const int pointed = PointedAt();
         if (pointed >= 0) Focus(pointed);
         // A prompt pointed at and pressed comes as its button (the host's).
-        const std::uint32_t pressed = input_.pressed;
+        std::uint32_t pressed = input_.pressed;
+        // With the pointer on screen, A presses what it is on and nothing
+        // else: on empty space it used to open the lit tile, which the
+        // pointer had left. The lit tile takes A only while the pointer is
+        // hidden (the D-pad's way). The prompt buttons' row is the host's:
+        // an A there is the "Open" prompt's, or the host already dropped it.
+        if ((pressed & RWP_KEY_A) && input_.pointer && pointed < 0 && input_.y < kPromptTop) pressed &= ~RWP_KEY_A;
         if (pressed & RWP_KEY_HOME) return true;
         switch (page_) {
             case Page::Front: return HandleFront(pressed);
-            case Page::Grid: HandleGrid(pressed); return false;
-            case Page::App: HandleApp(pressed); return false;
+            case Page::Grid:
+                HandleGrid(pressed);
+                return leave_;
+            case Page::App:
+                HandleApp(pressed);
+                return check_update_;
         }
         return false;
     }
@@ -679,6 +884,22 @@ private:
         if (pressed & RWP_KEY_TWO) return OpenMine(), false;
         const int count = static_cast<int>(shown_categories_.size());
         const int columns = FrontColumns();
+        if (pressed & RWP_KEY_MINUS) {
+            ToggleFilter();
+            if (focus_ != kHitFilter) focus_ = std::min(focus_, std::max(0, static_cast<int>(shown_categories_.size()) - 1));
+            return false;
+        }
+        // The filter's button sits above the tiles: up from the first row,
+        // down back to them.
+        if (focus_ == kHitFilter) {
+            if (pressed & RWP_KEY_A) ToggleFilter();
+            else if (pressed & (RWP_KEY_DOWN | RWP_KEY_LEFT)) Focus(0);
+            return false;
+        }
+        if ((pressed & RWP_KEY_UP) && focus_ >= 0 && focus_ < columns) {
+            Focus(kHitFilter);
+            return false;
+        }
         if (focus_ < 0 || focus_ >= count) Focus(0);
         MoveInGrid(pressed, count, columns, false);
         if (pressed & RWP_KEY_A) {
@@ -723,6 +944,12 @@ private:
     void HandleGrid(std::uint32_t pressed) {
         if (pressed & RWP_KEY_B) {
             Host().sound(RWP_SOUND_BACK);
+            if (!game_id_.empty()) {
+                // A search goes back to the game's mods; they, out of the store.
+                if (grid_kind_ == GridKind::GameMods) leave_ = true;
+                else OpenGameMods();
+                return;
+            }
             page_ = Page::Front;
             focus_ = front_focus_;
             return;
@@ -788,24 +1015,41 @@ private:
         switch (app.state) {
             case AppState::PcOnly:
                 return;
+            case AppState::ThisRiftWii:
+                // RiftWii's own updater, which also brings its channel up to
+                // date: the store closes and the menu runs the check.
+                check_update_ = true;
+                return;
             case AppState::Installed:
                 if (Host().ask_choice(tr("Remove {1}?", name).c_str(),
-                                      tr("Its folder in sd:/apps goes. Its saves and data folders stay.").c_str(),
+                                      tr("Its program goes. Its saves and settings stay until you say otherwise.").c_str(),
                                       tr("Remove").c_str(), tr("Keep it").c_str()) == 1)
                     store_.StartRemove(app_index_);
                 return;
-            case AppState::OnCard:
-                if (Host().ask_choice(tr("Replace {1}?", name).c_str(),
-                                      tr("This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.",
-                                        app.listing->version)
-                                          .c_str(),
-                                      tr("Replace").c_str(), tr("Keep it").c_str()) != 1)
+            case AppState::OnCard: {
+                // A mod's files (its XML and its folders, settings included)
+                // are replaced whole; an app keeps its own settings.
+                const std::string body =
+                    app.listing->mod
+                        ? tr("This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders.",
+                             app.listing->version)
+                        : tr("This app is in sd:/apps already, not put there from here. Version {1} replaces its files; its own settings stay.",
+                             app.listing->version);
+                if (Host().ask_choice(tr("Replace {1}?", name).c_str(), body.c_str(), tr("Replace").c_str(),
+                                      tr("Keep it").c_str()) != 1)
                     return;
                 break;
+            }
             case AppState::Get:
             case AppState::Update:
                 break;
         }
+        // Every install of a Wii-only app on a Wii U asks: Install, Update and Replace.
+        if (OtherConsole(*app.listing) &&
+            Host().ask_choice(tr("Install {1}?", name).c_str(),
+                              tr("It is listed for the Wii only and may not work on a Wii U.").c_str(),
+                              tr("Install anyway").c_str(), tr("Cancel").c_str()) != 1)
+            return;
         if (!store_.StartInstall(app_index_)) status_ = tr("Another app is being installed. Try again when it is done.");
     }
 
@@ -817,7 +1061,33 @@ private:
         if (store_.finished_ok) {
             if (here)
                 status_ = store_.finished_remove ? tr("{1} is removed.", name)
-                                                 : tr("Installed. Find it in Home's Homebrew view.");
+                                                 : store_.apps[store_.finished_index].listing->mod
+                                                       ? tr("Installed. It is on this game's Mods page.")
+                                                       : tr("Installed. Find it in Home's Homebrew view.");
+            // What the app wrote stays unless the player says so: Keep is
+            // lit, and A, B and HOME press it; Remove needs the pointer (or +).
+            if (store_.finished_remove && !store_.finished_leftovers.empty()) {
+                std::string folders;
+                for (const std::string& folder : store_.finished_leftovers)
+                    folders += (folders.empty() ? "" : ", ") + folder;
+                // The warning first and the folders once: a long list of
+                // folders cut the end of the text off on a 4:3 menu.
+                const std::string body = tr(
+                    "Remove them deletes everything in {1}: its saves and settings, and an emulator's games, covers and cheats if it keeps them there.",
+                    folders);
+                bool remove = false;
+                if (RWP_HOST_HAS(&Host(), ask_risky)) {
+                    remove = Host().ask_risky(tr("Remove its saves too?").c_str(), body.c_str(), tr("Keep them").c_str(),
+                                              tr("Remove them").c_str()) == 1;
+                } else {
+                    remove = Host().ask_choice(tr("Remove its saves too?").c_str(), body.c_str(),
+                                               tr("Remove them").c_str(), tr("Keep them").c_str()) == 1;
+                }
+                if (remove && store_.StartRemoveData(store_.finished_index) && here)
+                    status_.clear();
+                else if (here)
+                    status_ = tr("Removed. Its saves are kept.");
+            }
             return;
         }
         if (store_.progress.Read().stage == InstallStage::Cancelled) {
@@ -833,11 +1103,26 @@ private:
     void OpenCategory(std::size_t category) {
         grid_.clear();
         for (std::size_t i = 0; i < store_.apps.size(); ++i) {
-            if (app_category_index(store_.apps[i].listing->category) == category) grid_.push_back(i);
+            if (app_category_index(store_.apps[i].listing->category) == category && Shown(store_.apps[i]))
+                grid_.push_back(i);
         }
         grid_kind_ = GridKind::Category;
         grid_title_ = tr(categories_[category].name);
         grid_category_ = category;
+        EnterGrid();
+    }
+
+    // The mods of the game the store was opened for, by the game IDs their
+    // XMLs name.
+    void OpenGameMods() {
+        grid_.clear();
+        for (std::size_t i = 0; i < store_.apps.size(); ++i) {
+            if (app_mod_for_game(*store_.apps[i].listing, game_id_.c_str())) grid_.push_back(i);
+        }
+        grid_kind_ = GridKind::GameMods;
+        // The game's name alone: beside the page arrows "Mods for ..." left
+        // little of it, and the band's Mods picture says what the page is.
+        grid_title_ = game_name_;
         EnterGrid();
     }
 
@@ -847,8 +1132,9 @@ private:
         for (int pass = 0; pass < 2; ++pass) {
             for (std::size_t i = 0; i < store_.apps.size(); ++i) {
                 const AppState state = store_.apps[i].state;
-                const bool update = state == AppState::Update;
-                const bool other = state == AppState::Installed || state == AppState::OnCard;
+                const bool update = UpdateWaiting(store_.apps[i]);
+                const bool other =
+                    !update && (state == AppState::Installed || state == AppState::OnCard || state == AppState::ThisRiftWii);
                 if ((pass == 0 && update) || (pass == 1 && other)) grid_.push_back(i);
             }
         }
@@ -863,8 +1149,13 @@ private:
         const std::string typed = text;
         std::size_t found = 0;
         std::string names;
+        // Opened for one game's mods: the counts, names and next letters
+        // come from that game's mods only, as the results do.
+        const auto in_scope = [self](const AppListing& listing) {
+            return self->game_id_.empty() || app_mod_for_game(listing, self->game_id_.c_str());
+        };
         for (const App& app : self->store_.apps) {
-            if (!app_matches(*app.listing, typed)) continue;
+            if (!self->Shown(app) || !in_scope(*app.listing) || !app_matches(*app.listing, typed)) continue;
             if (found < 5) names += (names.empty() ? "" : ", ") + std::string(app.listing->name);
             ++found;
         }
@@ -872,7 +1163,18 @@ private:
         if (typed.empty()) names.clear();
         std::snprintf(line, line_bytes, "%s", typed.empty() ? "" : Plural(found, "1 app", "{1} apps").c_str());
         std::snprintf(matches, matches_bytes, "%s", names.c_str());
-        const std::string keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed);
+        const auto no_remote = [](const AppListing& listing) { return app_needs_no_wii_remote(listing.controllers); };
+        std::string keys;
+        if (self->game_id_.empty()) {
+            keys = app_search_next(self->store_.listings.data(), self->store_.listings.size(), typed,
+                                   self->no_remote_ ? +no_remote : nullptr);
+        } else {
+            std::vector<AppListing> scoped;
+            for (const AppListing& listing : self->store_.listings) {
+                if (in_scope(listing)) scoped.push_back(listing);
+            }
+            keys = app_search_next(scoped.data(), scoped.size(), typed, self->no_remote_ ? +no_remote : nullptr);
+        }
         std::snprintf(next, next_bytes, "%s", keys.c_str());
     }
 
@@ -886,6 +1188,9 @@ private:
         if (search_.empty()) return;
         std::vector<std::pair<int, std::size_t>> ranked;
         for (std::size_t i = 0; i < store_.apps.size(); ++i) {
+            if (!Shown(store_.apps[i])) continue;
+            // Opened for one game's mods: a search stays within them.
+            if (!game_id_.empty() && !app_mod_for_game(*store_.apps[i].listing, game_id_.c_str())) continue;
             const int rank = app_match_rank(*store_.apps[i].listing, search_);
             if (rank > 0) ranked.emplace_back(-rank, i);  // the best first, then by name
         }
@@ -915,6 +1220,8 @@ private:
     }
 
     rwp_screen_info info_;
+    std::uint32_t console_ = RWP_CONSOLE_WII;
+    bool no_remote_ = false;  // the "Without a Wii Remote" filter
     int left_ = 40, right_ = 600, middle_ = 320;
     Store store_;
     Frame frame_;
@@ -944,6 +1251,11 @@ private:
     Page back_page_ = Page::Grid;
     int back_focus_ = 0;
     std::string status_;
+    bool check_update_ = false;
+    // Opened for one game's mods (a Mods page's "Get more mods").
+    std::string game_id_, game_name_;
+    bool opened_game_mods_ = false;
+    bool leave_ = false;
 };
 
 }  // namespace
@@ -957,13 +1269,18 @@ std::int32_t RunStore(rwp_appstore_request& request) {
     }
     std::int32_t result;
     bool changed;
+    bool check_update;
     {
-        StoreScreen screen(info);
+        request.game_id[sizeof(request.game_id) - 1] = '\0';
+        request.game_name[sizeof(request.game_name) - 1] = '\0';
+        StoreScreen screen(info, request.console, request.game_id, request.game_name);
         result = screen.Run();
         changed = screen.Changed();
+        check_update = screen.CheckUpdate();
     }
     Host().screen_close();
     request.changed = changed ? 1 : 0;
+    request.check_update = check_update ? 1 : 0;
     return result;
 }
 

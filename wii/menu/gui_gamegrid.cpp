@@ -60,6 +60,7 @@ constexpr int kTitleSize = 15;       // names: the tile's two lines
 constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
+constexpr int kCaptionDescent = 6;   // below the caption's line: a g's or a y's tail
 constexpr int kShelfCaptionY = 276;  // under the shelf (wii/menu/gui_shelf.cpp)
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
@@ -672,10 +673,13 @@ void GuiGameGrid::TurnPage(int delta) {
         f32 vx, vy, vw, vh;
         Menu_VisibleArea(&vx, &vy, &vw, &vh);
         const float top = static_cast<float>(TileY(0) - 16);
-        // Down past the lit game's name under the covers, all of it: an
-        // edge across it showed the old name's top over the new one's foot.
+        // Down past the lit game's name under the covers, all of it (an
+        // edge across it showed the old name's top over the new one's
+        // foot), its descenders included, and no further: 14 more took
+        // the top of Home's clock and the bar's line along in the picture,
+        // sliding over the ones that stay (a tester's video, Wave theme).
         const float bottom = static_cast<float>(
-            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + 14 : 0));
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers || channels ? CoverCaptionY() + kCaptionSize + kCaptionDescent : 0));
         // Across the tiles' columns only (their lit edge included): the
         // page arrows stay out, or the sliding picture took a copy of them
         // along (a tester saw a button's ghost).
@@ -935,7 +939,9 @@ void GuiGameGrid::DrawCoverTile(int index, Slot* text, float x, float y, float s
         Menu_DrawImg(cx + kCardPadding * kx - t.w / 2.0f, cy + kCardPadding * ky - t.h / 2.0f, static_cast<u16>(t.w),
                      static_cast<u16>(t.h), t.data, 0, kx, ky, static_cast<u8>(cardAlpha > 255 ? 255 : cardAlpha));
     };
-    if (on || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
+    // A cover stands on its own (#422) unless the theme frames every one.
+    const bool framed = riftwii::wii::MenuTheme().cover_frames;
+    if (on || framed || (!cover && !madeUp)) draw_card(skin::coverTile, alpha, on);
     if (on) draw_card(skin::coverTileOver, static_cast<int>(alpha * riftwii::wii::transition::Pulse()), true);
     if (madeUp) {
         riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
@@ -1139,9 +1145,10 @@ void GuiGameGrid::PrefetchCovers() {
     }
 }
 
-// Room for every game's cover, and the loader told to read them all, from
-// the page shown onwards: once read, no page waits for its covers. Again
-// when the list changes (a filter, a rescan).
+// Room for every game's cover (or as many as MEM2 spares, CoverReserve),
+// and the loader told to read them, from the page shown onwards: when they
+// all fit, no page waits for its covers. Again when the list changes (a
+// filter, a rescan).
 void GuiGameGrid::ReadAllCovers() {
     const std::string first = Count() > 0 ? (*items)[0].id : "", last = Count() > 0 ? (*items)[Count() - 1].id : "";
     if (items == readAllItems && Count() == readAllCount && first == readAllFirst && last == readAllLast) return;

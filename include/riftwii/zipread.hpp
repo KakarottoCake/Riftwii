@@ -38,7 +38,7 @@ bool zip_read_directory(const std::uint8_t* data, std::size_t size, std::vector<
 struct ZipThemeLimits {
     std::size_t files = 0;
     std::uint64_t unpacked_size = 0;
-    std::size_t max_files = 64;
+    std::size_t max_files = 192;  // riftwii/themelist.hpp's kThemeMaxFiles
     std::uint64_t max_unpacked_size = 24u << 20;
     std::uint64_t max_file_size = 8u << 20;
 };

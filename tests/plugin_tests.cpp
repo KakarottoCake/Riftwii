@@ -589,10 +589,11 @@ static void TestTables() {
     EXPECT_EQ(offsetof(rwp_host, remove_path) + sizeof(void*), offsetof(rwp_host, rename_path));
     EXPECT_EQ(offsetof(rwp_host, rename_path) + sizeof(void*), offsetof(rwp_host, list_directory));
     EXPECT_EQ(offsetof(rwp_host, list_directory) + sizeof(void*), offsetof(rwp_host, sd_free_kib));
-    EXPECT_EQ(offsetof(rwp_host, sd_free_kib) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_EQ(offsetof(rwp_host, sd_free_kib) + sizeof(void*), offsetof(rwp_host, ask_risky));
+    EXPECT_EQ(offsetof(rwp_host, ask_risky) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 64 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 64u * sizeof(void*));
+    // pointers) the table is 2 words and 65 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 65u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
