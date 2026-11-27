@@ -16762,6 +16762,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			case W::GcDiscReads:
 				labels = {tr("Fast"), tr("As on a GameCube (slower)")};
 				return game.gc_disc_reads == "drive" ? 1 : 0;
+			// The GameCube controllers setting: A opens its list too
+			// (CodeRabbit on #610).
+			case W::GcControllers:
+				labels = {tr("Off"), tr("Classic Controller")};
+				return game.gc_controllers == "classic" ? 1 : 0;
 			default:
 				return -1;
 		}
