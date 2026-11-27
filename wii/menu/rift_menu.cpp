@@ -16522,7 +16522,7 @@ static std::string GameRowShortNote(RowRef::What what)
 }
 
 // BuildGameRows' rows for the game's Settings page, made as above.
-static void DecorateGameSettingRows(std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+static void DecorateGameSettingRows(const FrontendState& state, std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
 {
 	using W = RowRef::What;
 	const bool showAdvanced = AdvancedSettingsShown();
@@ -16536,7 +16536,10 @@ static void DecorateGameSettingRows(std::vector<FlowRow>& rows, std::vector<RowR
 		if (row.heading) continue;
 		if (GameRowAdvanced(ref.what)) {
 			anyAdvanced = true;
-			if (!showAdvanced && !row.on) continue;
+			// Changed from Settings' choice. The cIOS row's "on" leaves out
+			// Automatic, but a game set to Automatic overrides Settings' slot.
+			const bool changed = row.on || (ref.what == W::Cios && state.model.game.cios != "global");
+			if (!showAdvanced && !changed) continue;
 		}
 		row.detail = GameRowShortNote(ref.what);
 		// Sharper picture is on or off: a switch, as Rumble's.
@@ -16546,7 +16549,7 @@ static void DecorateGameSettingRows(std::vector<FlowRow>& rows, std::vector<RowR
 		}
 		// Every option here is read when the game starts.
 		const bool setting = row.kind == FlowRow::Kind::Option || row.kind == FlowRow::Kind::Toggle;
-		if (setting && !row.dim) row.tag = tr("Next game");
+		if (setting && !row.dim && ref.what != W::CoverSet) row.tag = tr("Next game");
 		if (ref.what == W::Cover && row.kind == FlowRow::Kind::Action) row.button = true;
 		if (ref.what == W::ResetOptions) {
 			row.value = tr("Reset");
@@ -16575,7 +16578,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs, true, false);
-	DecorateGameSettingRows(rows, refs);
+	DecorateGameSettingRows(state, rows, refs);
 
 	// As wide as the game page that opened it: at 16:9 the rows' names get
 	// the room the TV has past the 4:3 middle ("GameCube controllers" was
@@ -16639,8 +16642,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		std::vector<FlowRow> readyRows;
 		std::vector<RowRef> readyRefs;
 		BuildGameRows(state, readyRows, readyRefs, true);
-		DecorateGameSettingRows(readyRows, readyRefs);
+		DecorateGameSettingRows(state, readyRows, readyRefs);
 		HaltGui();
+		// A press while the GUI ran named a row of the old list.
+		list.GetClicked();
+		list.GetClickedBack();
 		rows.swap(readyRows);
 		refs.swap(readyRefs);
 		list.Refresh();
@@ -16687,10 +16693,19 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			case W::VideoMode: return fromList(kVideoModes, game.video_mode, global.video_mode, VideoModeName);
 			case W::Aspect: return fromList(kAspects, game.aspect, global.aspect, AspectName);
 			case W::Language: return fromList(kGameLanguages, game.language, global.game_language, GameLanguageName);
-			case W::Cios:
-				// The channel's IOS list is the console's own: stepped only.
-				if (state.use_channel) return -1;
-				return fromList(kCiosChoices, game.cios, global.game_cios, CiosName);
+			case W::Cios: {
+				if (!state.use_channel) return fromList(kCiosChoices, game.cios, global.game_cios, CiosName);
+				// The channel's order, as its handler steps: Automatic
+				// (saved as "global"), then each slot.
+				const std::vector<std::string>& values = ChannelIosValues();
+				const std::string current = game.cios == "global" ? std::string("auto") : game.cios;
+				int set = 0;
+				for (std::size_t i = 0; i < values.size(); ++i) {
+					if (values[i] == current) set = static_cast<int>(i);
+					labels.push_back(ChannelIosName(values[i]));
+				}
+				return set;
+			}
 			case W::Server: return fromList(kServers, game.server, global.wfc_server, ServerName);
 			case W::GcVolume: return fromList(kGcVolumeChoices, game.gc_volume, game.gc_volume, GcVolumeName);
 			case W::GcProgressive: {
@@ -21152,9 +21167,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// list marks IOS 58, the slot that is used, and picking it
 					// saves it.
 					const bool iosSlotGone = std::find(iosChoices.begin(), iosChoices.end(), iosSlot) == iosChoices.end();
+					// Screen size saved between the fives (settings.txt takes
+					// 82): the list marks the five under it, and picking it
+					// sets that.
+					const bool sizeBetween = settings.screen_size % 5 != 0 || settings.screen_size < 80 ||
+						settings.screen_size > 100;
 					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource ||
 						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto")) ||
-						(actedAction == kIos && iosSlotGone);
+						(actedAction == kIos && iosSlotGone) || (actedAction == kScreenSize && sizeBetween);
 					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
 					else {
 						direction = picked - set;
@@ -21512,7 +21532,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// 80 to 100 in fives, round from one end to the other.
 					int at = (settings.screen_size - 80) / 5;
 					at = at < 0 ? 0 : at > 4 ? 4 : at;
-					settings.screen_size = 80 + 5 * (((at + direction) % 5 + 5) % 5);
+					if (listPick >= 0 && listPick <= 4) settings.screen_size = 80 + 5 * listPick;
+					else settings.screen_size = 80 + 5 * (((at + direction) % 5 + 5) % 5);
 				}
 					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
 						riftwii::wii::ApplyMenuDisplay();
@@ -21888,12 +21909,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					std::size_t at = 0;
 					while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
 					const int n = static_cast<int>(iosChoices.size());
-					if (listPick >= 0 && listPick < n) iosSlot = iosChoices[static_cast<std::size_t>(listPick)];
-					else iosSlot = iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
-					if (riftwii::wii::SaveMenuIos(iosSlot)) {
+					const int wanted = listPick >= 0 && listPick < n
+						? iosChoices[static_cast<std::size_t>(listPick)]
+						: iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
+					if (riftwii::wii::SaveMenuIos(wanted)) {
+						iosSlot = wanted;
 						logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
 						noteTxt.SetText(MenuIosNote(iosSlot).c_str());
 					} else {
+						// A failed write may have emptied the file: shown as the card has it.
+						iosSlot = riftwii::wii::LoadMenuIos();
+						logf("Menu IOS: could not save %s\n", MenuIosLabel(wanted).c_str());
 						noteTxt.SetText("Cannot write sd:/riftwii/menu_ios.txt");
 					}
 					build();

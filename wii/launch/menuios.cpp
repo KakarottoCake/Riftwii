@@ -8,6 +8,7 @@
 #include <ogc/machine/processor.h>
 #include <sdcard/wiisd_io.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -56,8 +57,8 @@ int LoadMenuIos() {
 
 bool SaveMenuIos(int slot) {
     if (slot == 0) {
-        std::remove(kSettingPath);
-        return true;
+        // No file is IOS 58 already; one that cannot be removed keeps its slot.
+        return std::remove(kSettingPath) == 0 || errno == ENOENT;
     }
     FILE* f = std::fopen(kSettingPath, "w");
     if (!f) return false;
