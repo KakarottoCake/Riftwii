@@ -1,0 +1,19 @@
+{
+  "id": "mario-party-5-complete",
+  "game_id": "GP5E01",
+  "platform": "gamecube",
+  "title": "Mario Party 5: complete",
+  "description": "The author describes this save as 100% complete.",
+  "author": "Tapioca",
+  "page": "https://tapioca.moe/gc/saves",
+  "format": "gci",
+  "url": "https://tapioca.moe/static/saves/MARIPA5.gci",
+  "size": 41024,
+  "sha256": "ca6806b3120fe71f8f24cf030d49166e72f2e331f1633c0adf890f10e6b1b19b",
+  "approval": {
+    "approved": false,
+    "evidence": "https://tapioca.moe/gc/saves",
+    "reviewer": "",
+    "note": "Research candidate only. Confirm attribution, permission and in-game behavior before publication."
+  }
+}

@@ -30,6 +30,7 @@ Three pieces:
   "license": "GPL-2.0",
   "page": "https://github.com/dborth/snes9xgx",
   "platforms": ["wii", "vwii", "mini"],
+  "controllers": ["wiimote", "nunchuk", "classic", "gamecube"],
   "data_folders": ["snes9xgx"],
   "source": {"github": "dborth/snes9xgx", "asset": "Snes9xGX-*[!GameCube].zip"},
   "install": [
@@ -48,15 +49,22 @@ Three pieces:
 | `description` | One line, at most 159 bytes. |
 | `license` | Optional; an SPDX id where there is one. |
 | `page` | The app's own page (https), shown as a QR code. |
-| `platforms` | Any of `wii`, `vwii`, `mini`. |
+| `platforms` | Any of `wii`, `vwii`, `mini`. On a Wii U in Wii mode, an app without `vwii` is marked "Wii only" and the store asks before installing it. |
+| `controllers` | Optional: the controllers the app can be used with, any of `wiimote`, `nunchuk`, `classic`, `gamecube`, `keyboard` (a USB keyboard). Shown in the band of the app's page with the pictures a game's page shows for its controllers (none for a keyboard); an app with `classic` or `gamecube` passes the store front's "Without a Wii Remote" filter. A name RiftWii does not know is passed over, and a broken list (more than five names, or not strings) only leaves the pictures out: the app stays in the store. |
 | `newer` | Optional: the id of an app on the list that does the same job and is kept up better. The store points to it; both stay listed. |
-| `data_folders` | Folders at the card's root the app keeps its data in (at most 4). They must not be folders the Wii, RiftWii or other loaders own (`apps`, `riftwii`, `private`, `title`, `wbfs`, `games`, `nands`, ...). Removing the app leaves them (they hold saves). |
+| `data_folders` | Folders at the card's root the app keeps its data in (at most 4). They must not be folders the Wii, RiftWii or other loaders own (`apps`, `riftwii`, `private`, `title`, `wbfs`, `games`, `nands`, ...). Files the store did not put there are never replaced in them, and removing the app asks before deleting them (they hold saves). |
 | `source` | `{"github": "owner/repo", "asset": "<pattern>"}`: the release file matching the pattern (`fnmatch`; exactly one must match). Add `"prerelease": true` to follow a nightly build: `update` then pins the newest release of any kind, so the builder must publish each build under its own tag (`nightly-YYYY-MM-DD-<commit>`) and keep the recent ones, never move one tag. Or `{"url": "https://...", "version": "1.0", "released": "YYYY-MM-DD"}` for a file elsewhere (`http://` too: the pin, not the connection, makes the file the approved one). |
 | `version` | Optional for GitHub sources: the release's tag, without a leading `v`, is used when it is missing. |
 | `format` | `zip` (the default) or `dol` install on the Wii. `7z`, `rar`, `tar`, `tar.gz` and `tar.bz2` are listed with their page so a player can get them on a PC. |
 | `install` | Zip only: up to 6 rules. Entries under `from` (a folder ending in `/`, `""` for the zip's top level, or one file) go under `to`. In a folder `from`, a part that is exactly `*` matches any one folder, for a release whose top folder carries its version (`"*/wii/gcmm/"`). `to` starts with `apps/<id>/` or one of the app's data folders. The first rule that covers an entry places it; entries no rule covers are not installed. The install must put a `boot.dol` or `boot.elf` in `apps/<id>/`. |
 | `icon_in_zip` | Optional: the entry to show as the app's icon; by default, whatever installs as `apps/<id>/icon.png`. |
 | `pin` | The approved file: its `sha256` (and, for GitHub, the release `tag`). Written by `app_list.py update`; changing it is what approves a new version. |
+
+An app's icon can also be a file beside its manifest, `<id>.png`: a
+Homebrew Channel icon (a PNG of 128 x 48, at most 64 KB). It wins over the
+download's, so it serves an app whose download has none RiftWii can take
+(a 7z, rar or tar file, or a zip without one) and one whose own icon needs
+replacing. Without either, the store shows the app's category picture.
 
 ### Categories
 
@@ -119,6 +127,12 @@ The list comes from the internet, so RiftWii reads it as untrusted
 - No app may take RiftWii's own folders (`apps/riftwii`, the channel
   installer's) as its id, and a path part may not end in a dot or space
   (FAT drops them) or be malformed UTF-8.
+- One entry may have the id `riftwii`, spelled exactly so: RiftWii
+  itself. The store lists it as installed (or with an update when the list
+  names a newer version than the one running) and never installs or
+  removes it: its page's button closes the store and runs RiftWii's own
+  update check, the one in Settings > Online, which also brings the
+  channel up to date. Older RiftWii versions leave the entry out.
 
 The SHA-256s live in the list, so they are only as good as the list: it
 must always be fetched over verified TLS (`kAppListUrl` is `https://`, and
@@ -142,15 +156,15 @@ release whose file was replaced) fails `build`, so it is never published.
 
 ## The store on the Wii
 
-Settings > Online > Rift Store opens the store (the Rift Store: its name in every language, and its logo, `docs/images/rift-store.png`, made by `tools/make_store_logo.py`). Its pages are the `appstore`
+The Rift Store button on Home's bar (the bag, left of Search) and Settings > Online > Rift Store open the store (the Rift Store: its name in every language, and its logo, `docs/images/rift-store.png`, made by `tools/make_store_logo.py`). Its pages are the `appstore`
 plugin's (`plugins/appstore/`, docs/PLUGINS.md), loaded only while the store
 is open, so the DOL carries none of them.
 
 | Page | What it shows |
 | --- | --- |
-| Store front | The categories with apps in them, as tiles with their icons (four across on a 16:9 menu, three on a 4:3 one), and under them a line of what the lit one holds and how many apps; how many apps there are and how many are installed in the band; My apps (with the updates waiting) and Search with the prompts. |
-| A category, My apps, search results | The apps as tiles: each app's Homebrew Channel icon (its category's until it is in), its name, and its state (Installed, Update, On the SD card, Get it on a PC) or its author and version; the lit app's description under them. A category's icon in its band. Two rows a page; the D-pad turns the page at the edges, - and + too. |
-| An app | Laid out like a game's page: its category, name, author and version in the band, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, a note when `newer` names an app that does the same job (+ opens it), and along the bottom its size, date, consoles and license, each after its icon. While it installs, the action shows each step and a bar; B stops it. |
+| Store front | The categories with apps in them, as tiles with their icons (four across on a 16:9 menu, three on a 4:3 one), and under them a line of what the lit one holds and how many apps; how many apps there are and how many are installed in the band; My apps (with the updates waiting) and Search with the prompts. - turns on the "Without a Wii Remote" filter (apps listed with a Classic or GameCube controller), which the counts, the categories and Search follow, and turns it off again. |
+| A category, My apps, search results | The apps as tiles: each app's Homebrew Channel icon (its category's until it is in), its name, and its state (Installed, Update, On the SD card, Get it on a PC) or its author and version; the lit app's description under them. A category's icon in its band. Two rows a page; the D-pad turns the page at the edges, - and + too. On a Wii U, an app not listed for vWii says "Wii only". |
+| An app | Laid out like a game's page: its category, name, author and version in the band, the controllers it works with as pictures at the band's right, its icon, one big action (Install, Update, Replace, Remove), the description, a QR code to its own page, a note when `newer` names an app that does the same job (+ opens it), and along the bottom its size, date, consoles and license, each after its icon. While it installs, the action shows each step and a bar; B stops it. |
 
 The icons are theme pictures (`store_*` in [THEMES.md](THEMES.md)), drawn
 with `RWP_SKIN_PICTURE`, so a theme can replace them. The plugin paints
@@ -178,22 +192,39 @@ An install, on RiftWii's network thread:
    `sd:/riftwii/apps/staging`. Stop is heard inside a file too. Until
    here nothing of the app has changed: a failure, Stop or a full card
    leaves it as it was.
-5. The store's note (`sd:/riftwii/apps/<id>.txt`: the version and
-   SHA-256) is staged with the files, its write checked.
-6. Then the files are put in place, each old one kept as `<file>.bak`
+5. What is on the card decides what goes in (`app_install_replaces`):
+   the program (`boot.dol`, `boot.elf`, `meta.xml`, `icon.png` in
+   `apps/<id>/`) always; a file the store put there before and nobody
+   changed since (same size and CRC-32 as its note says); and a new file.
+   Kept, and logged: a file the app or the player changed since the store
+   put it there (its settings, a save), any file in a data folder the
+   store did not put there, and, once the store has a list of what it
+   installed, any such file in `apps/<id>/` too.
+6. The store's note (`sd:/riftwii/apps/<id>.txt`: the version, the
+   SHA-256 and every file the store put on the card, with its size and
+   CRC-32) is staged with the files, its write checked.
+7. Then the files are put in place, each old one kept as `<file>.bak`
    until all are in. If one cannot be moved, the ones already moved are
    put back, so the app is the old version or the new one, never a mix
    (a power cut in the middle leaves the `.bak` files, nothing lost). A
    fresh install that fails leaves no folder. Files of the old version
    the new one does not have (its settings) stay.
 
-An app whose note differs from the list has an update. An app folder
-without a note was put there some other way, and installing replaces its
-files.
+An app whose note differs from the list has an update. An app whose
+program is there without a note was put there some other way, and
+installing (Replace) replaces the files in its own folder; its data
+folders are kept all the same. A note from before the store listed its
+files works the same way.
 
-Remove deletes `sd:/apps/<id>` and the note; the app's data folders stay,
-since they hold its saves. Home's Homebrew view reads `sd:/apps` again
-when the store changed something.
+Remove deletes the files the store put there and nobody changed since
+(without a list, only the program files), and the folders that leaves
+empty. What is left (the app's settings in its own folder, its data
+folders with their saves) is named, and the player chooses: Keep them
+(also B), or Remove them, which deletes `sd:/apps/<id>` and the data
+folders whole. Kept, the note stays with `removed=1` and the files kept,
+so the app counts as not installed and a later install keeps them too.
+Home's Homebrew view reads `sd:/apps` again when the store changed
+something.
 
 ## What gets in
 

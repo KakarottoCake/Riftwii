@@ -512,7 +512,7 @@ It uses the table's last group, added after `progress` (checked with
 
 | Group | Entries | Where RiftWii has them |
 | --- | --- | --- |
-| Screen | `screen_open`, `screen_frame`, `screen_close`, `texture_create`, `texture_free`, `text_width`, `translate`, `sound`, `ask_search`, `ask_choice` | `wii/menu/pluginscreen.cpp` |
+| Screen | `screen_open`, `screen_frame`, `screen_close`, `texture_create`, `texture_free`, `text_width`, `translate`, `sound`, `ask_search`, `ask_choice`, `ask_risky` (after `sd_free_kib`: check `RWP_HOST_HAS`; its first button is the safe one A, B and HOME press; the second needs the pointer, or +) | `wii/menu/pluginscreen.cpp` |
 | Network | `net_ready`, `http_get`, `http_download`, `background_start`, `background_running`, `background_cancel` | `wii/core/pluginhost.cpp` |
 | Files | `remove_path`, `rename_path`, `list_directory`, `sd_free_kib` (after `list_directory`: check `RWP_HOST_HAS`) | `wii/core/pluginhost.cpp` |
 

@@ -24,6 +24,11 @@ const u8* MadeUpCover(const std::string& key, const std::string& title, const st
 // nullptr: for a box in flight, which knows only its game.
 const u8* MadeUpCoverMade(const std::string& key);
 
+// Whether `cover` is one of the made-up covers (only the name on the
+// theme's blank cover), not a picture of the game: a box's made-up back
+// sets crops of real box art as screenshots, but crops of a name would
+// show cut-off words.
+bool IsMadeUpCover(const u8* cover);
 // Draws a made-up cover as skin::DrawRgb5a3 draws a stored one, its
 // corners rounded off as a stored cover's are.
 void DrawMadeUpCover(const u8* cover, float x, float y, int alpha = 255, float scale = 1.0f);

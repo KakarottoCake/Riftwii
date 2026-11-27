@@ -94,9 +94,16 @@ void copy_field(char* to, std::size_t room, const std::string& from) { std::memc
 
 bool theme_folder_ok(const std::string& folder) { return folder.size() < 48 && theme_pack_name_ok(folder, false); }
 
+static bool starts_with(const std::string& text, const std::string& prefix) {
+    return text.size() > prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
+}
+
 bool theme_url_ok(const std::string& url) {
-    const std::string prefix = kThemeSiteUrl;
-    if (url.size() <= prefix.size() || url.size() >= 200 || url.compare(0, prefix.size(), prefix) != 0) return false;
+    std::string prefix;
+    if (starts_with(url, kThemeSiteUrl)) prefix = kThemeSiteUrl;
+    else if (starts_with(url, kThemeOldSiteUrl)) prefix = kThemeOldSiteUrl;
+    else return false;
+    if (url.size() >= 200) return false;
     for (std::size_t i = prefix.size(); i < url.size(); ++i) {
         const char c = url[i];
         const bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
@@ -109,6 +116,12 @@ bool theme_url_ok(const std::string& url) {
         (path.size() >= 3 && path.compare(path.size() - 3, 3, "/..") == 0))
         return false;
     return true;
+}
+
+std::string theme_fetch_url(const std::string& url) {
+    const std::string old_site = kThemeOldSiteUrl;
+    if (!starts_with(url, old_site)) return url;
+    return kThemeSiteUrl + url.substr(old_site.size());
 }
 
 bool parse_theme_list(const char* text, std::size_t text_size, ThemeListing* out, std::size_t max,

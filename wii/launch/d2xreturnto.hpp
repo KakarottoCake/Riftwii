@@ -14,4 +14,7 @@ void prepare_d2x_return_to(std::uint64_t title);
 // An IOS reload discards d2x's setting, even when it reloads the same slot.
 void forget_d2x_return_to();
 
+// Whether d2x accepted `title` as the return title on the running IOS.
+bool d2x_return_to_accepted(std::uint64_t title);
+
 }  // namespace riftwii::wii

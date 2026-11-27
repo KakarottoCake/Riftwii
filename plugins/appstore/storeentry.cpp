@@ -32,6 +32,7 @@ int32_t appstore_launch(const void* raw, uint32_t bytes) {
     }
     auto& request = *static_cast<rwp_appstore_request*>(const_cast<void*>(raw));
     request.changed = 0;
+    request.check_update = 0;
     request.error[0] = '\0';
     return riftwii::appstore::RunStore(request);
 }

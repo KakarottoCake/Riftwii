@@ -148,7 +148,8 @@ Two scripts on the card drive a run without hands on a controller:
   limits below (`test_limits.txt`) to hold the memory back. CI builds both.
 - `sd:/riftwii/guiscript.txt` (test builds only, like `autorun.txt`: a
   release build logs that it ignored the file) plays input into the menu and saves
-  screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
+  screenshots (`wait`, `point`, `nopoint`, `press`, `gcpress` for a GameCube
+  controller's A or B on port 1, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
   transition for frame-by-frame screenshots, and `failnext` and `crash`
   to test the way back from a failed launch and the crash screen; see
@@ -481,6 +482,11 @@ has every step, check and error in full). Before running it:
    the run's summary shows the filled-in notes and Discord message, and
    its artifact holds the zip, `riftwii.dol`, `riftwii-update.pack` and
    both texts, for a last look (and a run in Dolphin) before they go out.
+   Then have a tester start that artifact's `riftwii.dol` on a real Wii,
+   from the Homebrew Channel and from the RiftWii channel, and publish
+   only once it reaches the menu. Dolphin does not model everything a
+   console does at start-up: 2611-239 ran in Dolphin and failed on every
+   Wii (`docs/MEMORY.md`, "The 16 MiB line").
 4. Run it again with **publish**. It makes the release `vYYMM-N`, titled
    "RiftWii YYMM-N", as the latest release, with the three files; then,
    unless the Discord box is unticked, it posts the message and its

@@ -20,6 +20,10 @@ namespace {
 constexpr int kShadow = 8;       // the tile textures' margin around the card
 constexpr int kPad = 12;
 constexpr int kIcon = 28;
+// A stacked tile's icon (TileSpec::stacked): drawn this much larger, its
+// top this far into the tile.
+constexpr float kStackedIconScale = 1.4f;
+constexpr int kStackedIconTop = 9;
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
 
 bool AnyPointer() {
@@ -134,22 +138,57 @@ int GuiTiles::Neighbour(int from, int dx, int dy) const {
     return best;
 }
 
+// A tile's name size before a long one steps down (TileSpec::labelPoints).
+static int LabelPoints(const TileSpec& s) {
+    if (s.primary) return 26;
+    return s.labelPoints > 0 ? s.labelPoints : 20;
+}
+
+// A stacked tile's name: centred under its icon, across the whole tile,
+// stepping down for a long translation as the others do. Placed from the
+// tile's middle, so a smaller size (EvenTextSizes) stays centred.
+void GuiTiles::LayoutStacked(int i, int points) {
+    const TileSpec& s = (*tiles)[i];
+    const int room = s.w - 2 * kPad;
+    int size = points;
+    for (; size > 15; --size) {
+        label[i]->SetFontSize(size);
+        if (label[i]->GetTextWidth() <= room) break;
+    }
+    chevronShown[i] = 0;
+    labelSize[i] = size;
+    label[i]->SetFontSize(size);
+    label[i]->SetMaxWidth(room);
+    label[i]->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+    // The font's letters sit low in their line: the line starts a little
+    // above where the icon's bottom and the tile's leave room for it.
+    const int iconBottom = kStackedIconTop + static_cast<int>(kIcon * kStackedIconScale);
+    const int labelY = s.y + iconBottom + (s.h - iconBottom - points) / 2 - 3;
+    label[i]->SetPosition(s.x + s.w / 2 - GetWidth() / 2, labelY);
+}
+
 // Where a tile's icon and texts go, and how big its name is drawn.
 void GuiTiles::Layout(int i) {
     const TileSpec& s = (*tiles)[i];
     label[i]->SetText(s.label.c_str());
-    label[i]->SetFontSize(s.primary ? 26 : 20);
+    const int points = LabelPoints(s);
+    label[i]->SetFontSize(points);
     label[i]->SetColor(s.dim ? skin::kInkDim : s.primary ? skin::kAccentInk : skin::kInk);
     value[i]->SetText(s.value.c_str());
     value[i]->SetColor(s.dim ? skin::kInkDim : s.warn ? skin::kWarn : s.on ? skin::kAccentInk : skin::kInkSoft);
     const bool hasValue = !s.value.empty();
+    if (s.stacked) {
+        LayoutStacked(i, points);
+        return;
+    }
+    label[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     int textX, labelY;
     if (Tall(s)) {
         textX = s.x + kPad;
         labelY = s.y + s.h - kPad - (hasValue ? 44 : 24);
     } else {
         textX = s.x + kPad + (s.icon ? kIcon + 9 : 0);
-        labelY = s.y + (s.h - (hasValue ? 42 : (s.primary ? 28 : 22))) / 2;
+        labelY = s.y + (s.h - (hasValue ? 42 : points + 2)) / 2;
         // A name alone: the font's letters sit low in their line, so it is
         // raised to look centred on the tile and its icon (About, Exit).
         if (!hasValue) labelY -= 3;
@@ -160,7 +199,7 @@ void GuiTiles::Layout(int i) {
     const int chevronRoom = s.opensPage ? 18 : 0;
     int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
-    int size = s.primary ? 26 : 20;
+    int size = points;
     for (; size > 15; --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
@@ -180,18 +219,20 @@ void GuiTiles::Layout(int i) {
     // "..." cuts it: smaller letters on one tile looked out of place.
     value[i]->SetFontSize(15);
     label[i]->SetPosition(textX, labelY);
-    value[i]->SetPosition(textX, labelY + (s.primary ? 28 : 23));
+    value[i]->SetPosition(textX, labelY + (s.primary ? 28 : points + 3));
 }
 
 // One long name (a translation) shrinks every tile's name alike (the
 // primary tile's keeps its own size): side by side, a tile in smaller
 // letters than its neighbours looked out of place.
 void GuiTiles::EvenTextSizes() {
-    int labelMin = 20;
+    int labelMin = 0;
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
-        if (!s.primary && !s.label.empty()) labelMin = std::min(labelMin, labelSize[i]);
+        if (s.primary || s.label.empty()) continue;
+        labelMin = labelMin == 0 ? labelSize[i] : std::min(labelMin, labelSize[i]);
     }
+    if (labelMin == 0) return;
     for (int i = 0; i < Count(); ++i)
         if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
 }
@@ -238,9 +279,16 @@ void GuiTiles::Draw() {
             // An icon with no words (the game page's Favourite star beside
             // the disc) sits in the middle of its tile.
             const bool iconOnly = s.label.empty() && s.value.empty();
-            const float iconX = iconOnly ? s.x + (s.w - kIcon) / 2.0f : s.x + kPad;
-            const float iconY = Tall(s) && !iconOnly ? s.y + kPad : s.y + (s.h - kIcon) / 2.0f;
-            skin::Draw(*s.icon, iconX, iconY, s.dim ? alpha / 2 : alpha);
+            const float iconX = iconOnly || s.stacked ? s.x + (s.w - kIcon) / 2.0f : s.x + kPad;
+            float iconY = Tall(s) && !iconOnly ? s.y + kPad : s.y + (s.h - kIcon) / 2.0f;
+            float iconScale = 1.0f;
+            if (s.stacked) {
+                // Drawn scaled about its middle: the middle placed so the
+                // larger icon's top is kStackedIconTop into the tile.
+                iconScale = kStackedIconScale;
+                iconY = s.y + kStackedIconTop + kIcon * (kStackedIconScale - 1.0f) / 2.0f;
+            }
+            skin::Draw(*s.icon, iconX, iconY, s.dim ? alpha / 2 : alpha, iconScale);
         }
         // The lit tile's name scrolls when it does not fit; the others end in "...".
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);

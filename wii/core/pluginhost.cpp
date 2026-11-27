@@ -24,10 +24,6 @@
 namespace riftwii::wii::pluginhost {
 namespace {
 
-// The window a streamed download reads through: the longest headers
-// (64 KiB) and one receive behind them.
-constexpr std::size_t kStreamWindow = (64u << 10) + (8u << 10);
-
 void CopyError(const std::string& text, char* error, uint32_t error_bytes) {
     if (error == nullptr || error_bytes == 0) return;
     std::snprintf(error, error_bytes, "%s", text.c_str());
@@ -74,6 +70,32 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
         CopyError("the download was not set up", error, error_bytes);
         return 0;
     }
+#ifdef RIFTWII_TEST_BUILD
+    // The test build only: a list on the card stands in for the store's or
+    // the mods' (Dolphin tests of list fields the published list does not
+    // have yet).
+    const char* local_list = std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0   ? "sd:/riftwii/test_apps.json"
+                             : std::strcmp(url, "https://riftwii.com/mods/mods.json") == 0       ? "sd:/riftwii/test_mods.json"
+                                                                                                 : nullptr;
+    // A mod's picture (tools/mod_list.py's icons/ folder) from
+    // sd:/riftwii/test_icons/, for Dolphin runs before the site has them.
+    constexpr const char* kModIcons = "https://riftwii.github.io/mods/icons/";
+    std::string local_icon;
+    if (local_list == nullptr && std::strncmp(url, kModIcons, std::strlen(kModIcons)) == 0 &&
+        std::strchr(url + std::strlen(kModIcons), '/') == nullptr) {
+        local_icon = std::string("sd:/riftwii/test_icons/") + (url + std::strlen(kModIcons));
+        local_list = local_icon.c_str();
+    }
+    if (local_list != nullptr) {
+        if (FILE* local = std::fopen(local_list, "rb")) {
+            const std::size_t read = std::fread(buffer, 1, capacity, local);
+            std::fclose(local);
+            logf("Test build: the list is %s (%u bytes)\n", local_list, static_cast<unsigned>(read));
+            *length = static_cast<uint32_t>(read);
+            return 1;
+        }
+    }
+#endif
     Block tls(TlsStream::memory_needed());
     if (tls.data == nullptr) {
         CopyError("not enough memory for a secure connection", error, error_bytes);
@@ -101,51 +123,18 @@ int32_t HttpDownload(const char* url, const char* path, uint32_t max_bytes, uint
         CopyError("the download was not set up", error, error_bytes);
         return 0;
     }
-    Block tls(TlsStream::memory_needed());
-    Block window(kStreamWindow);
-    if (tls.data == nullptr || window.data == nullptr) {
-        CopyError("not enough memory for the download", error, error_bytes);
-        return 0;
-    }
-    FILE* file = std::fopen(path, "wb");
-    if (file == nullptr) {
-        CopyError(std::string("cannot write ") + path, error, error_bytes);
-        return 0;
-    }
-    Sha256 hash;
-    bool write_failed = false;
-    StreamGet get;
-    get.buffer = static_cast<std::uint8_t*>(window.data);
-    get.capacity = kStreamWindow;
-    get.max_body = max_bytes;
-    get.tls_block = tls.data;
-    get.tls_bytes = TlsStream::memory_needed();
-    get.sink = [&](const std::uint8_t* data, std::size_t size) {
-        if (std::fwrite(data, 1, size, file) != size) {
-            write_failed = true;
-            return false;
-        }
-        hash.update(data, size);
-        return true;
-    };
     const HttpProgress report = [&](std::size_t received) {
         if (progress != nullptr) progress(static_cast<uint32_t>(received), arg);
     };
+    // Never half a file: HttpDownloadToFile removes it on failure, and the
+    // plugin checks for the whole one.
+    FileDownload got;
     std::string why;
-    bool ok = HttpGetStream(url, get, why, 15000, report, HttpRedirects::Follow);
-    if (write_failed) why = "the SD card could not be written (is it full?)";
-    if (std::fclose(file) != 0 && ok) {
-        ok = false;
-        why = "the SD card could not be written (is it full?)";
-    }
-    if (!ok) {
-        // Never half a file: the plugin checks for the whole one.
-        std::remove(path);
+    if (!HttpDownloadToFile(url, path, max_bytes, got, why, 15000, report, HttpRedirects::Follow)) {
         CopyError(why, error, error_bytes);
         return 0;
     }
-    const Sha256Digest digest = hash.finish();
-    std::memcpy(sha256, digest.data(), digest.size());
+    std::memcpy(sha256, got.digest.data(), got.digest.size());
     return 1;
 }
 

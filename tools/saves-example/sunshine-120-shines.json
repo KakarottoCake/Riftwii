@@ -1,0 +1,19 @@
+{
+  "id": "sunshine-120-shines",
+  "game_id": "GMSE01",
+  "platform": "gamecube",
+  "title": "Super Mario Sunshine: 120 shines",
+  "description": "120 Shine Sprites collected; North American version.",
+  "author": "Tapioca",
+  "page": "https://tapioca.moe/gc/saves",
+  "format": "gci",
+  "url": "https://tapioca.moe/static/saves/super_mario_sunshine.gci",
+  "size": 57408,
+  "sha256": "21b2d5d19e2dad952336c70d754d7fdc29cae8201f4ece58500d7fc8799abf75",
+  "approval": {
+    "approved": false,
+    "evidence": "https://tapioca.moe/gc/saves",
+    "reviewer": "",
+    "note": "Research candidate only. Confirm attribution, permission and in-game behavior before publication."
+  }
+}

@@ -58,6 +58,12 @@ bool write_file(const std::string& path, const std::uint8_t* bytes, std::size_t 
     FILE* file = std::fopen(part.c_str(), "wb");
     const bool written = file && std::fwrite(bytes, 1, size, file) == size;
     const bool closed = file && std::fclose(file) == 0;
+    // libfat's rename refuses a name that is taken, so a stale entry (a WAD
+    // replaced, an older cache format) could never be written again and its
+    // banner was read from the WAD at every start, seconds each on a Wii.
+    // It is only a cache: the old one goes first, and a power cut between
+    // the two steps leaves none, which the next start makes again.
+    if (written && closed) std::remove(path.c_str());
     if (!written || !closed || std::rename(part.c_str(), path.c_str()) != 0) {
         std::remove(part.c_str());
         return false;

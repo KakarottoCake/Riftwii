@@ -48,13 +48,91 @@ AppListing app(const char* id, const char* name, const char* author = "Tantric",
 void test_categories() {
     std::size_t count = 0;
     const AppCategory* list = app_categories(count);
-    EXPECT_EQ(count, 13u);
+    EXPECT_EQ(count, 14u);  // "mods" too
     EXPECT_EQ(std::string(list[0].key), "games");
     EXPECT_EQ(std::string(list[count - 1].key), "more");
     EXPECT_EQ(app_category_index("emulators"), 1u);
     // A key this RiftWii does not know shows under "More".
     EXPECT_EQ(app_category_index("robots"), count - 1);
     EXPECT_EQ(app_category_index("more"), count - 1);
+}
+
+// The note lists what the store put on the card; an update and a removal
+// keep what the app or the player changed since, and what they made.
+void test_record_files_and_keeping() {
+    const AppListing a = app("snes9xgx", "Snes9x GX");
+    const std::vector<AppRecordFile> files = {{"apps/snes9xgx/boot.dol", 3000000, 0x12345678u},
+                                              {"apps/snes9xgx/settings.xml", 900, 0xabcdef01u},
+                                              {"snes9xgx/cheats/readme.txt", 40, 0x1u}};
+    AppRecord record;
+    EXPECT_TRUE(app_record_parse(app_record_text(a, files), record));
+    EXPECT_TRUE(record.has_files && !record.removed);
+    EXPECT_EQ(record.files.size(), 3u);
+    EXPECT_EQ(record.files[1].size, 900u);
+    EXPECT_EQ(record.files[1].crc, 0xabcdef01u);
+    EXPECT_TRUE(app_record_find(record, "snes9xgx/cheats/readme.txt") != nullptr);
+    EXPECT_TRUE(app_record_find(record, "snes9xgx/saves/a.srm") == nullptr);
+
+    // An old note (no list) and the start of a note cut off mid-line.
+    AppRecord old;
+    EXPECT_TRUE(app_record_parse(app_record_text(a, files).substr(0, 90), old));
+    EXPECT_TRUE(!old.has_files && old.files.empty());
+    const std::string text = app_record_text(a, files);
+    EXPECT_TRUE(app_record_parse(text.substr(0, text.size() - 5), old));
+    EXPECT_EQ(old.files.size(), 2u);  // the cut last line is left out
+    AppRecord bare;
+    EXPECT_TRUE(app_record_parse(std::string("version=5\nsha256=") + kSha + "\n", bare));
+    EXPECT_TRUE(!bare.has_files);
+    // A path that climbs out, or a backslash, is not taken.
+    AppRecord bad;
+    EXPECT_TRUE(app_record_parse(std::string("sha256=") + kSha + "\nfiles=3\nfile=1 00000001 apps/x/../../riftwii/a\n" +
+                                     "file=1 00000001 apps\\x\nfile=1 00000001 apps/x/ok.txt\n",
+                                 bad));
+    EXPECT_EQ(bad.files.size(), 1u);
+
+    // An update: the program always; the store's unchanged files; nothing
+    // the app changed or the player made in a data folder.
+    using F = AppFileOnCard;
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/boot.dol", F::Changed, &record));
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/boot.dol", F::NotOurs, &record));
+    // Whatever its case: FAT does not tell BOOT.DOL from boot.dol.
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/BOOT.DOL", F::Changed, &record));
+    EXPECT_TRUE(app_install_replaces(a, "Apps/Snes9xGX/Meta.xml", F::Changed, &record));
+
+    // The search keyboard's next keys follow a filter.
+    AppListing pads[2] = {app("snes9xgx", "Snes9x GX"), app("sudoku", "Sudoku")};
+    pads[0].controllers = kAppWiiRemote | kAppClassic;
+    pads[1].controllers = kAppWiiRemote;
+    EXPECT_EQ(app_search_next(pads, 2, "s").find('u') != std::string::npos, true);
+    const auto no_remote = [](const AppListing& l) { return app_needs_no_wii_remote(l.controllers); };
+    EXPECT_EQ(app_search_next(pads, 2, "s", +no_remote).find('u') == std::string::npos, true);
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/settings.xml", F::AsInstalled, &record));
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/new.txt", F::Absent, &record));
+    EXPECT_TRUE(!app_install_replaces(a, "apps/snes9xgx/settings.xml", F::Changed, &record));
+    EXPECT_TRUE(!app_install_replaces(a, "snes9xgx/settings.xml", F::NotOurs, &record));
+    EXPECT_TRUE(!app_install_replaces(a, "apps/snes9xgx/settings.xml", F::NotOurs, &record));
+    // A copy put there by hand (no note), or a note from before the lists:
+    // its own folder is replaced, its data folders never.
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/settings.xml", F::NotOurs, nullptr));
+    EXPECT_TRUE(app_install_replaces(a, "apps/snes9xgx/settings.xml", F::NotOurs, &bare));
+    EXPECT_TRUE(!app_install_replaces(a, "snes9xgx/settings.xml", F::NotOurs, nullptr));
+
+    // A removal: the unchanged files of the note.
+    const std::vector<std::string> gone = app_remove_files(a, &record, {F::AsInstalled, F::Changed, F::Absent});
+    EXPECT_EQ(gone.size(), 1u);
+    EXPECT_EQ(gone[0], std::string("apps/snes9xgx/boot.dol"));
+    // Without a list: the program files only.
+    const std::vector<std::string> program = app_remove_files(a, &bare, {});
+    EXPECT_EQ(program.size(), 4u);
+    EXPECT_EQ(program[0], std::string("apps/snes9xgx/boot.dol"));
+
+    // A removal that kept saves leaves its note: the app is to get again,
+    // and the note still tells a reinstall what to keep.
+    AppRecord kept;
+    EXPECT_TRUE(app_record_parse(app_record_text(a, {files[1]}, true), kept));
+    EXPECT_TRUE(kept.removed && kept.files.size() == 1);
+    EXPECT_TRUE(app_state(a, false, &kept) == AppState::Get);
+    EXPECT_TRUE(app_state(a, true, &kept) == AppState::OnCard);
 }
 
 void test_records_and_states() {
@@ -267,9 +345,64 @@ void test_sizes() {
 
 }  // namespace
 
+void test_riftwii_entry() {
+    AppListing self;
+    std::memset(&self, 0, sizeof(self));
+    self.format = AppFormat::Zip;
+    self.riftwii = true;
+    // Never installable, whatever is on the card or in a note.
+    EXPECT_TRUE(!app_installable(self));
+    EXPECT_TRUE(app_state(self, true, nullptr) == AppState::ThisRiftWii);
+    EXPECT_TRUE(app_state(self, false, nullptr) == AppState::ThisRiftWii);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "2611-249") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-249", "2611-252") < 0);
+    EXPECT_TRUE(riftwii_version_order("2612-1", "2611-300") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "2611-252") == 0);
+    // Not a version: no order, so nothing is called an update.
+    EXPECT_TRUE(riftwii_version_order("v2611-252", "2611-1") == 0);
+    EXPECT_TRUE(riftwii_version_order("2611-252", "") == 0);
+    EXPECT_TRUE(riftwii_version_order("26a1-2", "2611-1") == 0);
+    // A test or dev build's version: the commit part is not compared.
+    EXPECT_TRUE(riftwii_version_order("2611-260", "2611-243-gc84f96e1") > 0);
+    EXPECT_TRUE(riftwii_version_order("2611-243", "2611-243-gc84f96e1") == 0);
+}
+
+void test_mod_files() {
+    AppListing mod;
+    std::memset(&mod, 0, sizeof(mod));
+    std::strcpy(mod.id, "gb678330");
+    std::strcpy(mod.program, "riivolution/BetaPlanets.xml");
+    std::strcpy(mod.data_folders[0], "BetaPlanets");
+    mod.data_folder_count = 1;
+    mod.format = AppFormat::Zip;
+    mod.mod = true;
+    // Its XML is its program: always the new one.
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/BetaPlanets.xml", AppFileOnCard::Changed, nullptr));
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/betaplanets.xml", AppFileOnCard::NotOurs, nullptr));
+    // A copy put there by hand is replaced when the player chose Replace (no note);
+    // with a note, files the store did not put there are kept.
+    EXPECT_TRUE(app_install_replaces(mod, "BetaPlanets/a.arc", AppFileOnCard::NotOurs, nullptr));
+    AppRecord record;
+    record.has_files = true;
+    EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/a.arc", AppFileOnCard::NotOurs, &record));
+    EXPECT_TRUE(!app_install_replaces(mod, "BetaPlanets/save.bin", AppFileOnCard::Changed, &record));
+    // Never another folder, nor another pack's file in the shared riivolution/.
+    EXPECT_TRUE(!app_install_replaces(mod, "OtherPack/a.arc", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/Other.xml", AppFileOnCard::NotOurs, nullptr));
+    EXPECT_TRUE(!app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::NotOurs, nullptr));
+    // Its own files there (put there by the store, unchanged) are.
+    EXPECT_TRUE(app_install_replaces(mod, "riivolution/config/RMGE.xml", AppFileOnCard::AsInstalled, &record));
+    // A remove without a note takes the XML only.
+    const std::vector<std::string> files = app_remove_files(mod, nullptr, {});
+    EXPECT_TRUE(files.size() == 1 && files[0] == "riivolution/BetaPlanets.xml");
+}
+
 int main() {
+    test_mod_files();
+    test_riftwii_entry();
     test_categories();
     test_records_and_states();
+    test_record_files_and_keeping();
     test_search();
     test_install_plan();
     test_zip_read_in_pieces();

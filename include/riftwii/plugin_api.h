@@ -150,7 +150,9 @@ typedef struct rwp_input {
 #define RWP_SKIN_FOOTER 9       /* a page's bottom band, from y 410 down, where the prompts go */
 #define RWP_SKIN_PICTURE 10     /* the theme's own PNG named by `text` (docs/THEMES.md lists them,
                                  * e.g. "store_games") at x y, w h its size; without one, the
-                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph) */
+                                 * plugin's own texture `color` (painted in rwp_screen_info's glyph).
+                                 * "control_<type>" (wiimote, nunchuk, classiccontroller,
+                                 * gamecube): the controller picture a game's page shows */
 
 /* The theme's colours for RWP_DRAW_TEXT and RWP_DRAW_RECT, as `color`
  * values; any other value is RGBA itself (0xRRGGBBAA). */
@@ -159,6 +161,8 @@ typedef struct rwp_input {
 #define RWP_COLOR_ACCENT 3u     /* the theme's accent */
 #define RWP_COLOR_ON_BAND 4u    /* text on a title band */
 #define RWP_COLOR_CARD 5u       /* a card's fill */
+#define RWP_COLOR_WARN 6u       /* the theme's warning colour (an update waiting, a caution) */
+#define RWP_COLOR_FIELD 7u      /* a recessed field, as an option chip that is off */
 
 /* The menu's sounds for sound(). */
 #define RWP_SOUND_HOVER 1u
@@ -403,6 +407,12 @@ typedef struct rwp_host {
      * read. It may walk the whole FAT of a big card: call it from a
      * background job, not from a frame. */
     int32_t (*sd_free_kib)(uint32_t* kib);
+    /* Added after sd_free_kib (check RWP_HOST_HAS). The menu's popup for a
+     * question whose second answer cannot be undone: `safe` is the first
+     * button, lit when it opens, and A, B and HOME press it; `risky` needs
+     * the pointer on it and A, or + (START on a GameCube controller), as
+     * every such question in the menu does. 1 for `risky`, 0 for `safe`. */
+    int32_t (*ask_risky)(const char* title, const char* text, const char* safe, const char* risky);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

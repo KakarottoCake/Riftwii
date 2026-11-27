@@ -163,6 +163,102 @@ static void test_parse_untrusted() {
 
 // Home shows a game's profiles only for a game on a drive: not for the
 // disc drive's tile or the Wii's channels.
+static void test_gametdb_choice() {
+    ProfileList list;
+    std::string key;
+    const std::string title = "New Super Mario Bros. Wii: A longer GameTDB name";
+    EXPECT_TRUE(list.add("SMNE01", title, "", key, "smnp03", true) == ProfileList::AddResult::Added);
+    const Profile* profile = list.find(key);
+    EXPECT_TRUE(profile != nullptr);
+    if (!profile) return;
+    EXPECT_EQ(profile->name, title);
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNP03"));
+
+    ProfileList back;
+    back.parse(list.serialize());
+    profile = back.find(key);
+    EXPECT_TRUE(profile != nullptr);
+    if (!profile) return;
+    EXPECT_EQ(profile->name, title);
+    EXPECT_TRUE(profile->use_entry_name);
+    EXPECT_TRUE(back.set_gametdb_entry(key, "SMNE04", "Cannon Super Mario Bros. Wii"));
+    EXPECT_EQ(profile->name, std::string("Cannon Super Mario Bros. Wii"));
+    EXPECT_TRUE(back.rename(key, "Our Mario tile"));
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNE04"));
+    EXPECT_TRUE(!profile->use_entry_name);
+    EXPECT_TRUE(back.set_gametdb_entry(key, "SMNE05", "Another Super Mario Bros. Wii"));
+    EXPECT_EQ(profile->name, std::string("Our Mario tile"));
+    EXPECT_TRUE(!back.set_gametdb_entry(key, "../bad", "Bad title"));
+    EXPECT_EQ(profile->gametdb_id, std::string("SMNE05"));
+    EXPECT_TRUE(back.set_gametdb_entry(key, "", "", "Suggested"));
+    EXPECT_TRUE(profile->gametdb_id.empty());
+    EXPECT_EQ(profile->name, std::string("Our Mario tile"));
+}
+
+// Where a tile's name comes from (#618): only a title the player took
+// from a chosen entry follows the entry, and it goes with it.
+static void test_gametdb_name_source() {
+    ProfileList list;
+    std::string key;
+    // Made with Automatic: a later entry doesn't rename it.
+    EXPECT_TRUE(list.add("SMNE01", "Newer", "", key, "", true) == ProfileList::AddResult::Added);
+    const Profile* automatic = list.find(key);
+    EXPECT_TRUE(automatic != nullptr);
+    if (!automatic) return;
+    EXPECT_TRUE(!automatic->use_entry_name);
+    EXPECT_TRUE(list.set_gametdb_entry(key, "SMNP03", "Newer Super Mario Bros. Wii", "Newer"));
+    EXPECT_EQ(automatic->name, std::string("Newer"));
+    EXPECT_EQ(automatic->gametdb_id, std::string("SMNP03"));
+
+    // Named after a chosen entry: back to Automatic gives its earlier name back.
+    std::string entry_key;
+    EXPECT_TRUE(list.add("SMNE01", "Newer Super Mario Bros. Wii", "", entry_key, "SMNP03", true, "Newer pack") ==
+                ProfileList::AddResult::Added);
+    ProfileList back;
+    back.parse(list.serialize());
+    const Profile* named = back.find(entry_key);
+    EXPECT_TRUE(named != nullptr);
+    if (!named) return;
+    EXPECT_TRUE(named->use_entry_name);
+    EXPECT_EQ(named->name_before_entry, std::string("Newer pack"));
+    EXPECT_TRUE(back.set_gametdb_entry(entry_key, "SMNE04", "Cannon Super Mario Bros. Wii", "Suggested"));
+    EXPECT_EQ(named->name, std::string("Cannon Super Mario Bros. Wii"));
+    // An entry without a title keeps the name it has.
+    EXPECT_TRUE(back.set_gametdb_entry(entry_key, "SMNE05", "", "Suggested"));
+    EXPECT_EQ(named->name, std::string("Cannon Super Mario Bros. Wii"));
+    EXPECT_TRUE(back.set_gametdb_entry(entry_key, "", "", "Suggested"));
+    EXPECT_EQ(named->name, std::string("Newer pack"));
+    EXPECT_TRUE(!named->use_entry_name && named->name_before_entry.empty());
+    EXPECT_TRUE(back.set_gametdb_entry(entry_key, "SMNE04", "Cannon Super Mario Bros. Wii", "Suggested"));
+    EXPECT_EQ(named->name, std::string("Newer pack"));
+
+    // No earlier name kept: the mod pack's suggestion; with none, the title
+    // stays, cut to a typed name's length.
+    ProfileList old;
+    old.parse("SMNE01@a\tNewer Super Mario Bros. Wii\t\tSMNP03\tgametdb\n"
+              "SMNE01@b\tA title that came from GameTDB and is longer than 32 bytes\t\tSMNP03\tgametdb\n");
+    EXPECT_TRUE(old.set_gametdb_entry("SMNE01@a", "", "", "Newer"));
+    EXPECT_EQ(old.find("SMNE01@a")->name, std::string("Newer"));
+    EXPECT_TRUE(old.set_gametdb_entry("SMNE01@b", "", "", ""));
+    EXPECT_TRUE(!old.find("SMNE01@b")->use_entry_name);
+    EXPECT_TRUE(old.find("SMNE01@b")->name.size() <= kMaxProfileName);
+}
+
+static void test_gametdb_file_fields() {
+    ProfileList list;
+    list.parse("SMNE01@old\tOld tile\tsd:/mods/old.png\n"
+               "SMNE01@bad\tBad ID\t\t../../x\tgametdb\n"
+               "SMNE01@short\tShort ID\t\tSMNE\n"
+               "SMNE01@extra\tExtra field\t\tSMNE03\tgametdb\tBefore\textra\n"
+               "SMNE01@automatic\tA title that came from GameTDB and is longer than 32 bytes\t\t\tgametdb\n");
+    EXPECT_EQ(list.all().size(), std::size_t(5));
+    for (const Profile& profile : list.all()) EXPECT_TRUE(profile.gametdb_id.empty());
+    EXPECT_EQ(list.all().front().art, std::string("sd:/mods/old.png"));
+    // A GameTDB name needs a chosen entry: without one it is a typed name.
+    for (const Profile& profile : list.all()) EXPECT_TRUE(!profile.use_entry_name);
+    EXPECT_TRUE(list.all().back().name.size() <= kMaxProfileName);
+}
+
 static void test_tiles_for() {
     ProfileList list;
     std::string key;
@@ -255,6 +351,9 @@ int main() {
     test_names_and_slugs();
     test_list();
     test_parse_untrusted();
+    test_gametdb_choice();
+    test_gametdb_file_fields();
+    test_gametdb_name_source();
     test_keyed_files();
     test_tiles_for();
     test_launched_choices_key();

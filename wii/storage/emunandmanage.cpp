@@ -26,6 +26,7 @@
 #include "riftwii/bnr.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/emunand.hpp"
+#include "riftwii/miidb.hpp"
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/nandlist.hpp"
 #include "riftwii/sharednand.hpp"
@@ -1226,6 +1227,139 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
     }
     std::sort(titles.begin(), titles.end(), [](const EmuNandTitle& a, const EmuNandTitle& b) { return a.id < b.id; });
     return true;
+}
+
+namespace {
+
+// A Mii database as the manager reads it: whole, at most kMiiDbMaxSize.
+bool read_mii_db(const Location& file, std::vector<std::uint8_t>& db, bool& missing, std::string& error) {
+    std::uint64_t size = 0;
+    const Kind kind = inspect(file, size);
+    missing = kind == Kind::Missing;
+    db.clear();
+    if (missing) return true;
+    if (kind != Kind::File || !read_small(file, kMiiDbMaxSize, db)) {
+        error = std::string(file.real ? "the Wii's" : "the emulated NAND's") + " Mii database could not be read";
+        return false;
+    }
+    if (!mii_db_valid(db, error)) {
+        error = std::string(file.real ? "the Wii's" : "the emulated NAND's") + " Mii database: " + error;
+        return false;
+    }
+    return true;
+}
+
+// A new emulated database: the Wii's, every Mii taken out (the Mii Parade's
+// part after them stays as the Wii had it).
+bool empty_mii_db(const std::vector<std::uint8_t>& wii, std::vector<std::uint8_t>& db, std::string& error) {
+    db = wii;
+    for (const MiiEntry& mii : mii_db_list(wii)) {
+        if (!mii_db_remove(db, mii.slot, error)) return false;
+    }
+    return true;
+}
+
+// Writes a changed database over `to`, the old one backed up first. To the
+// Wii it goes by a file on the card, copied with the Wii's file's own
+// permissions, as Miis to Wii copies the whole database.
+bool write_mii_db(const std::string& root, const Location& to, bool existed, const std::vector<std::uint8_t>& db,
+                  std::string& error) {
+    const std::string card_name = root + kEmuNandMiis;
+    const std::string parent = card_name.substr(0, card_name.find_last_of('/'));
+    if (!make_card_dirs(parent)) {
+        error = "the Mii folder could not be created";
+        return false;
+    }
+    std::uint64_t old_size = 0;
+    if (existed && (inspect(to, old_size) != Kind::File ||
+                    !backup_file(to, old_size, card_name + (to.real ? ".wii" : ""), error))) {
+        if (error.empty()) error = "the old Mii database could not be backed up";
+        return false;
+    }
+    if (!to.real) return write_card_file(to, db, {false, parent}, error);
+    if (db.size() != old_size) {
+        error = "the changed Mii database has a different size from the Wii's";
+        return false;
+    }
+    Attributes attributes;
+    if (!get_attributes(to.path, attributes)) {
+        error = "the Wii's Mii file permissions could not be read";
+        return false;
+    }
+    const Location staged{false, card_name + ".new"};
+    if (!write_card_file(staged, db, {false, parent}, error)) return false;
+    const Location wii_parent{true, to.path.substr(0, to.path.find_last_of('/'))};
+    const bool copied = copy_file(staged, to, db.size(), wii_parent, attributes, error);
+    remove_one(staged, false);
+    return copied;
+}
+
+}  // namespace
+
+bool emunand_manager_read_miis(const std::string& folder, std::vector<std::uint8_t>& wii,
+                               std::vector<std::uint8_t>& emulated, std::string& error) {
+    error.clear();
+    CardRoot root;
+    NandSession nand;
+    if (!root.Open(folder, error)) return false;
+    if (!nand.open) {
+        error = "the Wii's internal storage could not be opened";
+        return false;
+    }
+    bool wii_missing = false, emulated_missing = false;
+    if (!read_mii_db({true, kEmuNandMiis}, wii, wii_missing, error)) return false;
+    if (wii_missing) {
+        error = "the Wii has no Mii database";
+        return false;
+    }
+    return read_mii_db({false, root.path + kEmuNandMiis}, emulated, emulated_missing, error);
+}
+
+bool emunand_manager_change_mii(const std::string& folder, MiiChange change, std::size_t slot, std::string& error) {
+    error.clear();
+    const char* description = change == MiiChange::CopyToEmulated ? "copy a Mii from the Wii to the emulated NAND"
+                            : change == MiiChange::CopyToWii      ? "copy a Mii from the emulated NAND to the Wii"
+                                                                  : "remove a Mii from the emulated NAND";
+    logf("Emulated NAND: asked to %s in %s (slot %u).\n", description, folder.c_str(), static_cast<unsigned>(slot));
+    CardRoot root;
+    NandSession nand;
+    bool ok = root.Open(folder, error);
+    if (ok && !nand.open) {
+        error = "the Wii's internal storage could not be opened";
+        ok = false;
+    }
+    std::vector<std::uint8_t> wii, emulated;
+    bool wii_missing = false, emulated_missing = false;
+    const Location wii_file{true, kEmuNandMiis};
+    const Location emulated_file{false, root.path + kEmuNandMiis};
+    if (ok) ok = read_mii_db(wii_file, wii, wii_missing, error) && read_mii_db(emulated_file, emulated, emulated_missing, error);
+    if (ok && wii_missing) {
+        error = "the Wii has no Mii database";
+        ok = false;
+    }
+    if (ok && emulated_missing && change == MiiChange::CopyToEmulated) ok = empty_mii_db(wii, emulated, error);
+    if (ok && emulated_missing && change != MiiChange::CopyToEmulated) {
+        error = "the emulated NAND has no Mii database";
+        ok = false;
+    }
+    std::size_t placed = 0;
+    std::string name;
+    if (ok) {
+        const std::vector<std::uint8_t>& from = change == MiiChange::CopyToWii ? emulated : wii;
+        for (const MiiEntry& mii : mii_db_list(change == MiiChange::CopyToEmulated ? wii : emulated))
+            if (mii.slot == slot) name = mii.name;
+        if (change == MiiChange::CopyToEmulated) ok = mii_db_copy(from, slot, emulated, placed, error);
+        else if (change == MiiChange::CopyToWii) ok = mii_db_copy(from, slot, wii, placed, error);
+        else ok = mii_db_remove(emulated, slot, error);
+    }
+    if (ok) {
+        ok = change == MiiChange::CopyToWii ? write_mii_db(root.path, wii_file, true, wii, error)
+                                            : write_mii_db(root.path, emulated_file, !emulated_missing, emulated, error);
+    }
+    if (ok) logf("Emulated NAND: finished the request to %s: \"%s\"%s.\n", description, name.c_str(),
+                 change == MiiChange::RemoveFromEmulated ? "" : (" in slot " + std::to_string(placed)).c_str());
+    else logf("Emulated NAND: could not %s because %s.\n", description, error.c_str());
+    return ok;
 }
 
 bool emunand_manager_action(const std::string& folder, EmuNandAction action,
