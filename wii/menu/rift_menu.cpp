@@ -21379,7 +21379,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kDiscLight:
 					settings.disc_light = !settings.disc_light;
-					saveAndNote(tr("Disc slot light"));
+					saveAndNote(help(kDiscLight));
 					rebuild();
 					break;
 				case kGcCard: {
