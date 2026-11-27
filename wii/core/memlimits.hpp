@@ -65,6 +65,11 @@ void* TryMem2Alloc(std::size_t& bytes);
 // 256), so Dolphin can run as short of memory as a tester's Wii. A no-op
 // in other builds.
 void TestBallast();
+// Test builds only: test_limits.txt's "mem2_arena_left_kib = N" (with
+// "heap_grow_kib = H") takes the MEM2 arena down to N KiB, as a large
+// library's menu leaves it, when autorun's "launch" starts. A no-op in
+// other builds and without the setting.
+void TestFillArena();
 
 // Test builds only: test_limits.txt's "game_mem1_kib = N",
 // "game_mem2_kib = M" and "game_mem2_top_kib = T": N KiB taken off the top
