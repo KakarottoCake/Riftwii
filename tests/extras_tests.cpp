@@ -2413,6 +2413,12 @@ void TestHeadlessArguments() {
     EXPECT_EQ(h.gc_args.size(), static_cast<std::size_t>(4));
     EXPECT_EQ(h.gc_args[0], std::string("zle_f.n64"));
     EXPECT_EQ(h.gc_args[3], std::string("-C1"));
+    // The menu's list, there but left out, is noted, and only with gc_tgc=.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_tgc_args=dropped"}, h, error));
+    EXPECT_TRUE(h.gc_tgc_args_dropped);
+    EXPECT_TRUE(h.gc_args.empty());
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_tgc_args=yes"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc_args=dropped"}, h, error));
     // Without it, gc_arg= alone is still a switch to the disc's own program.
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=G2XE8P", "gc_arg=cd"}, h, error));
     EXPECT_TRUE(h.gc_exec);

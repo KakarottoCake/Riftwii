@@ -262,6 +262,9 @@ bool launch(const std::vector<std::string>& args, HeadlessSource request_source,
         if (h.gc_tgc != 0) {
             gc.tgc_offset = h.gc_tgc;
             gc.exec_args = h.gc_args;  // the menu's arguments for that game
+            if (h.gc_tgc_args_dropped)
+                logf("GameCube: the menu's arguments for that game were left out (longer than RiftWii carries, or not "
+                     "all in the game's memory): it starts with its own defaults\n");
             logf("GameCube: exec.txt names the game packed in a TGC image at disc offset 0x%08x (the disc's menu "
                  "started it): the image starts again with that game once the disc shows a TGC there\n",
                  static_cast<unsigned>(h.gc_tgc));

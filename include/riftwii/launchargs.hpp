@@ -53,6 +53,9 @@ struct HeadlessLaunch {
     // loader starts the TGC's own program, with its files where the TGC
     // has them, and gc_args are then the arguments the menu gave it.
     std::uint32_t gc_tgc = 0;
+    // gc_tgc_args=dropped: the menu had an argument list for that game,
+    // which the blob left out (too long for exec.txt, or not all in MEM1).
+    bool gc_tgc_args_dropped = false;
     // The pack choices file to read instead of the game's own (a file name
     // in sd:/riftwii/choices, "SMNP01.txt" or a profile's): the choices the
     // menu launched the game with, for a launch RiftWii makes for itself.
