@@ -939,6 +939,15 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         interrupts_restore(msr);
         return result;
     }
+    if (result == 0) {
+        /* The game's own WPADProbe found a real controller on the HOME
+         * Menu's channel (a recheck in the read above saw the slot's last
+         * one go): its answer and type stand, and the HOME Menu's stand-in
+         * hears of it as on any other channel (CodeRabbit on #650). */
+        rthome_probed(&c->home, (uint32_t)chan, result);
+        interrupts_restore(msr);
+        return result;
+    }
     if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
     /* The buffer the KPAD read last filled, when the game keeps it (not
      * on a stack, pad_on_running_stack): else nothing is written, and the
@@ -1267,7 +1276,15 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
                 }
             }
         }
-        if (join != RTHOME_NO_CHANNEL) (void)pad_tell_connect(c, join, 0);
+        /* A "connected" that wasn't delivered (no callback yet): the record
+         * goes back to "not told", so a later read announces it once the
+         * game has a callback, instead of the game never hearing of the
+         * channel (CodeRabbit on #650). A newer record is left as it is. */
+        if (join != RTHOME_NO_CHANNEL && !pad_tell_connect(c, join, 0)) {
+            flags = interrupts_off();
+            if (((c->kpad_connect_info >> 16) & 0xFFu) == join + 1u) c->kpad_connect_info &= 0xFFFFu;
+            interrupts_restore(flags);
+        }
         if (gw) {
             flags = interrupts_off();
             rtslot_tell_give(&gw->slot);
