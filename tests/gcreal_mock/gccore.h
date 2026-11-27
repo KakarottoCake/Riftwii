@@ -12,6 +12,7 @@ using EXICallback = s32 (*)(s32, s32);
 using cardcallback = void (*)(s32, s32);
 
 constexpr unsigned CARD_WORKAREA_SIZE = 5 * 8192;
+constexpr unsigned CARD_WORKAREA = CARD_WORKAREA_SIZE;  // libogc2's name for it
 constexpr unsigned CARD_READSIZE = 512;
 constexpr int CARD_ERROR_READY = 0;
 constexpr int CARD_ERROR_BUSY = -1;
