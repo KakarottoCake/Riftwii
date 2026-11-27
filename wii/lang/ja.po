@@ -5186,3 +5186,9 @@ msgstr "{1}をWii本体のメモリーに書き込みます。先にWii本体の
 
 msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
 msgstr "{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。"
+
+msgid "Layout and order"
+msgstr "レイアウトと並び順"
+
+msgid "Home order: {1}"
+msgstr "ホームの並び順：{1}"
