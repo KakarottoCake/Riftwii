@@ -2385,16 +2385,17 @@ static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
  * as it would have. A menu whose start routine is hooked starts its games
  * from there instead (gc_on_tgc_start). */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length) {
+    const struct gc_rt_cold* const cold = gc_cold(ctx);
     uint32_t tgc = 0, i;
     int found = 0;
     /* A menu whose start routine is hooked starts its games from there,
      * with their arguments (gc_on_tgc_start): the Zelda disc's reads the
      * TGC's header before it fills the list. */
-    if (gc_cold(ctx)->tgc_start_hooked) return;
+    if (cold->tgc_start_hooked) return;
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX && !found; ++i) {
         /* The TGC's header or its program (gc_tgc.h). */
-        found = gc_tgc_read_starts_game(ctx->tgc_offset[i], ctx->tgc_dol_start[i], ctx->tgc_dol_end[i], offset, length);
-        if (found) tgc = ctx->tgc_offset[i];
+        found = gc_tgc_read_starts_game(cold->tgc_offset[i], cold->tgc_dol_start[i], cold->tgc_dol_end[i], offset, length);
+        if (found) tgc = cold->tgc_offset[i];
     }
     if (!found) return;
     gc_tgc_leave(ctx, tgc, 0);
@@ -2424,7 +2425,7 @@ void gc_on_tgc_start(struct gc_rt_context* ctx, uint32_t file, uint32_t args) {
         args = 0;
     start = ((const volatile uint32_t*)(uintptr_t)file)[GC_DVD_FILE_START / 4u];
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX; ++i) {
-        if (ctx->tgc_offset[i] == start) {
+        if (gc_cold(ctx)->tgc_offset[i] == start) {
             gc_tgc_leave(ctx, start, args);
             return;
         }

@@ -471,8 +471,11 @@ struct gc_restart_region {
 #define GC_SAMPLE_QUIET_TICKS 6u
 #define GC_IPC_TIMEOUT 50000000u  /* polls of the IPC registers before giving up */
 
-/* TGC images a bonus disc's menu can start a game from (gc_on_tgc_read). */
-#define GC_TGC_MAX 8u
+/* TGC images a bonus disc's menu can start a game from (gc_on_tgc_read).
+ * The Mario Kart: Double Dash!! Bonus Disc has 13, its playable demos
+ * (Mario Party 5, Sonic Heroes, ...) after the first 8: with room for 8,
+ * starting one went unseen and the menu's own loader hung. */
+#define GC_TGC_MAX 32u
 
 struct gc_rt_context {
     uint32_t magic;
@@ -643,13 +646,9 @@ struct gc_rt_context {
     uint32_t si_probes_answered; /* those answered as a controller for a remote's or the adapter's port */
     /* A bonus disc's menu starting a game packed in a TGC image on the
      * disc (gc_on_tgc_read): exec.txt's sector again (0: such starts run
-     * as the menu makes them), and for each TGC its offset on the disc and
-     * where its program lies there, loader-found from the disc's FST. */
+     * as the menu makes them), and how many TGCs gc_rt_cold.tgc lists. */
     uint32_t tgc_sector;
     uint32_t tgc_count;
-    uint32_t tgc_offset[GC_TGC_MAX];
-    uint32_t tgc_dol_start[GC_TGC_MAX];
-    uint32_t tgc_dol_end[GC_TGC_MAX];
     /* Where the disc ID is read from (DVDLowReadDiskID): 0, or the packed
      * disc's header when the game is one from a TGC image. */
     uint32_t disc_id_offset;
@@ -787,6 +786,13 @@ struct gc_rt_cold {
      * it could not carry out still has the read rule. Read only then, so
      * it waits here in MEM2. */
     uint32_t tgc_start_hooked;
+    /* Each of the disc's TGC images (gc_rt_context.tgc_count of them): its
+     * offset on the disc and where its program lies there, loader-found
+     * from the disc's FST. Read only by the TGC watch, on a disc read, so
+     * MEM2 has them rather than the MEM1 context. */
+    uint32_t tgc_offset[GC_TGC_MAX];
+    uint32_t tgc_dol_start[GC_TGC_MAX];
+    uint32_t tgc_dol_end[GC_TGC_MAX];
 };
 #define GC_MEM2_CODE_RAN 0x52554E21u /* "RUN!" */
 /* IOS reads and writes the four request buffers by DMA, whole 32-byte cache
