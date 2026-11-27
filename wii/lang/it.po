@@ -5189,3 +5189,6 @@ msgstr "{1} viene rimosso dalla NAND emulata. Prima viene salvata una copia dei 
 
 msgid "Layout and order"
 msgstr "Layout e ordine"
+
+msgid "Home order: {1}"
+msgstr "Ordine della Home: {1}"

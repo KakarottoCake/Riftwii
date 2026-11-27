@@ -3603,11 +3603,23 @@ class HomeChoiceCards : public GuiElement {
 public:
 	// `current` and `alsoCurrent` (-1 for none) are drawn as the ones in use:
 	// the Layout chooser has a layout and an order.
-	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current, int alsoCurrent = -1)
+	// `glyphs`, when given, has a short text for a card to show in its
+	// picture's place (the A to Z order, whose lines picture was the Names
+	// layout's too, on the same chooser).
+	HomeChoiceCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current, int alsoCurrent = -1,
+		const std::vector<std::string>& glyphs = {})
 		: tiles_(tiles), choices_(choices), current_(current), alsoCurrent_(alsoCurrent)
 	{
 		width = screenwidth;
 		height = screenheight;
+		for (std::size_t index = 0; index < tiles_.size(); ++index) {
+			const std::string text = index < glyphs.size() ? glyphs[index] : std::string();
+			std::unique_ptr<GuiText> glyph(new GuiText(text.empty() ? nullptr : text.c_str(), 22, skin::kInk));
+			glyph->SetParent(this);
+			glyph->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+			glyphs_.push_back(std::move(glyph));
+			hasGlyph_.push_back(!text.empty());
+		}
 		for (const TileSpec& tile : tiles_) {
 			const bool shortCard = tile.h <= kChoiceShortCard;
 			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
@@ -3677,7 +3689,14 @@ public:
 			// name fit below it; its place comes from the constructor.
 			const bool shortCard = tile.h <= kChoiceShortCard;
 			const float iconY = static_cast<float>(iconTops_[index]), iconScale = shortCard ? 1.25f : 1.5f;
-			if (tile.icon) skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
+			if (tile.icon) {
+				skin::Draw(*tile.icon, tile.x + (tile.w - 28) / 2.0f, tile.y + iconY, 255, iconScale);
+			} else if (index < static_cast<int>(hasGlyph_.size()) && hasGlyph_[index]) {
+				// In the picture's place, as tall as it (the font sits low in its line).
+				glyphs_[index]->SetPosition(static_cast<int>(tile.x + tile.w / 2) - screenwidth / 2,
+					static_cast<int>(tile.y + iconY) + 4);
+				glyphs_[index]->Draw();
+			}
 			labels_[index]->Draw();
 			if (!tile.value.empty()) counts_[index]->Draw();
 			Menu_PopCamera();
@@ -3689,6 +3708,8 @@ private:
 	int current_;
 	int alsoCurrent_;
 	std::vector<std::unique_ptr<GuiText>> labels_;
+	std::vector<std::unique_ptr<GuiText>> glyphs_;  // a card's text in its picture's place, else none
+	std::vector<bool> hasGlyph_;
 	std::vector<std::unique_ptr<GuiText>> counts_;
 	std::vector<int> iconTops_;  // each card's picture, from the card's top
 };
@@ -3696,7 +3717,7 @@ private:
 // `firstRow` > 0 ends the first row after that many cards, the rest
 // centred on a second row (the Layout chooser's layouts, then its orders).
 static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int current, int firstRow = 0,
-	int alsoCurrent = -1)
+	int alsoCurrent = -1, const std::vector<std::string>& glyphs = {})
 {
 	const int extra = PopupExtra();
 	const bool hasCounts = !tiles[0].value.empty();
@@ -3735,7 +3756,7 @@ static int PickHomeChoice(const char* name, std::vector<TileSpec>& tiles, int cu
 	GuiTiles choices;
 	choices.SetTiles(&tiles);
 	choices.Select(current);
-	HomeChoiceCards cards(tiles, choices, current, alsoCurrent);
+	HomeChoiceCards cards(tiles, choices, current, alsoCurrent, glyphs);
 	SkinButton back(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
 		PAD_BUTTON_B | PAD_BUTTON_START, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
@@ -3788,7 +3809,8 @@ static int PickHomeLayout()
 {
 	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	const int current = HomeLayoutIndex(settings.home_tiles);
-	int currentSort = 0;
+	// An order it doesn't know (a hand-edited settings.txt) lights none.
+	int currentSort = -1;
 	for (int index = 0; index < kHomeSortCount; ++index)
 		if (settings.home_sort == kHomeSorts[index]) currentSort = index;
 	std::vector<TileSpec> tiles(6 + kHomeSortCount);
@@ -3796,16 +3818,21 @@ static int PickHomeLayout()
 		tiles[index].label = HomeTilesName(kHomeLayouts[index]);
 		tiles[index].icon = &skin::layoutIcons[index];
 	}
-	// The theme's own pictures for them: the Names layout's lines for A to
-	// Z, Play for the last played, the star for the most played, and Home
-	// for the order the player set by moving games on it.
-	const skin::Tex* sortIcons[kHomeSortCount] = {&skin::layoutIcons[5], &skin::iconPlay, &skin::iconStarOn, &skin::iconHome};
+	// The theme's own pictures for them: Play for the last played, the
+	// star for the most played, and Home for the order the player set by
+	// moving games on it. A to Z shows "A-Z" instead: the lines picture
+	// is the Names layout's, on the row above (a tester could tap one for
+	// the other).
+	const skin::Tex* sortIcons[kHomeSortCount] = {nullptr, &skin::iconPlay, &skin::iconStarOn, &skin::iconHome};
 	for (int index = 0; index < kHomeSortCount; ++index) {
 		tiles[6 + index].label = HomeSortName(kHomeSorts[index]);
 		tiles[6 + index].icon = sortIcons[index];
 	}
-	logf("Home: Layout picker opened at %s, ordered %s\n", kHomeLayouts[current], kHomeSorts[currentSort]);
-	const int picked = PickHomeChoice(tr("Layout and order"), tiles, current, 6, 6 + currentSort);
+	std::vector<std::string> glyphs(tiles.size());
+	glyphs[6] = "A-Z";
+	logf("Home: Layout picker opened at %s, ordered %s\n", kHomeLayouts[current], settings.home_sort.c_str());
+	const int picked = PickHomeChoice(tr("Layout and order"), tiles, current, 6,
+		currentSort < 0 ? -1 : 6 + currentSort, glyphs);
 	logf("Home: Layout picker closed, %s\n", picked < 0 ? "no change" : picked < 6 ? kHomeLayouts[picked] : kHomeSorts[picked - 6]);
 	return picked;
 }
@@ -3831,7 +3858,7 @@ static bool ChangeHomeSort(const std::string& sort, bool sdGone, Toast& toast)
 	}
 	logf("Home: order %s (Layout button)\n", sort.c_str());
 	g_focusRestored = true;
-	SetHomeNotice(std::string(tr("Home order")) + ": " + HomeSortName(sort));
+	SetHomeNotice(tr("Home order: {1}", {HomeSortName(sort)}));
 	g_homeNoticeShown = true;
 	return true;
 }

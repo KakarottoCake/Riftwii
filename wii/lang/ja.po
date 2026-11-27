@@ -5189,3 +5189,6 @@ msgstr "{1}を仮想NANDから削除します。先にMiiのバックアップ�
 
 msgid "Layout and order"
 msgstr "レイアウトと並び順"
+
+msgid "Home order: {1}"
+msgstr "ホームの並び順：{1}"

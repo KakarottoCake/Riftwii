@@ -5189,3 +5189,6 @@ msgstr "{1} est retiré de la NAND émulée. Une copie de ses Mii est gardée av
 
 msgid "Layout and order"
 msgstr "Disposition et ordre"
+
+msgid "Home order: {1}"
+msgstr "Ordre de l'accueil : {1}"
