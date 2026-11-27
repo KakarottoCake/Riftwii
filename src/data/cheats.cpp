@@ -932,12 +932,15 @@ bool gct_keeps_clear_of(const std::vector<std::uint8_t>& gct,
             writes = false;
         }
         if (writes && known && !misses(word ? address & ~std::uint64_t(3) : address, bytes)) return false;
-        // 44 and 4C store the base or the pointer, a word at the value's
-        // address when nothing is added to it (the first word's low bits
-        // all zero). One that adds the base or pointer isn't followed.
-        if ((type == 0x44 || type == 0x4C) && (first & 0x00FFFFFFu) == 0 &&
-            !misses(std::uint64_t(value) & ~std::uint64_t(3), 4))
-            return false;
+        // 44 and 4C store the base or the pointer, a word at the base (its
+        // top seven bits, as for a write) plus the value, cut to 32 bits as
+        // the handler's stwx adds them (codehandleronly.s: 440Y0000 and
+        // 4C0Y0000). Only the plain form, the first word's low bits all
+        // zero; the one through the pointer (Y) isn't followed.
+        if ((type == 0x44 || type == 0x4C) && (first & 0x00FFFFFFu) == 0 && ba_known) {
+            const std::uint32_t store = static_cast<std::uint32_t>((ba & 0xFE000000u) + value);
+            if (!misses(store, 4)) return false;
+        }
         // What sets the base or the pointer.
         if (type == 0xE0 || type == 0xE2) {
             // A nonzero top half sets the base, a nonzero low half the pointer.

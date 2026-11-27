@@ -153,7 +153,7 @@ bool gct_runs_before_start(const std::vector<std::uint8_t>& gct,
 // each write whose address is known is checked: 00 to 08 (and their po
 // forms), C2, C6, D2, D6, F2 and F4, through the base and pointer as
 // E0, E2, 42 and 4A set them, and 44 and 4C (a store of the base or
-// pointer) at a plain address. Not judged: a write through a base or
+// pointer at the base plus the value). Not judged: a write through a base or
 // pointer read from the game's memory (40, 48), set to the code's own
 // place (46, 4E), found by a search (F6) or summed by the added forms,
 // and the Gecko register stores and copies (84, 8A, 8C). A switched-off

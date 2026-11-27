@@ -379,10 +379,16 @@ void test_keeps_clear_of() {
     // write that would hit MEM2 with the old pointer no longer counts.
     EXPECT_TRUE(clear(gct({0x4A000000, 0x90900000, 0xF6000001, 0x80008180, 0x38000000, 0x00000000,
                            0x14000010, 0x00000001})));
-    // A store of the base at a plain MEM2 address; one in MEM1 is fine.
-    EXPECT_FALSE(clear(gct({0x44000000, 0x90800000})));
-    EXPECT_FALSE(clear(gct({0x4C000000, 0x90A00000})));
-    EXPECT_TRUE(clear(gct({0x44000000, 0x80001800})));
+    // A store of the base or pointer at the base plus the value: from the
+    // default base, 0x10800000 on is RiftWii's MEM2 (the sum cut to 32 bits
+    // as the handler adds it); 0x1800 is low MEM1.
+    EXPECT_FALSE(clear(gct({0x44000000, 0x10800000})));
+    EXPECT_FALSE(clear(gct({0x4C000000, 0x10A00000})));
+    EXPECT_TRUE(clear(gct({0x44000000, 0x00001800})));
+    // With the base moved to MEM2 by a 42, a small offset lands there too;
+    // after a 40 (the base read from memory) it isn't judged.
+    EXPECT_FALSE(clear(gct({0x42000000, 0x90000000, 0x44000000, 0x00900000})));
+    EXPECT_TRUE(clear(gct({0x40000000, 0x80001234, 0x44000000, 0x10800000})));
     // A code switched off by a goto (as a Wii U's REX builds have): its
     // instructions are stepped over, not read as codes.
     EXPECT_TRUE(clear(gct({0x66200002, 0x00000000, 0x7D9CE2A6, 0x7C0802A6, 0x4E800020, 0x00000000,
