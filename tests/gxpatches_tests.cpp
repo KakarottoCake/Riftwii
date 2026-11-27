@@ -57,9 +57,9 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RB4P08"));
     EXPECT_FALSE(game_clears_mem1_top("RMCE01"));
     EXPECT_FALSE(game_clears_mem1_top("RLGE64"));  // The Complete Saga plays with the adapter on
-    EXPECT_TRUE(game_clears_mem1_top("RLIE64"));
-    EXPECT_TRUE(game_clears_mem1_top("RL4P64"));
-    EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));
+    EXPECT_FALSE(game_clears_mem1_top("RLIE64"));  // LEGO Indiana Jones 1 and 2 and LEGO Batman:
+    EXPECT_FALSE(game_clears_mem1_top("RL4E64"));  // the same guess as The Complete Saga's, and they
+    EXPECT_FALSE(game_clears_mem1_top("RLBEWR"));  // play with the adapter on too
     EXPECT_TRUE(game_clears_mem1_top("RGQE70"));  // Ghostbusters: the hotel's PKE tutorial
     EXPECT_TRUE(game_clears_mem1_top("RJ2E52"));  // 007 Quantum of Solace: out of memory
     // Brawl's match heap: the runtime's code to MEM2, every region; its

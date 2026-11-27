@@ -223,14 +223,15 @@ bool gx_patch_allowed(const std::string& game_id, GamePatchKind kind) {
     return false;
 }
 
-// Resident Evil 4, and (a guess from a tester's RVZ black screens, 2610-329)
-// the older LEGO games of TT's 2007-2009 engine: Indiana Jones 1 (RLI?64)
-// and 2 (RL4), Batman (RLB?WR). LEGO Harry Potter and Star Wars III, a
-// newer engine, started. The Complete Saga (RLG), on the same guess, came
-// off: on a Wii U from an RVZ (2611-198 plus this change) it played
-// through a level load with the GameCube adapter's code at MEM1's top and
-// a pack's controllers in use, and in Dolphin through the menus and the
-// hub. The other three are untested since.
+// Resident Evil 4 clears the top of MEM1 at its title screen, taking the
+// code RiftWii keeps there with it. The older LEGO games of TT's 2007-2009
+// engine were here too, on a guess from a tester's RVZ black screens
+// (2610-329), and came off once tested: The Complete Saga (RLG) on a Wii U from an RVZ (2611-198)
+// through a level load with the GameCube adapter's code at MEM1's top;
+// LEGO Batman (RLB?WR), LEGO Indiana Jones (RLI?64) and LEGO Indiana Jones 2
+// (RL4) in Dolphin, from the disc and from an RVZ through the resident
+// runtime, through the intro, title, menus, a new game's first level and a
+// level change to the hub, with the adapter's code unchanged.
 // Ghostbusters: The Video Game (RGQ) hung in the Sedgewick Hotel, at the
 // PKE meter's tutorial, from a WBFS and an ISO, and the crash recorder
 // alone below its FST did it: without it (debug_off = fault) a tester's
@@ -241,9 +242,7 @@ bool gx_patch_allowed(const std::string& game_id, GamePatchKind kind) {
 // Dolphin, 2610-769); with the runtime in MEM2 it plays.
 bool game_clears_mem1_top(const std::string& id) {
     const bool by_publisher = id.size() >= 6;
-    return id_is(id, "RB4") || id_is(id, "RL4") || id_is(id, "RGQ") ||
-           (by_publisher && id_is(id, "RLI") && id.compare(4, 2, "64") == 0) ||
-           (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0) ||
+    return id_is(id, "RB4") || id_is(id, "RGQ") ||
            (by_publisher && id_is(id, "RJ2") && id.compare(4, 2, "52") == 0);
 }
 
