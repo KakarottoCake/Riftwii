@@ -1,0 +1,97 @@
+name: "Controller override: a game report"
+description: How a Wii game plays with the controller override, another controller standing in for a Wii controller ("Controllers act as")
+title: "Controller override: <game name>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! This form is for the controller override, the **Controllers act as** setting on a Wii game's page (docs/CONTROLLER_OVERRIDE.md). Results go into docs/CONTROLLER_OVERRIDE_GAMES.md. One game per report, please.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: Its full name, as on the box.
+      placeholder: "Super Mario Galaxy 2"
+    validations:
+      required: true
+  - type: input
+    id: game_id
+    attributes:
+      label: Game ID
+      description: The six letters and numbers on the game's page (its first line of facts).
+      placeholder: "SB4E01"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: RiftWii version
+      description: The version RiftWii shows, or the test build you were asked to try.
+      placeholder: "2611-270"
+    validations:
+      required: true
+  - type: dropdown
+    id: form
+    attributes:
+      label: Controllers act as
+      options:
+        - Classic Controller
+        - Wii Remote + Nunchuk
+        - Sideways Wii Remote
+        - Pointing Wii Remote
+        - Default (a pack asked for it)
+    validations:
+      required: true
+  - type: dropdown
+    id: controller
+    attributes:
+      label: Controller in your hand
+      options:
+        - GameCube controller, on the GameCube controller adapter
+        - GameCube controller, in a Wii's own GameCube port
+        - Something else (say which below)
+    validations:
+      required: true
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Played on
+      options:
+        - Wii U (Wii mode)
+        - Wii
+        - Dolphin
+    validations:
+      required: true
+  - type: input
+    id: packs
+    attributes:
+      label: Mod packs on
+      description: Any packs you had on for this game, or "none".
+      placeholder: "none"
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How it went
+      options:
+        - Works
+        - Works, but some moves need a pack (swings, throws, gestures)
+        - Partly (it gets in, but something gets in the way)
+        - Doesn't work (can't get past the start)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What you did and what happened
+      description: How far you got, what worked, and what didn't (which button, which screen). Screenshots or a phone video help.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: boot.log
+      description: If you can, attach `sd:/riftwii/boot.log` from that launch (drag the file in here). It names what RiftWii found in the game.
+    validations:
+      required: false

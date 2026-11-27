@@ -9,6 +9,8 @@ The other pages are for people working on it.
 | Page | What it covers |
 | --- | --- |
 | [TESTING.md](TESTING.md) | The test plan for testers (also linked above) |
+| [CONTROLLER_OVERRIDE.md](CONTROLLER_OVERRIDE.md) | The controller override ("Controllers act as"): GameCube controllers standing in for Wii controllers, the buttons, what it does and doesn't, how to report a game |
+| [CONTROLLER_OVERRIDE_GAMES.md](CONTROLLER_OVERRIDE_GAMES.md) | How each Wii game does with the controller override |
 | [MAP.md](MAP.md) | Every file and folder, and where to start for each feature |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How a launch works, which file owns what, the memory map, the files on the SD card |
 | [DEVELOPING.md](DEVELOPING.md) | Building, tests, Dolphin runs, test scripts, releasing, ground rules |
