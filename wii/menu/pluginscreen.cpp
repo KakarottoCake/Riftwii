@@ -234,12 +234,9 @@ public:
         if (t->Right()) input_.pressed |= RWP_KEY_RIGHT;
         if (prompts_) {
             prompts_->Update(t);
-            // A prompt pointed at and pressed is its button, A's press not.
-            const int clicked = prompts_->GetClicked();
-            if (clicked >= 0 && static_cast<std::size_t>(clicked) < promptList_.size()) {
-                input_.pressed &= ~RWP_KEY_A;
-                input_.pressed |= promptList_[clicked].first;
-            }
+            // The prompts are hints, not buttons: A with the pointer on
+            // their band presses nothing, rather than the page's lit item.
+            if (input_.pointer && input_.y >= GuiPrompts::CardTop()) input_.pressed &= ~RWP_KEY_A;
         }
     }
 
@@ -262,7 +259,12 @@ private:
             look.size = size;
             look.width = c.w;
             look.lines = lines;
-            text->SetText(wanted.c_str());
+            // Shown as it is: the plugin translated its own words already,
+            // and a mod or app name that happens to match a menu string
+            // ("Quiet") must not be translated by the menu's catalogue.
+            wchar_t* wide = charToWideChar(wanted.c_str());
+            text->SetWText(wide);
+            delete[] wide;
             text->SetFontSize(size);
             if (lines > 0) {
                 text->SetWrap(true, c.w, lines);
@@ -454,6 +456,9 @@ private:
     std::vector<std::pair<uint32_t, std::string>> promptList_;
     int promptEdge_ = 600;
     rwp_input input_{};
+    // The A waiting in input_.pressed is the A prompt's: kept until the plugin
+    // takes its input, so a later controller's update (or a later frame with
+    // the pointer still on the prompt) does not drop it.
     volatile uint32_t frames_ = 0;
 };
 
@@ -579,7 +584,10 @@ int32_t TextWidth(const char* text, uint32_t size) {
     // The font is shared with the GUI thread, which must not draw meanwhile.
     if (g_canvas) H().halt();
     GuiText probe(nullptr, clamped, skinns::kInk);
-    probe.SetText(key.c_str() + key.find(':') + 1);
+    // As Canvas::Text draws it: as it is, not through the menu's catalogue.
+    wchar_t* wide = charToWideChar(key.c_str() + key.find(':') + 1);
+    probe.SetWText(wide);
+    delete[] wide;
     const int width = probe.GetTextWidth();
     if (g_canvas) H().resume();
     if (g_widths.size() >= kMaxWidthCache) g_widths.clear();

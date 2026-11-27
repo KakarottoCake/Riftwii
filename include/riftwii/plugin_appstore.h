@@ -18,6 +18,12 @@ typedef struct rwp_appstore_request {
     uint32_t changed;   /* out: apps were installed or removed (Home's Homebrew view reads the card again) */
     uint32_t console;   /* in: RWP_CONSOLE_* */
     char error[200];    /* out: why the store could not open */
+    uint32_t check_update; /* out: RiftWii's own page asked for its update check (the menu runs it) */
+    /* in: a game ID ("RMGE01") opens the store on the Riivolution mods for
+     * that game (its Mods page's "Get more mods"); "" for the apps.
+     * game_name is the game's name for the page's title. */
+    char game_id[8];
+    char game_name[64];
 } rwp_appstore_request;
 
 #endif

@@ -45,6 +45,8 @@ _gc_blob_start:
     .long gc_continue_program - _gc_blob_start, gc_program_saved - _gc_blob_start
     .long gc_replay_fatal - _gc_blob_start, gc_continue_fatal - _gc_blob_start
     .long gc_tri_table - _gc_blob_start
+    .long gc_hook_tgc_start - _gc_blob_start, gc_replay_tgc_start - _gc_blob_start
+    .long gc_continue_tgc_start - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). Each hook is three words: the game's LR into r0, a
@@ -526,6 +528,44 @@ gc_replay_boot_dol:
     nop
     .globl gc_continue_boot_dol
 gc_continue_boot_dol:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+/* A bonus disc menu's start routine, start(file, args) (gctgc.hpp): its
+ * DVDFileInfo for the chosen TGC and the argument list for the game in it.
+ * gc_on_tgc_start(ctx, file, args) returns only when the start could not
+ * go back through RiftWii, and the original runs on them. */
+    .globl gc_hook_tgc_start
+gc_hook_tgc_start:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    mr 5, 4
+    mr 4, 3
+    bl 1f
+1:  mflr 3
+    addi 3, 3, gc_context_data - 1b
+    bl gc_on_tgc_start
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    b gc_replay_tgc_start
+
+    .balign 16
+    .globl gc_replay_tgc_start
+gc_replay_tgc_start:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_tgc_start
+gc_continue_tgc_start:
     lis 12, 0
     ori 12, 12, 0
     mtctr 12

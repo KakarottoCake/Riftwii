@@ -1,0 +1,252 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Run with python3 tests/mod_list_tests.py from any directory. Offline:
+no request reaches GameBanana."""
+import importlib.util
+import io
+import os
+import sys
+import unittest
+import zipfile
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "tools"))
+SPEC = importlib.util.spec_from_file_location("mod_list", REPO / "tools/mod_list.py")
+mod_list = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(mod_list)
+
+
+def make_zip(names, comment=b""):
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for name in names:
+            z.writestr(name, b"x" * 10)
+        z.comment = comment
+    return out.getvalue()
+
+
+class ZipTailTests(unittest.TestCase):
+    def test_names_from_the_end_of_a_zip(self):
+        names = ["Pack v1/riivolution/Pack.xml", "Pack v1/Pack/a.arc", "readme.txt"]
+        data = make_zip(names)
+        self.assertEqual(mod_list.zip_names_from_tail(data[-65536:], len(data)), names)
+
+    def test_a_tail_without_the_whole_directory(self):
+        data = make_zip(["a/riivolution/a.xml"] * 1 + [f"a/f{i}.bin" for i in range(5)])
+        # Only the last 30 bytes: the directory is not in them.
+        self.assertIsNone(mod_list.zip_names_from_tail(data[-30:], len(data)))
+
+    def test_a_damaged_directory_record(self):
+        # A record that claims more than the directory holds.
+        record = b"PK\x01\x02" + b"\0" * 24 + b"\xff\x00\0\0\0\0" + b"\0" * 16
+        eocd = b"PK\x05\x06" + b"\0" * 4 + (1).to_bytes(2, "little") * 2 + len(record).to_bytes(4, "little") + \
+            (0).to_bytes(4, "little") + b"\0\0"
+        data = record + eocd
+        self.assertIsNone(mod_list.zip_names_from_tail(data, len(data)))
+        # And a directory too short for one record's fixed part.
+        short = b"PK\x01\x02" + b"PK\x05\x06" + b"\0" * 4 + (1).to_bytes(2, "little") * 2 + \
+            (4).to_bytes(4, "little") + (0).to_bytes(4, "little") + b"\0\0"
+        self.assertIsNone(mod_list.zip_names_from_tail(short, len(short)))
+
+    def test_not_a_zip(self):
+        self.assertIsNone(mod_list.zip_names_from_tail(b"Rar!\x1a\x07\x00" + b"\0" * 100, 107))
+
+
+class LayoutTests(unittest.TestCase):
+    def test_pack_under_a_top_folder(self):
+        root, riiv, xmls, folders = mod_list.pack_layout(
+            ["Beta v1/", "Beta v1/riivolution/Beta.xml", "Beta v1/Beta/ObjectData/a.arc",
+             "Beta v1/Beta/b.arc", "Beta v1/readme.txt", "__MACOSX/Beta v1/._x"])
+        self.assertEqual(root, "Beta v1/")
+        self.assertEqual(riiv, "riivolution/")
+        self.assertEqual(xmls, ["Beta v1/riivolution/Beta.xml"])
+        self.assertEqual(folders, ["Beta"])
+
+    def test_pack_at_the_top_keeps_its_folder_case(self):
+        root, riiv, xmls, folders = mod_list.pack_layout(["Riivolution/Newer.xml", "NewerRes/x.arc"])
+        self.assertEqual(root, "")
+        self.assertEqual(riiv, "Riivolution/")
+        self.assertEqual(folders, ["NewerRes"])
+
+    def test_no_xml_is_no_pack(self):
+        with self.assertRaises(mod_list.Skip):
+            mod_list.pack_layout(["Pack/a.arc", "riivolution/readme.txt"])
+
+
+class TextTests(unittest.TestCase):
+    def test_html_to_one_line(self):
+        self.assertEqual(mod_list.plain_text("<p>Hello&amp;<b>bye</b></p><br>next", 100), "Hello&bye next")
+
+    def test_cut_at_a_word(self):
+        text = mod_list.plain_text("one two three four five six", 15)
+        self.assertTrue(text.endswith("..."))
+        self.assertLessEqual(len(text.encode()), 15)
+        self.assertTrue(text.startswith("one two"))
+
+    def test_cut_keeps_utf8_whole(self):
+        text = mod_list.cut("★" * 40, 20)
+        text.encode("utf-8")  # no broken character
+        self.assertLessEqual(len(text.encode()), 20)
+
+    def test_game_ids(self):
+        xml = b'<wiidisc version="1"><id game="RMG"><region type="E"/></id></wiidisc>'
+        self.assertEqual(mod_list.game_ids([xml, b"<id game='smn'/>", b'<id game="!!"/>']), ["RMG", "SMN"])
+
+
+class CappedTests(unittest.TestCase):
+    def test_output_over_the_cap_stops_the_command(self):
+        writes_a_lot = [sys.executable, "-c", "import sys; sys.stdout.write('x' * 300000)"]
+        self.assertIsNone(mod_list.run_capped(writes_a_lot, 100000))
+        self.assertEqual(len(mod_list.run_capped(writes_a_lot, 400000)), 300000)
+
+    def test_a_failing_command(self):
+        self.assertIsNone(mod_list.run_capped([sys.executable, "-c", "raise SystemExit(3)"], 100))
+
+
+class XmlTests(unittest.TestCase):
+    def test_an_oversized_xml_rejects_the_archive(self):
+        texts = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": None}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(texts), texts.get)
+        big = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": b"x" * (mod_list.MAX_XML + 1)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(big), big.get)
+
+    def test_all_xmls_read(self):
+        texts = {"riivolution/A.xml": b"<id game='RMG'/>", "riivolution/B.xml": b"<id game='SB4'/>"}
+        self.assertEqual(mod_list.game_ids(mod_list.read_pack_xmls(list(texts), texts.get).values()), ["RMG", "SB4"])
+
+    def test_verdicts_from_older_rules_are_looked_at_again(self):
+        # A pack listed before the version 2 rules: its game IDs may be partial.
+        old = {"format": "zip", "program": "Riivolution/Newer.xml", "games": ["SMN"]}
+        self.assertFalse(mod_list.cached_verdict_ok(old))
+        self.assertTrue(mod_list.cached_verdict_ok(dict(old, v=mod_list.VERDICT_VERSION)))
+        self.assertTrue(mod_list.cached_verdict_ok({"skip": "no riivolution/*.xml"}))
+
+    def test_file_verdict_drops_an_old_one(self):
+        builder = mod_list.Builder.__new__(mod_list.Builder)
+        builder.state = {"mods": {}, "files": {"7": {"format": "zip", "games": ["SMN"]}}}
+        looked = []
+
+        def look_inside(f):
+            looked.append(f["_idRow"])
+            return {"v": mod_list.VERDICT_VERSION, "format": "zip", "games": ["SMN", "SMNP"]}
+        builder.look_inside = look_inside
+        verdict = builder.file_verdict({"_idRow": 7})
+        self.assertEqual(looked, [7])
+        self.assertEqual(verdict["games"], ["SMN", "SMNP"])
+        # Now current: kept.
+        builder.file_verdict({"_idRow": 7})
+        self.assertEqual(looked, [7])
+
+
+
+class ReviewLimitTests(unittest.TestCase):
+    def test_program_must_fit_the_wii(self):
+        self.assertEqual(mod_list.checked_program("a.xml"), "riivolution/a.xml")
+        with self.assertRaises(mod_list.Skip):
+            mod_list.checked_program("A" * 80 + ".xml")
+
+    def test_xml_count_and_total_caps(self):
+        many = {f"riivolution/{i}.xml": b"<x/>" for i in range(mod_list.MAX_PACK_XMLS + 1)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(many), many.get)
+        big = {f"riivolution/{i}.xml": b"x" * (mod_list.MAX_XML - 1) for i in range(5)}
+        with self.assertRaises(mod_list.Skip):
+            mod_list.read_pack_xmls(list(big), big.get)
+
+    def test_unreadable_xml_rejects_the_archive(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("riivolution/a.xml", b'<id game="RMG"/>')
+            z.writestr("Pack/a.arc", b"x" * 10)
+        data = bytearray(out.getvalue())
+        # Mark every entry as compressed with method 99 (AES), which Python's zipfile can't read.
+        for sig, off in ((b"PK\x03\x04", 8), (b"PK\x01\x02", 10)):
+            at = data.find(sig)
+            while at >= 0:
+                data[at + off:at + off + 2] = (99).to_bytes(2, "little")
+                at = data.find(sig, at + 4)
+        with self.assertRaises(mod_list.Skip):
+            mod_list.zip_layout(bytes(data))
+
+    def test_next_file_when_the_best_makes_no_entry(self):
+        builder = mod_list.Builder.__new__(mod_list.Builder)
+        builder.log = lambda line: None
+        files = [{"_idRow": 1, "_tsDateAdded": 200}, {"_idRow": 2, "_tsDateAdded": 100}]
+        builder.profile = lambda record: {"_aFiles": [dict(f, _sDownloadUrl="x") for f in files]}
+        builder.file_verdict = lambda f: {"format": "zip"}
+        builder.entry = lambda p, f, v, game: None if f["_idRow"] == 1 else {"id": "gb1", "from": f["_idRow"]}
+        self.assertEqual(builder.entries({"_idRow": 1}, "Game"), [{"id": "gb1", "from": 2}])
+
+class ExcludeTests(unittest.TestCase):
+    def test_ids_and_comments(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write("# asked 2026-11-26\n678330\n  12345  # another\nnot-an-id\n\n")
+        self.assertEqual(mod_list.read_excluded(f.name), {678330, 12345})
+        self.assertEqual(mod_list.read_excluded(None), set())
+        os.unlink(f.name)
+
+    def test_bom_and_odd_lines(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("wb", suffix=".txt", delete=False) as f:
+            f.write(b"\xef\xbb\xbf678330\n\xc2\xb2\n# caf\xe9 (Latin-1)\n12345\n")
+        try:
+            self.assertEqual(mod_list.read_excluded(f.name), {678330, 12345})
+        finally:
+            os.unlink(f.name)
+
+
+class HostedTests(unittest.TestCase):
+    ITEM = {"id": "rw-test-galaxy", "name": "Test Galaxy", "game": "Super Mario Galaxy 2",
+            "makers": "Alpha; Beta Gamma; Delta", "page": "https://lumasworkshop.com/mods/",
+            "released": "2024-05-01", "url": "https://github.com/RiftWii/mods/releases/download/files/test.zip"}
+
+    def pack(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("Test Galaxy v1/riivolution/test.xml", b'<wiidisc><id game="SB4"/></wiidisc>')
+            z.writestr("Test Galaxy v1/TestGalaxy/files/a.arc", b"x" * 10)
+        return out.getvalue()
+
+    def test_entry_credits_every_maker(self):
+        v = mod_list.zip_layout(self.pack())
+        e = mod_list.hosted_entry(dict(self.ITEM), v, print)
+        self.assertEqual(e["author"], "Alpha, Beta Gamma, Delta")
+        self.assertEqual(e["description"], "By Alpha, Beta Gamma, Delta.")
+        self.assertEqual(e["games"], ["SB4"])
+        self.assertEqual(e["root"], "Test Galaxy v1/")
+        self.assertEqual(e["install"], [{"from": "riivolution/", "to": "riivolution/"},
+                                        {"from": "TestGalaxy/", "to": "TestGalaxy/"}])
+        self.assertEqual(e["download"]["url"], self.ITEM["url"])
+
+    def test_long_credits_end_with_and_others(self):
+        item = dict(self.ITEM, makers="; ".join(f"Maker number {i}" for i in range(12)))
+        e = mod_list.hosted_entry(item, mod_list.zip_layout(self.pack()), print)
+        self.assertTrue(e["author"].endswith(" and others"))
+        self.assertLessEqual(len(e["author"].encode()), 63)
+
+    def test_list_rules(self):
+        import json
+        import tempfile
+
+        def read(items):
+            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+                json.dump(items, f)
+            return mod_list.read_hosted(f.name)
+
+        self.assertEqual(len(read([self.ITEM])), 1)
+        maker = "https://github.com/Syreyup/BattleFortSMG2/releases/download/v1.0/Battle.Fort.v1.0.zip"
+        self.assertEqual(len(read([dict(self.ITEM, url=maker, replaces=[376852])])), 1)
+        self.assertEqual(len(read([dict(self.ITEM, url="https://heyimheroic.github.io/files/mods/DesertSnake-SMG2.zip")])), 1)
+        for bad in ({"id": "gb1"}, {"url": "http://example.org/a.zip"}, {"makers": ""},
+                    {"page": "https://web.archive.org/web/2014/http://example.org/"},
+                    {"url": "https://example.org/mod.zip"}, {"replaces": ["388863"]}, {"replaces": 388863}):
+            with self.assertRaises(SystemExit):
+                read([dict(self.ITEM, **bad)])
+
+
+if __name__ == "__main__":
+    unittest.main()

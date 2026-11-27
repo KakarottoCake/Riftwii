@@ -33,29 +33,31 @@ release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 
 -->
-**RiftWii {{VERSION}}.** This replaces 2611-239, which was taken down because it showed a black screen or an "Exception (DSI)" screen on every real Wii. It has everything 239 had: big game libraries no longer run out of memory and restart, and Settings has new buttons. Everything from 2611-236 is in it too.
+**RiftWii {{VERSION}}.** Get more themes works again, and A only presses what the pointer is on. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-**If you updated to 239 and RiftWii no longer starts:** copy `boot.dol` from this release's zip to `sd:/apps/riftwii/` (replace the old one). After that, RiftWii updates itself as usual (Settings > Check for a new version).
+![Get more themes, with Dashboard just installed]({{SCREENSHOTS}}2611-252-themes.png)
+
+![What's new]({{SCREENSHOTS}}2611-252-whats-new.png)
 
 ## What changed
 
-- **RiftWii starts on a real Wii again.** At start-up, the Wii's system library briefly copies the audio chip's start-up code to a fixed spot in memory. In 239, the code that grew in that release pushed some of the library's own settings onto that spot, so the console crashed before the menu could appear. Dolphin doesn't show this, so it was missed. That spot is now always taken by memory nothing uses that early, and the build refuses to make a RiftWii where it isn't. From now on each release is also started on a real Wii before it goes out.
-- **Downloads go straight to the SD card.** The update (RiftWii and its plugins) and GameTDB's game details are written to the card as they arrive, instead of being held whole in memory first. An update now needs a few MB of free space on the card, and almost no memory.
-- **Covers take turns in big libraries.** RiftWii no longer keeps room for every game's cover at once: it leaves memory for the shelf's full covers and the rest of the menu, and covers you scroll back to are read again from the card. A library that fits works as before.
-- **Settings' buttons look like the Wii Menu's:** a larger picture on top and the name under it.
+- **Get more themes works again.** RiftWii's website moved from riftwii.github.io to riftwii.com in mid-November, and the old address now sends everything on to the new one. For safety the theme browser doesn't follow a server sending it somewhere else, so the list never loaded, on every version since the move. RiftWii now gets themes from riftwii.com itself.
+- **Wave's preview shows in the theme browser** (already live for this version, since it's on the website): it was bigger than RiftWii takes.
+- **A only presses what the pointer is on.** In the Rift Store, A with the pointer on empty space opened the lit item, and a GameCube controller's A on a button at the bottom (Search, for one) went to the page underneath instead. Now, with the pointer on screen, A presses what it points at and nothing else; with the pointer hidden, A presses the lit item as before.
 
 ## What to test
 
-1. **Starting RiftWii** from the Homebrew Channel and from the RiftWii channel: does the menu come up?
-2. **A big library** (a few hundred games): scroll Home and the shelf with full covers, then update, or open a game's About page so its details download. Does RiftWii keep going?
+1. **Settings > Menu > Get more themes**: does the list load, and does a theme install?
+2. **The Rift Store with a GameCube controller**: point at Search and press A. Does the keyboard open?
+3. **A on empty space** in the Rift Store: nothing should happen.
 
 ## Known issues
 
-- **The way back from a WAD game** hasn't been tried on a real Wii or vWii yet, including this release's vWii fix.
+- **The way back from a WAD game or a game with emulated-NAND saves** hasn't been tried on a real Wii or vWii yet, including 2611-249's fix.
 - **The Rift Store** hasn't been tried on a real Wii yet: its downloads, a full SD card, and Stop while files are being put in place.
 - **Big libraries** were checked in Dolphin only (an update and a 400-game list with memory held back), not yet on a real Wii with a big drive.
 - **GameTDB entries for mod tiles** were checked in Dolphin only. The first start after updating reads the game details once more in the background, so mod covers can be found for every game on your drives.
-- **This release's two fixes** were checked in Dolphin only: a USA game on a real Japanese Wii, and a real Wii Remote waking up in the menu, are still to try.
+- **2611-236's two fixes** were checked in Dolphin only: a USA game on a real Japanese Wii, and a real Wii Remote waking up in the menu, are still to try.
 - **WiiWare and Virtual Console from another region** don't get the language fallback yet.
 - **The GameCube crash screen doesn't go back to RiftWii** on A or HOME for some players; the console has to be turned off. It does in Dolphin. A photo of the screen helps.
 - **SpongeBob SquarePants: The Movie (PAL)** crashes at random for one tester. It's being looked into; it hasn't happened in Dolphin.

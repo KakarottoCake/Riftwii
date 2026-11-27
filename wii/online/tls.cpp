@@ -6,6 +6,7 @@
 #include <ogc/lwp_watchdog.h>
 #include <ogc/machine/processor.h>
 
+#include <algorithm>
 #include <cstring>
 #include <ctime>
 
@@ -23,9 +24,34 @@ extern const unsigned kTlsRootCount;
 
 namespace riftwii::wii {
 
+// Some servers send their certificates out of order: GameBanana's file
+// servers send the root's cross-certificate before the intermediate that
+// signed their own (leaf, root, intermediate). BearSSL's checker wants each
+// certificate followed by its issuer and stops at the first name that does
+// not match (BR_ERR_X509_DN_MISMATCH), where browsers put the chain in order
+// first. This keeps the certificates the server sends and hands them to the
+// checker as sent; only when it finds a name mismatch does it try the
+// other orders of the ones after the server's own. Whatever the order, the
+// checker still has to reach one of RiftWii's roots: nothing is trusted
+// that the chain in its right order would not be.
+struct ChainSorter {
+    const br_x509_class* vtable;  // first: BearSSL passes &vtable as the context
+    br_x509_minimal_context* inner;
+    static constexpr std::size_t kMaxCerts = 8;
+    static constexpr std::size_t kMaxBytes = 16384;
+    char server_name[256];
+    bool has_name;
+    unsigned char der[kMaxBytes];
+    std::size_t used;
+    std::size_t offset[kMaxCerts], length[kMaxCerts];
+    std::size_t count;
+    bool too_big;
+};
+
 struct TlsStream::State {
     br_ssl_client_context client;
     br_x509_minimal_context x509;
+    ChainSorter sorter;
     br_sslio_context io;
     SocketTransport* socket = nullptr;
     // The time base at which reads give up (0: none), and whether one did.
@@ -190,10 +216,101 @@ void Seed(br_ssl_engine_context& engine) {
     std::memset(seed, 0, sizeof(seed));
 }
 
+ChainSorter& Sorter(const br_x509_class** ctx) { return *reinterpret_cast<ChainSorter*>(ctx); }
+
+void SorterStartChain(const br_x509_class** ctx, const char* server_name) {
+    ChainSorter& c = Sorter(ctx);
+    c.has_name = server_name != nullptr;
+    if (c.has_name) {
+        std::strncpy(c.server_name, server_name, sizeof(c.server_name) - 1);
+        c.server_name[sizeof(c.server_name) - 1] = '\0';
+    }
+    c.used = 0;
+    c.count = 0;
+    c.too_big = false;
+}
+
+void SorterStartCert(const br_x509_class** ctx, std::uint32_t length) {
+    ChainSorter& c = Sorter(ctx);
+    if (c.count >= ChainSorter::kMaxCerts || length > ChainSorter::kMaxBytes - c.used) {
+        c.too_big = true;
+        return;
+    }
+    c.offset[c.count] = c.used;
+    c.length[c.count] = 0;
+}
+
+void SorterAppend(const br_x509_class** ctx, const unsigned char* buf, std::size_t len) {
+    ChainSorter& c = Sorter(ctx);
+    if (c.too_big || len > ChainSorter::kMaxBytes - c.used) {
+        c.too_big = true;
+        return;
+    }
+    std::memcpy(c.der + c.used, buf, len);
+    c.used += len;
+    c.length[c.count] += len;
+}
+
+void SorterEndCert(const br_x509_class** ctx) {
+    ChainSorter& c = Sorter(ctx);
+    if (!c.too_big) ++c.count;
+}
+
+// The certificates to the checker in the order `order`; its verdict.
+unsigned CheckInOrder(ChainSorter& c, const std::size_t* order) {
+    const br_x509_class** inner = &c.inner->vtable;
+    (*inner)->start_chain(inner, c.has_name ? c.server_name : nullptr);
+    for (std::size_t i = 0; i < c.count; ++i) {
+        const std::size_t k = order[i];
+        (*inner)->start_cert(inner, static_cast<std::uint32_t>(c.length[k]));
+        (*inner)->append(inner, c.der + c.offset[k], c.length[k]);
+        (*inner)->end_cert(inner);
+    }
+    return (*inner)->end_chain(inner);
+}
+
+unsigned SorterEndChain(const br_x509_class** ctx) {
+    ChainSorter& c = Sorter(ctx);
+    if (c.too_big) {
+        logf("TLS: %s sent more certificates than RiftWii keeps (%u, at most %u KB)\n",
+             c.has_name ? c.server_name : "a server", static_cast<unsigned>(ChainSorter::kMaxCerts),
+             static_cast<unsigned>(ChainSorter::kMaxBytes / 1024));
+        return BR_ERR_X509_LIMIT_EXCEEDED;
+    }
+    if (c.count == 0) return BR_ERR_X509_EMPTY_CHAIN;
+    std::size_t order[ChainSorter::kMaxCerts];
+    for (std::size_t i = 0; i < c.count; ++i) order[i] = i;
+    const unsigned as_sent = CheckInOrder(c, order);
+    if (as_sent != BR_ERR_X509_DN_MISMATCH || c.count < 3) return as_sent;
+    // The server's own certificate stays first; the rest are tried in
+    // their other orders, a few dozen at most (servers send 2 to 4).
+    int tries = 0;
+    while (std::next_permutation(order + 1, order + c.count) && ++tries <= 40) {
+        if (CheckInOrder(c, order) == 0) {
+            logf("TLS: %s sent its certificates out of order; they check out in the right one\n",
+                 c.has_name ? c.server_name : "a server");
+            return 0;
+        }
+    }
+    // Back to the order sent, so the error and the key are its.
+    for (std::size_t i = 0; i < c.count; ++i) order[i] = i;
+    return CheckInOrder(c, order);
+}
+
+const br_x509_pkey* SorterGetPkey(const br_x509_class* const* ctx, unsigned* usages) {
+    const ChainSorter& c = *reinterpret_cast<const ChainSorter*>(ctx);
+    const br_x509_class* const* inner = &c.inner->vtable;
+    return (*inner)->get_pkey(inner, usages);
+}
+
+const br_x509_class kSorterVtable = {
+    sizeof(ChainSorter), SorterStartChain, SorterStartCert, SorterAppend, SorterEndCert, SorterEndChain, SorterGetPkey,
+};
+
 // Only what GitHub needs, to keep the DOL small: TLS 1.2, ECDHE with
 // AES-GCM, P-256/P-384 (BearSSL's compact i15 code), SHA-256/384, and RSA
 // signatures in case its certificate changes kind.
-void Configure(br_ssl_client_context& cc, br_x509_minimal_context& xc) {
+void Configure(br_ssl_client_context& cc, br_x509_minimal_context& xc, ChainSorter& sorter) {
     static const std::uint16_t kSuites[] = {
         BR_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, BR_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
         BR_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, BR_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -216,7 +333,10 @@ void Configure(br_ssl_client_context& cc, br_x509_minimal_context& xc) {
     br_ssl_engine_set_aes_ctr(&cc.eng, &br_aes_ct_ctr_vtable);
     br_ssl_engine_set_ghash(&cc.eng, br_ghash_ctmul32);
     br_ssl_engine_set_gcm(&cc.eng, &br_sslrec_in_gcm_vtable, &br_sslrec_out_gcm_vtable);
-    br_ssl_engine_set_x509(&cc.eng, &xc.vtable);
+    // The server's chain goes through the sorter, which hands it to xc.
+    sorter.vtable = &kSorterVtable;
+    sorter.inner = &xc;
+    br_ssl_engine_set_x509(&cc.eng, &sorter.vtable);
 }
 
 }  // namespace
@@ -258,7 +378,7 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
     State& s = *state_;
     s.socket = &socket;
     s.deadline = deadline_;
-    Configure(s.client, s.x509);
+    Configure(s.client, s.x509, s.sorter);
     // Certificates are checked against the Wii's clock, or a server's date
     // when the clock is before this release (CertificateTime). The failure
     // text still shows the Wii's own clock, the one the player can fix.

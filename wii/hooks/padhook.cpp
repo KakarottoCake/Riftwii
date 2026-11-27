@@ -238,6 +238,18 @@ bool blob_whole(int kind) {
     // error, not left to turn the pads off later (CodeRabbit on #593).
     if (reinterpret_cast<const rt_pad_context*>(blob(kind) + h.context_offset)->magic != RT_PAD_CONTEXT_MAGIC)
         return false;
+    // Every offset after the context's (the hooks, the replays and jumps
+    // back the install writes 16 bytes at, the IPC callback) must name a
+    // word inside the blob with room for those 16 bytes: a damaged one
+    // would have the install write outside the blob's code (CodeRabbit on
+    // #593). A hook a blob doesn't have is 0, which passes.
+    constexpr std::uint32_t kSiteBytes = 16;
+    const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(&h);
+    const std::size_t first_site = offsetof(rt_pad_header, hook_read) / sizeof(std::uint32_t);
+    for (std::size_t index = first_site; index < header_bytes / sizeof(std::uint32_t); ++index) {
+        const std::uint32_t offset = words[index];
+        if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes) return false;
+    }
     return kind >= kBlobNoHome || (h.hook_kpad != 0 && h.hook_probe != 0 && h.hook_menu != 0 && h.hook_select != 0 &&
                                    h.hook_unified != 0);
 }

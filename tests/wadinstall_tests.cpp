@@ -235,6 +235,28 @@ void test_drop_play_and_cache() {
     CHECK(channels.empty());
 }
 
+void test_stale_cache_is_replaced() {
+    // A WAD replaced since its banner was cached: the next scan reads the
+    // banner again and caches it over the old entry, so later scans don't.
+    // libfat refuses a rename onto a taken name, which kept the stale entry
+    // for good; the rename wrapper below refuses it the same way.
+    fs::remove_all("sd:");
+    write("sd:/wiiware/game.wad", make_wad(20));
+    std::vector<NandChannel> channels;
+    list_wad_channels(false, channels);
+    CHECK(channels.size() == 1);
+    write("sd:/wiiware/game.wad", make_wad(60));
+    const unsigned keys_before = key_reads;
+    channels.clear();
+    list_wad_channels(false, channels);
+    CHECK(key_reads == keys_before + 1);  // the replaced WAD's banner, read once
+    const unsigned keys_after = key_reads;
+    channels.clear();
+    list_wad_channels(false, channels);
+    CHECK(channels.size() == 1);
+    CHECK(key_reads == keys_after);  // and cached again
+}
+
 void test_channel_nand_on_usb() {
     // A tester's USB Loader GX keeps its channels in usb1:/nands/01: a WAD
     // can only be prepared on the SD card, so it goes to sd:/nands/01.
@@ -343,6 +365,9 @@ extern "C" std::size_t __wrap_fwrite(const void* data, std::size_t size, std::si
 extern "C" int __wrap_rename(const char* from, const char* to) {
     if (fail_commit && std::string(from).find("/.riftwii-stage/content") != std::string::npos &&
         std::string(to) == title + "/content") return -1;
+    // As libfat on the Wii: no rename onto a name that is taken, for the
+    // banner cache (the host's rename would replace it and hide the bug).
+    if (std::string(to).find("wiiware-cache/") != std::string::npos && fs::exists(to)) return -1;
     return __real_rename(from, to);
 }
 #endif
@@ -397,6 +422,7 @@ int main() {
     test_installer_rollback();
     test_verified_installer_sources();
     test_drop_play_and_cache();
+    test_stale_cache_is_replaced();
     test_channel_nand_on_usb();
     test_usb_partitions_and_merge();
     test_game_folders();

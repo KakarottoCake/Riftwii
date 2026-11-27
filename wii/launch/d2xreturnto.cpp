@@ -41,4 +41,8 @@ void forget_d2x_return_to() {
     g_accepted_title = 0;
 }
 
+bool d2x_return_to_accepted(std::uint64_t title) {
+    return title != 0 && title == g_accepted_title;
+}
+
 }  // namespace riftwii::wii

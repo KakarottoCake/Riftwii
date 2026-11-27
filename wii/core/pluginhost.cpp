@@ -71,13 +71,26 @@ int32_t HttpGet(const char* url, uint8_t* buffer, uint32_t capacity, uint32_t* l
         return 0;
     }
 #ifdef RIFTWII_TEST_BUILD
-    // The test build only: a list on the card stands in for the store's
-    // (Dolphin tests of list fields the published list does not have yet).
-    if (std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0) {
-        if (FILE* local = std::fopen("sd:/riftwii/test_apps.json", "rb")) {
+    // The test build only: a list on the card stands in for the store's or
+    // the mods' (Dolphin tests of list fields the published list does not
+    // have yet).
+    const char* local_list = std::strcmp(url, "https://riftwii.github.io/apps/apps.json") == 0   ? "sd:/riftwii/test_apps.json"
+                             : std::strcmp(url, "https://riftwii.com/mods/mods.json") == 0       ? "sd:/riftwii/test_mods.json"
+                                                                                                 : nullptr;
+    // A mod's picture (tools/mod_list.py's icons/ folder) from
+    // sd:/riftwii/test_icons/, for Dolphin runs before the site has them.
+    constexpr const char* kModIcons = "https://riftwii.github.io/mods/icons/";
+    std::string local_icon;
+    if (local_list == nullptr && std::strncmp(url, kModIcons, std::strlen(kModIcons)) == 0 &&
+        std::strchr(url + std::strlen(kModIcons), '/') == nullptr) {
+        local_icon = std::string("sd:/riftwii/test_icons/") + (url + std::strlen(kModIcons));
+        local_list = local_icon.c_str();
+    }
+    if (local_list != nullptr) {
+        if (FILE* local = std::fopen(local_list, "rb")) {
             const std::size_t read = std::fread(buffer, 1, capacity, local);
             std::fclose(local);
-            logf("Test build: the app list is sd:/riftwii/test_apps.json (%u bytes)\n", static_cast<unsigned>(read));
+            logf("Test build: the list is %s (%u bytes)\n", local_list, static_cast<unsigned>(read));
             *length = static_cast<uint32_t>(read);
             return 1;
         }

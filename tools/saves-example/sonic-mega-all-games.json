@@ -1,0 +1,19 @@
+{
+  "id": "sonic-mega-all-games",
+  "game_id": "GSOE8P",
+  "platform": "gamecube",
+  "title": "Sonic Mega Collection: all games",
+  "description": "All games unlocked, as described by the author.",
+  "author": "Tapioca",
+  "page": "https://tapioca.moe/gc/saves",
+  "format": "gci",
+  "url": "https://tapioca.moe/static/saves/S_MEGA_SYS.gci",
+  "size": 16448,
+  "sha256": "f50f7cae2e4f0534b1f73cacca4dd3646df313db9b150bda8a0e842daa36b173",
+  "approval": {
+    "approved": false,
+    "evidence": "https://tapioca.moe/gc/saves",
+    "reviewer": "",
+    "note": "Research candidate only. Confirm attribution, permission and in-game behavior before publication."
+  }
+}

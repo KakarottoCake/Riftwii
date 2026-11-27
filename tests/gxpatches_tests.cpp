@@ -115,6 +115,8 @@ void test_protected() {
     EXPECT_TRUE(gc_restart_known_to_work("GMSE01"));
     EXPECT_TRUE(gc_restart_known_to_work("GMSE04"));
     EXPECT_TRUE(gc_restart_known_to_work("GKDP01"));
+    EXPECT_TRUE(gc_restart_known_to_work("GFZE01"));
+    EXPECT_FALSE(gc_restart_known_to_work("GFZP01"));  // no restart run for the PAL game yet
     EXPECT_FALSE(gc_restart_known_to_work("GKDJ01"));  // no restart run for these regions
     EXPECT_FALSE(gc_restart_known_to_work("GKDE01"));
     EXPECT_FALSE(gc_restart_known_to_work("GLMP01"));

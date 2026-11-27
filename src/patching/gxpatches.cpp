@@ -314,8 +314,12 @@ bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); 
 // restart 0.2 s into every start was such an error, "Cant alloc snd
 // Stream", from the ARAM limit gcaram.hpp now raises.) The other regions
 // wait for a run of their own.
+// F-Zero GX (USA, GFZE01) restarts itself right after it makes its save
+// file. Sent back to RiftWii instead, it never got past that screen; with
+// its restart it goes on to the title (Dolphin). Its demo on the Mario
+// Kart: Double Dash!! Bonus Disc has the same ID.
 bool gc_restart_known_to_work(const std::string& id) {
-    return id == "GMSE01" || id == "GMSE04" || id == "GKDP01";
+    return id == "GMSE01" || id == "GMSE04" || id == "GKDP01" || id == "GFZE01";
 }
 
 // Super Mario Sunshine (GMS) and the mods made from it. What was seen: on

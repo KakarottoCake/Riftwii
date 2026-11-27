@@ -820,6 +820,24 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   disc starts as itself (its menu), the reason in the log. Packs are left off for such a game, and
   its own OSExec switches run as made: exec.txt cannot name a program
   inside a TGC.
+  The Zelda disc keeps both games in one TGC, with one N64 emulator, and
+  its menu tells the emulator which ROM to run and how (`zle_f.n64 -V1
+  -P1 -C1`: the ROM, rumble, progressive scan, the memory card) through
+  an argument list; without it the emulator runs its default ROM, Master
+  Quest. The menu fills the list only after it has read the TGC's header,
+  then hands it to its start routine with the TGC's DVDFileInfo, and that
+  routine loads the program past the blob's hooks. So the loader finds
+  that routine (`find_gc_tgc_menu_start` in `src/disc/gctgc.cpp`: the
+  run that ends the list with its last option and a 0, then the call that
+  takes the list's address) and hooks it (`gc_on_tgc_start`); the hook
+  writes the list as `gc_arg=` lines beside `gc_tgc=`, and the TGC's
+  reads start nothing on such a disc. The next start puts the arguments
+  in the TGC's BI2, where the game's start-up code reads them
+  (`gc_pack_exec_args`). The list is written whole or not at all (at
+  most eight arguments that all fit exec.txt's sector), and the hook
+  turns the read rule back on as it runs, so a start it can't carry out
+  is still caught the old way. The Collector's Edition menu has no such routine
+  and keeps the read rule: each of its games is a TGC of its own.
 
 Only for an image on the SD card, with a way back. If IOS refuses to
 leave, exec.txt goes back to `--idle--` and the start runs as the game

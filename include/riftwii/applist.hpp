@@ -25,6 +25,15 @@
 namespace riftwii {
 
 constexpr const char* kAppListUrl = "https://riftwii.github.io/apps/apps.json";
+// The Riivolution mods from GameBanana (docs/MODS.md, tools/mod_list.py):
+// the same schema, each entry with "kind":"mod". A game's Mods page opens
+// the store on this list, showing that game's mods.
+// Straight from riftwii.com, where riftwii.github.io redirects.
+constexpr const char* kModListUrl = "https://riftwii.com/mods/mods.json";
+// A mod's category key; only mods may have it.
+constexpr const char* kModCategory = "mods";
+// The game IDs a mod's XML names ("RMG", "SMNE"), at most this many.
+constexpr std::size_t kModMaxGames = 4;
 constexpr const char* kAppSiteUrl = "https://riftwii.github.io/";
 
 constexpr std::size_t kAppListMaxBytes = 2u << 20;
@@ -67,6 +76,12 @@ struct AppInstallRule {
     char to[64];
 };
 
+// The list's entry for RiftWii itself. Its id is otherwise reserved (an
+// app's folder may never be RiftWii's own, apps/riftwii); this one entry is
+// read so the store can show RiftWii, and is never installed or removed by
+// it: its page asks RiftWii's own updater instead (AppState::ThisRiftWii).
+constexpr const char* kRiftWiiAppId = "riftwii";
+
 struct AppListing {
     char id[48];            // the app's folder: sd:/apps/<id> (app_id_ok)
     char name[64];          // for the menu: printable, no control characters
@@ -92,7 +107,24 @@ struct AppListing {
     std::uint8_t platforms;       // kAppOn* bits
     std::uint8_t controllers;     // kApp* controller bits, 0: not known
     AppFormat format;
+    bool riftwii;  // the entry for RiftWii itself (kRiftWiiAppId)
+    // A Riivolution mod ("kind":"mod"). Its download unpacks from `root`
+    // (the folder in the archive that holds riivolution/, "" for the top)
+    // into sd:/riivolution and its own folders (data_folders) at the card's
+    // root; `program` is its XML ("riivolution/Newer.xml"), whose being on
+    // the card makes it installed. `game` is the game's name for the menu,
+    // `games` the game IDs its XML names.
+    bool mod;
+    std::uint8_t game_count;
+    char root[128];
+    char game[64];
+    char program[96];
+    char games[kModMaxGames][8];
 };
+
+// Whether the mod `app` is for the game `game_id` ("RMGE01"): one of the
+// IDs its XML names starts it.
+bool app_mod_for_game(const AppListing& app, const char* game_id);
 
 // Whether `id` may be an app's id, and so its folder under sd:/apps: one
 // plain name (no '/', '\', leading dot or space, control character, "." or
