@@ -786,6 +786,7 @@ static void gc_stream_fetch(struct gc_rt_context* ctx);
  * which the queuing code stores at 0x80020428 only after queuing the load
  * at 0x800203ec, and jumped to whatever the heap had there. */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length);
+static void gc_tgc_leave(struct gc_rt_context* ctx, uint32_t tgc, uint32_t args);
 static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset,
                               uint32_t cb, int disk_id) {
     gc_command_seen(ctx, disk_id);
@@ -2320,6 +2321,61 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     gc_irq_restore(msr);
 }
 
+/* The argument list a bonus disc's menu hands the game it starts
+ * (gc_on_tgc_start; gctgc.hpp says what it is), as gc_arg= lines:
+ * the Zelda Ocarina of Time / Master Quest disc's N64 emulator takes the
+ * ROM to run and the menu's options from it, and without them runs its
+ * default ROM, Master Quest, whichever game was picked. The list is the
+ * menu's, so it is checked first, and written whole or not at all (a cut
+ * argument, "-C" for "-C1", would start the game wrong without a word):
+ * at most GC_TGC_ARGS entries before its 0, each pointing into MEM1 at a
+ * string of at most GC_EXEC_ARG_BYTES of printable ASCII (exec.txt
+ * would turn any other byte into '?'), and all of them fitting the
+ * sector after `at`. A list that breaks any of that gives no arguments,
+ * and the game starts as it did before RiftWii carried them: patched,
+ * with its default; a "gc_tgc_args=dropped" line in their place has
+ * RiftWii's next start say so in its log. */
+#define GC_MEM1_START 0x80000000u
+#define GC_MEM1_END 0x81800000u
+static uint32_t gc_tgc_args_dropped(uint8_t* buf, uint32_t at) {
+    at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc_args=dropped" */
+    at = gc_exec_bytes(buf, at, 0x67635F61u, 4);
+    at = gc_exec_bytes(buf, at, 0x7267733Du, 4);
+    at = gc_exec_bytes(buf, at, 0x64726F70u, 4);
+    at = gc_exec_bytes(buf, at, 0x70656400u, 3);
+    return gc_exec_end_line(buf, at);
+}
+static uint32_t gc_tgc_menu_args(uint8_t* buf, uint32_t at, uint32_t list) {
+    const volatile uint32_t* const entries = (const volatile uint32_t*)(uintptr_t)list;
+    uint32_t lengths[GC_TGC_ARGS];
+    uint32_t count, i;
+    if (list == 0) return at;
+    for (count = 0; count < GC_TGC_ARGS && entries[count] != 0; ++count) {
+        const uint32_t text = entries[count];
+        uint32_t length = 0;
+        if (text < GC_MEM1_START || text >= GC_MEM1_END - GC_EXEC_ARG_BYTES) return gc_tgc_args_dropped(buf, at);
+        while (length <= GC_EXEC_ARG_BYTES) {
+            const uint8_t byte = ((const volatile uint8_t*)(uintptr_t)text)[length];
+            if (byte == 0) break;
+            /* exec.txt would carry it as '?': a different ROM name or
+             * option, so the list is left out whole and said so. */
+            if (byte < 0x20u || byte > 0x7Eu) return gc_tgc_args_dropped(buf, at);
+            ++length;
+        }
+        lengths[count] = length;
+    }
+    /* No 0 within GC_TGC_ARGS: longer than RiftWii carries. */
+    if (count == GC_TGC_ARGS && entries[count] != 0) return gc_tgc_args_dropped(buf, at);
+    /* Each short enough, and all of them in the sector (gc_tgc.h). */
+    if (!gc_tgc_args_fit(lengths, count, GC_EXEC_ARG_BYTES, at, GC_SECTOR)) return gc_tgc_args_dropped(buf, at);
+    for (i = 0; i < count; ++i) {
+        at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
+        at = gc_exec_bytes(buf, at, 0x72673D00u, 3);
+        at = gc_exec_end_line(buf, gc_exec_text(buf, at, (const char*)(uintptr_t)entries[i]));
+    }
+    return at;
+}
+
 /* A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
  * the Wind Waker demo disc) does not switch programs through
  * __OSBootDolSimple: each game it offers is a whole disc packed in a TGC
@@ -2334,18 +2390,64 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * HOME does, before the read is served. RiftWii's next start launches the
  * image again with that TGC's game. Returns when that could not be done;
  * the watch then ends, the read is served, and the menu's own start runs
- * as it would have. */
+ * as it would have. A menu whose start routine is hooked starts its games
+ * from there instead (gc_on_tgc_start). */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length) {
-    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
-    uint32_t tgc = 0, at, i, msr;
-    int found = 0, read;
+    const struct gc_rt_cold* const cold = gc_cold(ctx);
+    uint32_t tgc = 0, i;
+    int found = 0;
+    /* A menu whose start routine is hooked starts its games from there,
+     * with their arguments (gc_on_tgc_start): the Zelda disc's reads the
+     * TGC's header before it fills the list. */
+    if (cold->tgc_start_hooked) return;
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX && !found; ++i) {
         /* The TGC's header or its program (gc_tgc.h). */
-        found = gc_tgc_read_starts_game(ctx->tgc_offset[i], ctx->tgc_dol_start[i], ctx->tgc_dol_end[i], offset, length);
-        if (found) tgc = ctx->tgc_offset[i];
+        found = gc_tgc_read_starts_game(cold->tgc_offset[i], cold->tgc_dol_start[i], cold->tgc_dol_end[i], offset, length);
+        if (found) tgc = cold->tgc_offset[i];
     }
     if (!found) return;
-    /* An SD request under way (this read broke into it): the read's first
+    gc_tgc_leave(ctx, tgc, 0);
+}
+
+/* A bonus disc menu's start routine (gctgc.hpp's find_gc_tgc_menu_start;
+ * the Zelda Ocarina of Time / Master Quest disc's), called with the chosen
+ * TGC's DVDFileInfo and the argument list for its game once Play is
+ * pressed. It loads the program with a disc driver of its own, so this is
+ * the start: the game goes back through RiftWii as gc_on_tgc_read has it,
+ * with the arguments. The file's start on the disc (DVDFileInfo's
+ * startAddr, at 0x30) must be one of the TGCs the loader found. Returns
+ * when that could not be done, and the menu's own start runs. */
+#define GC_DVD_FILE_START 0x30u
+void gc_on_tgc_start(struct gc_rt_context* ctx, uint32_t file, uint32_t args) {
+    uint32_t start, i;
+    /* Whatever happens here, the TGC reads count again afterwards: if the
+     * game could not leave from this hook, the read rule (gc_on_tgc_read)
+     * is what still catches the start, as it did before the hook. */
+    gc_cold(ctx)->tgc_start_hooked = 0;
+    /* As a program switch does (gc_on_boot_dol): IOS done with the
+     * blob's requests first, or the menu's own start runs. */
+    if (!gc_io_drain(ctx, 0)) return;
+    if (file < GC_MEM1_START || file > GC_MEM1_END - GC_DVD_FILE_START - 4u || (file & 3u) != 0) return;
+    /* A list outside MEM1 is not taken; the game still starts, without it. */
+    if (args != 0 && (args < GC_MEM1_START || args > GC_MEM1_END - 4u * (GC_TGC_ARGS + 1u) || (args & 3u) != 0))
+        args = 0;
+    start = ((const volatile uint32_t*)(uintptr_t)file)[GC_DVD_FILE_START / 4u];
+    for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX; ++i) {
+        if (gc_cold(ctx)->tgc_offset[i] == start) {
+            gc_tgc_leave(ctx, start, args);
+            return;
+        }
+    }
+}
+
+/* Writes exec.txt as the launch of the game in the TGC at `tgc` with the
+ * menu's arguments from `args` (0: none), and leaves for RiftWii. Returns
+ * when that could not be done; the watch then ends. */
+static void gc_tgc_leave(struct gc_rt_context* ctx, uint32_t tgc, uint32_t args) {
+    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
+    uint32_t at, msr;
+    int read;
+    /* An SD request under way (a read broke into it): the read's first
      * piece (gc_read_step) asks again once the card is free. */
     if (ctx->storage_busy) return;
     if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
@@ -2367,7 +2469,8 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     }
     at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc=" */
     at = gc_exec_bytes(buf, at, 0x67633D00u, 3);
-    (void)gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
+    at = gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
+    (void)gc_tgc_menu_args(buf, at, args);
     if (gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf) < 0) {
         ctx->tgc_count = 0;
         ctx->storage_busy = 0;
