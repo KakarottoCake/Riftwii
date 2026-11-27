@@ -30,6 +30,10 @@ struct FlowRow {
     bool dim = false;      // greyed and fixed (broken pack, notes, unavailable)
     bool heading = false;  // larger label (a pack)
     bool indent = false;   // under a heading (a pack's options)
+    // An Action with no value that opens another screen, a choice or the
+    // keyboard: a ">" at its end, as a tile that opens a page has. One
+    // that acts at once (Hide from Home) has none, so the two look different.
+    bool opens = false;
     // A picture at the row's start (a memory card save's icon): room is kept
     // for it when `icon_column` is set, and `icon` (32x32 GX RGB5A3 tiles,
     // 32-byte aligned, kept by the caller while the list shows it) is drawn
@@ -52,6 +56,10 @@ public:
     // ending in ">". What is only read (an Info row: a note, or a fact
     // with a value) is plain text, never lit.
     void SetCards(bool on) { cards = on; }
+    // Two lists side by side (the Miis page): only the active one answers
+    // the D-pad and A, and shows its lit row without the pointer. The
+    // pointer works on both. On by default.
+    void SetKeysActive(bool on) { keysActive = on; }
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
@@ -110,6 +118,7 @@ private:
     int textFirst = -1;
     bool dirty = true;
     bool cards = false;
+    bool keysActive = true;
     int rowH = kRowHeight;
     int CardLeft(const FlowRow& r) const;
     int CardRight() const;

@@ -2406,7 +2406,7 @@ msgstr "Installer des fichiers WAD"
 msgid "{1} found"
 msgstr "{1} trouvés"
 
-msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."
 msgstr "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas."
 
 msgid "No .wad files in the wad folder of the SD card."
@@ -2913,8 +2913,8 @@ msgstr "Obtenir d'autres thèmes"
 msgid "Browse"
 msgstr "Parcourir"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "Des thèmes créés par la communauté, depuis riftwii.github.io, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes."
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "Des thèmes créés par la communauté, depuis riftwii.com, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes."
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "Le thème utilisé a été supprimé, le menu revient donc à l'aspect par défaut. Il redémarre quand vous quittez les Réglages."
@@ -4143,23 +4143,23 @@ msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
-msgid "The Rift Store: get homebrew apps"
-msgstr "Rift Store : des applis homebrew"
+msgid "Get more themes works again"
+msgstr "Obtenir d'autres thèmes refonctionne"
 
-msgid "Search and Layout on Home's bar"
-msgstr "Recherche et Disposition sur la barre"
+msgid "A only presses what the pointer is on"
+msgstr "A n'appuie que sur ce que vise le pointeur"
 
-msgid "Big libraries use less memory"
-msgstr "Les grandes bibliothèques utilisent moins de mémoire"
+msgid "Themes can draw the back of the box"
+msgstr "Les thèmes peuvent dessiner le dos de la boîte"
 
-msgid "USA games play on a Japanese Wii"
-msgstr "Les jeux US marchent sur une Wii japonaise"
+msgid "The menu no longer freezes with big themes"
+msgstr "Le menu ne se fige plus avec les gros thèmes"
 
-msgid "The pointer works after a Remote wakes up"
-msgstr "Le pointeur marche quand la télécommande se réveille"
+msgid "Emulated NAND games go back to RiftWii"
+msgstr "Les jeux en NAND émulée reviennent à RiftWii"
 
-msgid "Pick a mod tile's GameTDB entry"
-msgstr "Choisissez la fiche GameTDB d'une tuile de mods"
+msgid "The GameCube pointer hides when unplugged"
+msgstr "Le pointeur GameCube disparaît une fois débranché"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"
@@ -4299,6 +4299,12 @@ msgstr "Aucune appli d'ici n'est encore sur la carte SD."
 msgid "On the SD card"
 msgstr "Sur la carte SD"
 
+msgid "You have RiftWii {1}."
+msgstr "Vous avez RiftWii {1}."
+
+msgid "Check for updates"
+msgstr "Chercher des mises à jour"
+
 msgid "Get it on a PC"
 msgstr "À obtenir sur un PC"
 
@@ -4415,6 +4421,36 @@ msgstr "{1} fichiers sur {2}"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "Une autre appli est en cours d'installation. Réessayez quand elle sera terminée."
+
+msgid "Get more mods..."
+msgstr "Obtenir d'autres mods..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "Des mods Riivolution pour ce jeu depuis GameBanana : choisissez-en un et il est mis sur la carte SD."
+
+msgid "Mods for {1}"
+msgstr "Mods pour {1}"
+
+msgid "Getting the list of mods..."
+msgstr "Récupération de la liste des mods..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "Impossible de récupérer la liste des mods : {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBanana n'a pas encore de mod Riivolution pour ce jeu."
+
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "Ce mod est déjà sur la carte SD, sans être venu d'ici. La version {1} remplace son XML et les fichiers de ses dossiers."
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "Installé. Il est dans la page Mods de ce jeu."
+
+msgid "Game"
+msgstr "Jeu"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "Des mods Riivolution pour vos jeux, depuis GameBanana."
 
 msgid "Games made by the homebrew community."
 msgstr "Des jeux faits par la communauté homebrew."
@@ -4815,6 +4851,9 @@ msgstr "RiftWii ne peut pas enregistrer de nouveaux fichiers, donc les réglages
 msgid "Manage emulated NAND"
 msgstr "Gérer la NAND émulée"
 
+msgid "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "Installer des fichiers WAD, ou voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii."
+
 msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
 msgstr "Voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii."
 
@@ -4853,12 +4892,6 @@ msgstr "La carte mémoire du port {1} ne répond pas. Retirez-la, remettez-la et
 
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "Ce titre est déjà dans {1}. Supprimez-le d'abord là-bas pour le copier à nouveau."
-
-msgid "Miis from Wii"
-msgstr "Mii depuis la Wii"
-
-msgid "Miis to Wii"
-msgstr "Mii vers la Wii"
 
 msgid "Remove Wii settings"
 msgstr "Retirer les paramètres Wii"
@@ -5042,3 +5075,120 @@ msgstr "Autres titres"
 
 msgid "Emulated + Wii"
 msgstr "Émulée + Wii"
+
+msgid "Get a save"
+msgstr "Obtenir une sauvegarde"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "Télécharger une sauvegarde pour ce jeu. Une copie de l'actuelle est conservée avant."
+
+msgid "Installing the save..."
+msgstr "Installation de la sauvegarde..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "Impossible de télécharger la liste des sauvegardes. Vérifiez la connexion et réessayez."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "Aucune sauvegarde n'est encore proposée pour cette version du jeu."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "Cette sauvegarde doit d'abord être extraite sur PC. Source : {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "Choisissez une carte mémoire RiftWii sur SD dans Options avant d'installer un téléchargement."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "Les téléchargements vont uniquement dans la NAND émulée, jamais sur la Wii. Choisissez d'abord un emplacement sur SD ou NAND émulée."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "Installer {1} dans {2} ? Une copie de toute sauvegarde remplacée est conservée avant."
+
+msgid "The save could not be installed: {1}"
+msgstr "Impossible d'installer la sauvegarde : {1}"
+
+msgid "The save is installed."
+msgstr "La sauvegarde est installée."
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "La sauvegarde est installée. La précédente est conservée à côté sous le nom {1}."
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque USB. Choisissez d'abord un emplacement de sauvegarde sur la carte SD."
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "La sauvegarde est installée. La carte mémoire a d'abord été copiée ({1})."
+
+msgid "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first."
+msgstr "{1} est copié dans la NAND émulée, où il remplace son ancienne copie s'il y en a une. Une copie des Mii de la NAND émulée est gardée avant."
+
+msgid "Copy all"
+msgstr "Tout copier"
+
+msgid "(no name)"
+msgstr "(sans nom)"
+
+msgid "A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."
+msgstr "Un Mii de la NAND émulée. Appuyez sur A pour le copier sur la Wii ou le retirer."
+
+msgid "A Mii on the Wii. Press A to copy it to the emulated NAND."
+msgstr "Un Mii de la Wii. Appuyez sur A pour le copier dans la NAND émulée."
+
+msgid "Copy to the Wii"
+msgstr "Copier sur la Wii"
+
+msgid "Copy to the emulated NAND"
+msgstr "Copier dans la NAND émulée"
+
+msgid "In the emulated NAND"
+msgstr "Dans la NAND émulée"
+
+msgid "Miis"
+msgstr "Mii"
+
+msgid "No Miis"
+msgstr "Aucun Mii"
+
+msgid "Other side"
+msgstr "Autre côté"
+
+msgid "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."
+msgstr "Met ce Mii dans la mémoire de la Wii, ou met à jour sa copie. Vos autres Mii restent."
+
+msgid "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."
+msgstr "Met ce Mii dans la NAND émulée, ou met à jour sa copie. Les Mii de la Wii ne changent pas."
+
+msgid "Reading Miis..."
+msgstr "Lecture des Mii..."
+
+msgid "Remove from the emulated NAND"
+msgstr "Retirer de la NAND émulée"
+
+msgid "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."
+msgstr "Remplace tous les Mii de la Wii par ceux de la NAND émulée. Une copie est gardée avant."
+
+msgid "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first."
+msgstr "Remplace tous les Mii de la NAND émulée par ceux de la Wii. Une copie est gardée avant."
+
+msgid "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."
+msgstr "Retire ce Mii de la NAND émulée. Les Mii de la Wii ne changent pas."
+
+msgid "The Mii could not be changed. See session.log for the reason."
+msgstr "Le Mii n'a pas pu être modifié. Voir session.log pour la raison."
+
+msgid "The Miis could not be read. See session.log for the reason."
+msgstr "Les Mii n'ont pas pu être lus. Voir session.log pour la raison."
+
+msgid "The Wii has no Miis."
+msgstr "La Wii n'a aucun Mii."
+
+msgid "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."
+msgstr "Les Mii de la Wii et ceux de cette NAND émulée côte à côte : copiez-en un ou tous, dans un sens ou dans l'autre."
+
+msgid "The emulated NAND has no Miis yet."
+msgstr "La NAND émulée n'a pas encore de Mii."
+
+msgid "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes."
+msgstr "Ceci écrit {1} dans la mémoire de la Wii. Une copie des Mii de la Wii est d'abord gardée dans le dossier de la NAND émulée. Laissez la Wii allumée jusqu'à la fin."
+
+msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
+msgstr "{1} est retiré de la NAND émulée. Une copie de ses Mii est gardée avant."

@@ -133,6 +133,21 @@ void StagingFailed(const std::string& error) {
     std::exit(0);
 }
 
+// The system starts the title, as the Wii Menu does; this returns only to
+// the Wii Menu. Music kept for the launch is faded out and the audio shut
+// down first: left playing, the DSP repeated its last buffer for a second
+// or so while the system started the channel (a tester's Everybody Votes
+// Channel, which RiftWii's loader hands to the system).
+void HandToSystem(u64 title) {
+    riftwii::wii::LaunchMusicEnd("the system starts the game");
+    riftwii::wii::LogClose();
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    riftwii::wii::StopDiscLight();
+    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+}
+
 // Dragon Quest X (a WFS title, wfsdrive.hpp): its boot program on the Wii
 // opens the game on the WFS USB drive through IOS59's WFS drivers, which no
 // other IOS has, and IOS59 starts nothing ES_Identify sets up, so only the
@@ -155,13 +170,7 @@ void StartWfsTitle(u64 title) {
     // Its boot program, when the Wii Menu moved it to the SD card, goes
     // back to the Wii first, as for any channel the system starts.
     if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
-    riftwii::wii::LaunchMusicEnd("the system starts the game");
-    riftwii::wii::LogClose();
-    fatUnmount("sd:");
-    fatUnmount("usb:");
-    riftwii::wii::StopDiscLight();
-    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
-    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+    HandToSystem(title);
 }
 
 // A WiiWare or Virtual Console game, on the launch screen (boot.log open):
@@ -184,13 +193,7 @@ void StartChannel(u64 title) {
     if (riftwii::wii::ChannelToStartDirect()) {
         riftwii::wii::logf("Wii channels: the system starts it as the Wii Menu does, with none of RiftWii's loader\n");
         if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
-        riftwii::wii::LaunchMusicEnd("the system starts the game");
-        riftwii::wii::LogClose();
-        fatUnmount("sd:");
-        fatUnmount("usb:");
-        riftwii::wii::StopDiscLight();
-        if (WII_Initialize() >= 0) WII_LaunchTitle(title);
-        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+        HandToSystem(title);
         return;
     }
     riftwii::wii::ProgressStage("Getting the game ready", 30);
@@ -256,12 +259,7 @@ void StartChannel(u64 title) {
                        "does, without RiftWii's extras (screenshots, the crash recorder, the GameCube adapter, the "
                        "Wii Remote log, cheats, Return to RiftWii)\n",
                        error.c_str());
-    riftwii::wii::LogClose();
-    fatUnmount("sd:");
-    fatUnmount("usb:");
-    riftwii::wii::StopDiscLight();
-    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
-    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+    HandToSystem(title);
 }
 
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
@@ -552,6 +550,9 @@ int main() {
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::startup::Mark(Step::Crash);
     riftwii::wii::CrashInstall();
+    // Looked up now, on the console's own NAND, and remembered: a launch's
+    // d2x NAND emulation hides it later (channel.cpp, ChannelTitle).
+    riftwii::wii::ChannelTitle();
     bool sd_mounted = MountStartupSd();
     AdoptCtgprReturnPath(sd_mounted);
     riftwii::wii::startup::Mark(Step::TestLimits);

@@ -60,6 +60,12 @@ Three pieces:
 | `icon_in_zip` | Optional: the entry to show as the app's icon; by default, whatever installs as `apps/<id>/icon.png`. |
 | `pin` | The approved file: its `sha256` (and, for GitHub, the release `tag`). Written by `app_list.py update`; changing it is what approves a new version. |
 
+An app's icon can also be a file beside its manifest, `<id>.png`: a
+Homebrew Channel icon (a PNG of 128 x 48, at most 64 KB). It wins over the
+download's, so it serves an app whose download has none RiftWii can take
+(a 7z, rar or tar file, or a zip without one) and one whose own icon needs
+replacing. Without either, the store shows the app's category picture.
+
 ### Categories
 
 | Key | Shown as |
@@ -121,6 +127,12 @@ The list comes from the internet, so RiftWii reads it as untrusted
 - No app may take RiftWii's own folders (`apps/riftwii`, the channel
   installer's) as its id, and a path part may not end in a dot or space
   (FAT drops them) or be malformed UTF-8.
+- One entry may have the id `riftwii`, spelled exactly so: RiftWii
+  itself. The store lists it as installed (or with an update when the list
+  names a newer version than the one running) and never installs or
+  removes it: its page's button closes the store and runs RiftWii's own
+  update check, the one in Settings > Online, which also brings the
+  channel up to date. Older RiftWii versions leave the entry out.
 
 The SHA-256s live in the list, so they are only as good as the list: it
 must always be fetched over verified TLS (`kAppListUrl` is `https://`, and

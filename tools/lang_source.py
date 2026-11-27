@@ -2134,7 +2134,7 @@ T = {
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
     "{1} found": ("{1} encontrados", "{1}個", "{1} encontrados", "{1} trovati"),
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
     "No .wad files in the wad folder of the SD card.": ("No hay archivos .wad en la carpeta wad de la tarjeta SD.", "SDカードのwadフォルダに.wadファイルがありません。", "Não há arquivos .wad na pasta wad do cartão SD.", "Nessun file .wad nella cartella wad della scheda SD."),
     "Install {1} WAD file(s) into {2}? The Wii itself is not changed.": ("¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia.", "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。", "Instalar {1} arquivo(s) WAD em {2}? O próprio Wii não muda.", "Installare {1} file WAD in {2}? La Wii stessa non cambia."),
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
@@ -4061,7 +4061,7 @@ KO = {
         "WAD 파일 설치",
     "{1} found":
         "{1}개",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다.",
     "No .wad files in the wad folder of the SD card.":
         "SD 카드의 wad 폴더에 .wad 파일이 없습니다.",
@@ -5933,7 +5933,7 @@ FR = {
         "Installer des fichiers WAD",
     "{1} found":
         "{1} trouvés",
-    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed.":
         "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas.",
     "No .wad files in the wad folder of the SD card.":
         "Aucun fichier .wad dans le dossier wad de la carte SD.",
@@ -6325,9 +6325,9 @@ T['Browse'] = ('Explorar', '見る', 'Ver', 'Sfoglia')
 KO['Browse'] = '둘러보기'
 FR['Browse'] = 'Parcourir'
 
-T['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = ('Temas hechos por la comunidad, de riftwii.github.io, cada uno con una vista previa. Se guardan en sd:/riftwii/themes.', 'みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。', 'Temas feitos pela comunidade, de riftwii.github.io, cada um com uma prévia. Eles ficam em sd:/riftwii/themes.', "Temi creati dalla comunità, da riftwii.github.io, ognuno con un'anteprima. Vengono messi in sd:/riftwii/themes.")
-KO['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = '커뮤니티가 만든 테마를 riftwii.github.io에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다.'
-FR['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = 'Des thèmes créés par la communauté, depuis riftwii.github.io, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes.'
+T['Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes.'] = ('Temas hechos por la comunidad, de riftwii.com, cada uno con una vista previa. Se guardan en sd:/riftwii/themes.', 'みんなが作ったテーマをriftwii.comから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。', 'Temas feitos pela comunidade, de riftwii.com, cada um com uma prévia. Eles ficam em sd:/riftwii/themes.', "Temi creati dalla comunità, da riftwii.com, ognuno con un'anteprima. Vengono messi in sd:/riftwii/themes.")
+KO['Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes.'] = '커뮤니티가 만든 테마를 riftwii.com에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다.'
+FR['Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes.'] = 'Des thèmes créés par la communauté, depuis riftwii.com, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes.'
 
 T['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = ('Se borró el tema en uso, así que el menú vuelve al aspecto predeterminado. Se reinicia al salir de Ajustes.', '使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。', 'O tema em uso foi apagado, então o menu volta ao visual padrão. Ele reinicia quando você sair das Configurações.', "Il tema in uso è stato eliminato, quindi il menu torna all'aspetto predefinito. Si riavvia quando esci dalle Impostazioni.")
 KO['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = '사용 중인 테마를 삭제해서 메뉴가 기본 모양으로 돌아갑니다. 설정을 나가면 다시 시작합니다.'
@@ -8706,24 +8706,24 @@ MORE["ko"]["Game's box: the game's box while it starts; press any button to see 
 MORE["fr"]["Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."] = "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
 
 # What's new in the release after 2611-179.
-T['The Rift Store: get homebrew apps'] = ('Rift Store: consigue apps homebrew', 'Rift Store：homebrewアプリを入手', 'Rift Store: baixe apps homebrew', 'Rift Store: scarica app homebrew')
-MORE["ko"]['The Rift Store: get homebrew apps'] = 'Rift Store: 홈브루 앱 받기'
-MORE["fr"]['The Rift Store: get homebrew apps'] = 'Rift Store : des applis homebrew'
-T["Search and Layout on Home's bar"] = ('Buscar y Diseño en la barra de Inicio', '検索とレイアウトはホームのバーに', 'Buscar e Layout na barra do início', 'Cerca e Layout nella barra della Home')
-MORE["ko"]["Search and Layout on Home's bar"] = '검색과 레이아웃이 홈 바에'
-MORE["fr"]["Search and Layout on Home's bar"] = 'Recherche et Disposition sur la barre'
-T['Big libraries use less memory'] = ('Las bibliotecas grandes usan menos memoria', 'ゲームが多くてもメモリが足りる', 'Bibliotecas grandes usam menos memória', 'Le librerie grandi usano meno memoria')
-MORE["ko"]['Big libraries use less memory'] = '게임이 많아도 메모리를 덜 사용'
-MORE["fr"]['Big libraries use less memory'] = 'Les grandes bibliothèques utilisent moins de mémoire'
-T['USA games play on a Japanese Wii'] = ('Los juegos de EE. UU. funcionan en una Wii japonesa', '北米版のゲームが日本のWiiで遊べる', 'Jogos dos EUA rodam num Wii japonês', 'I giochi USA funzionano su una Wii giapponese')
-MORE["ko"]['USA games play on a Japanese Wii'] = '미국판 게임이 일본 Wii에서 실행됨'
-MORE["fr"]['USA games play on a Japanese Wii'] = 'Les jeux US marchent sur une Wii japonaise'
-T['The pointer works after a Remote wakes up'] = ('El puntero funciona al despertar el mando', 'リモコンが復帰してもポインターが動く', 'O ponteiro funciona quando o Remote acorda', 'Il puntatore funziona quando il telecomando si riattiva')
-MORE["ko"]['The pointer works after a Remote wakes up'] = '리모컨이 다시 켜져도 포인터가 작동'
-MORE["fr"]['The pointer works after a Remote wakes up'] = 'Le pointeur marche quand la télécommande se réveille'
-T["Pick a mod tile's GameTDB entry"] = ('Elige la entrada de GameTDB de una casilla de mods', 'MODのタイルにGameTDBの項目を選べる', 'Escolha a entrada do GameTDB de um bloco de mods', 'Scegli la voce di GameTDB di un riquadro delle mod')
-MORE["ko"]["Pick a mod tile's GameTDB entry"] = 'MOD 타일의 GameTDB 항목 선택'
-MORE["fr"]["Pick a mod tile's GameTDB entry"] = "Choisissez la fiche GameTDB d'une tuile de mods"
+T['Get more themes works again'] = ('Obtener más temas vuelve a funcionar', 'テーマの追加がまた使える', 'Obter mais temas funciona de novo', 'Scarica altri temi funziona di nuovo')
+MORE["ko"]['Get more themes works again'] = '테마 받기가 다시 작동함'
+MORE["fr"]['Get more themes works again'] = 'Obtenir d\'autres thèmes refonctionne'
+T['A only presses what the pointer is on'] = ('A solo pulsa lo que señala el puntero', 'Aはポインターが指すものだけを押す', 'A só aperta o que o ponteiro aponta', 'A preme solo ciò che indica il puntatore')
+MORE["ko"]['A only presses what the pointer is on'] = 'A는 포인터가 가리키는 것만 누름'
+MORE["fr"]['A only presses what the pointer is on'] = 'A n\'appuie que sur ce que vise le pointeur'
+T['Themes can draw the back of the box'] = ('Los temas pueden dibujar el dorso de la caja', 'テーマでケースの裏も描ける', 'Temas podem desenhar o verso da caixa', 'I temi possono disegnare il retro della custodia')
+MORE["ko"]['Themes can draw the back of the box'] = '테마가 케이스 뒷면도 그릴 수 있음'
+MORE["fr"]['Themes can draw the back of the box'] = 'Les thèmes peuvent dessiner le dos de la boîte'
+T['The menu no longer freezes with big themes'] = ('El menú ya no se congela con temas grandes', '大きなテーマでもメニューが止まらない', 'O menu não trava mais com temas grandes', 'Il menu non si blocca più con i temi grandi')
+MORE["ko"]['The menu no longer freezes with big themes'] = '큰 테마에서도 메뉴가 멈추지 않음'
+MORE["fr"]['The menu no longer freezes with big themes'] = 'Le menu ne se fige plus avec les gros thèmes'
+T['Emulated NAND games go back to RiftWii'] = ('Los juegos con NAND emulada vuelven a RiftWii', 'エミュレートNANDのゲームからRiftWiiに戻れる', 'Jogos com NAND emulada voltam ao RiftWii', 'I giochi con NAND emulata tornano a RiftWii')
+MORE["ko"]['Emulated NAND games go back to RiftWii'] = '에뮬레이트 NAND 게임에서 RiftWii로 돌아옴'
+MORE["fr"]['Emulated NAND games go back to RiftWii'] = 'Les jeux en NAND émulée reviennent à RiftWii'
+T['The GameCube pointer hides when unplugged'] = ('El puntero de GameCube se oculta al desconectarlo', 'GCコントローラーを抜くとポインターが消える', 'O ponteiro do GameCube some ao desconectar', 'Il puntatore GameCube sparisce se scollegato')
+MORE["ko"]['The GameCube pointer hides when unplugged'] = '게임큐브 컨트롤러를 빼면 포인터가 사라짐'
+MORE["fr"]['The GameCube pointer hides when unplugged'] = 'Le pointeur GameCube disparaît une fois débranché'
 
 # Game management: own display names and visibility, never file renames.
 T['Manage game'] = ('Gestionar juego', 'ゲームの管理', 'Gerenciar jogo', 'Gestisci gioco')
@@ -8895,6 +8895,12 @@ MORE["fr"]['No apps from here are on the SD card yet.'] = "Aucune appli d'ici n'
 T['On the SD card'] = ('En la tarjeta SD', 'SDカードにあり', 'No cartão SD', 'Sulla scheda SD')
 MORE["ko"]['On the SD card'] = 'SD 카드에 있음'
 MORE["fr"]['On the SD card'] = 'Sur la carte SD'
+T['You have RiftWii {1}.'] = ('Tienes RiftWii {1}.', 'RiftWii {1}を使用中です。', 'Você tem o RiftWii {1}.', 'Hai RiftWii {1}.')
+MORE["ko"]['You have RiftWii {1}.'] = 'RiftWii {1} 사용 중입니다.'
+MORE["fr"]['You have RiftWii {1}.'] = 'Vous avez RiftWii {1}.'
+T['Check for updates'] = ('Buscar actualizaciones', '更新を確認', 'Procurar atualizações', 'Cerca aggiornamenti')
+MORE["ko"]['Check for updates'] = '업데이트 확인'
+MORE["fr"]['Check for updates'] = 'Chercher des mises à jour'
 T['Get it on a PC'] = ('Consíguela en un PC', 'パソコンで入手', 'Obtenha num PC', 'Scaricala da un PC')
 MORE["ko"]['Get it on a PC'] = 'PC에서 받기'
 MORE["fr"]['Get it on a PC'] = 'À obtenir sur un PC'
@@ -9016,6 +9022,36 @@ T['Another app is being installed. Try again when it is done.'] = ('Se está ins
 MORE["ko"]['Another app is being installed. Try again when it is done.'] = '다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요.'
 MORE["fr"]['Another app is being installed. Try again when it is done.'] = "Une autre appli est en cours d'installation. Réessayez quand elle sera terminée."
 
+T['Get more mods...'] = ('Obtener más mods...', 'MODをさらに入手...', 'Obter mais mods...', 'Scarica altre mod...')
+MORE["ko"]['Get more mods...'] = '모드 더 받기...'
+MORE["fr"]['Get more mods...'] = 'Obtenir d\'autres mods...'
+T['Riivolution mods for this game from GameBanana: pick one and it is put on the SD card.'] = ('Mods de Riivolution para este juego desde GameBanana: elige uno y se copia en la tarjeta SD.', 'GameBananaにあるこのゲームのRiivolution MOD。選ぶとSDカードに入ります。', 'Mods de Riivolution para este jogo do GameBanana: escolha um e ele vai para o cartão SD.', 'Mod Riivolution per questo gioco da GameBanana: scegline una e viene copiata sulla scheda SD.')
+MORE["ko"]['Riivolution mods for this game from GameBanana: pick one and it is put on the SD card.'] = 'GameBanana의 이 게임용 Riivolution 모드입니다. 고르면 SD 카드에 들어갑니다.'
+MORE["fr"]['Riivolution mods for this game from GameBanana: pick one and it is put on the SD card.'] = 'Des mods Riivolution pour ce jeu depuis GameBanana : choisissez-en un et il est mis sur la carte SD.'
+T['Mods for {1}'] = ('Mods para {1}', '{1}のMOD', 'Mods para {1}', 'Mod per {1}')
+MORE["ko"]['Mods for {1}'] = '{1} 모드'
+MORE["fr"]['Mods for {1}'] = 'Mods pour {1}'
+T['Getting the list of mods...'] = ('Obteniendo la lista de mods...', 'MODの一覧を取得中...', 'Obtendo a lista de mods...', 'Scaricamento dell\'elenco delle mod...')
+MORE["ko"]['Getting the list of mods...'] = '모드 목록을 받는 중...'
+MORE["fr"]['Getting the list of mods...'] = 'Récupération de la liste des mods...'
+T['Could not get the list of mods: {1}'] = ('No se pudo obtener la lista de mods: {1}', 'MODの一覧を取得できませんでした: {1}', 'Não foi possível obter a lista de mods: {1}', 'Impossibile scaricare l\'elenco delle mod: {1}')
+MORE["ko"]['Could not get the list of mods: {1}'] = '모드 목록을 받지 못했습니다: {1}'
+MORE["fr"]['Could not get the list of mods: {1}'] = 'Impossible de récupérer la liste des mods : {1}'
+T['GameBanana has no Riivolution mods for this game yet.'] = ('GameBanana aún no tiene mods de Riivolution para este juego.', 'GameBananaにはこのゲームのRiivolution MODがまだありません。', 'O GameBanana ainda não tem mods de Riivolution para este jogo.', 'GameBanana non ha ancora mod Riivolution per questo gioco.')
+MORE["ko"]['GameBanana has no Riivolution mods for this game yet.'] = 'GameBanana에 아직 이 게임의 Riivolution 모드가 없습니다.'
+MORE["fr"]['GameBanana has no Riivolution mods for this game yet.'] = 'GameBanana n\'a pas encore de mod Riivolution pour ce jeu.'
+T['This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders.'] = ('Este mod ya está en la tarjeta SD, no se puso desde aquí. La versión {1} sustituye su XML y los archivos de sus carpetas.', 'このMODはここから入れたものではなく、すでにSDカードにあります。バージョン{1}がXMLとフォルダ内のファイルを置き換えます。', 'Este mod já está no cartão SD, não foi colocado daqui. A versão {1} substitui o XML e os arquivos das pastas dele.', 'Questa mod è già sulla scheda SD, non messa da qui. La versione {1} sostituisce il suo XML e i file nelle sue cartelle.')
+MORE["ko"]['This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders.'] = '이 모드는 여기서 넣은 것이 아니라 이미 SD 카드에 있습니다. 버전 {1}이(가) XML과 폴더의 파일을 바꿉니다.'
+MORE["fr"]['This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders.'] = "Ce mod est déjà sur la carte SD, sans être venu d'ici. La version {1} remplace son XML et les fichiers de ses dossiers."
+T['Installed. It is on this game\'s Mods page.'] = ('Instalado. Está en la página Mods de este juego.', '入りました。このゲームのMODページにあります。', 'Instalado. Está na página Mods deste jogo.', 'Installata. È nella pagina Mod di questo gioco.')
+MORE["ko"]['Installed. It is on this game\'s Mods page.'] = '설치했습니다. 이 게임의 모드 페이지에 있습니다.'
+MORE["fr"]['Installed. It is on this game\'s Mods page.'] = 'Installé. Il est dans la page Mods de ce jeu.'
+T['Game'] = ('Juego', 'ゲーム', 'Jogo', 'Gioco')
+MORE["ko"]['Game'] = '게임'
+MORE["fr"]['Game'] = 'Jeu'
+T['Riivolution mods for your games, from GameBanana.'] = ('Mods de Riivolution para tus juegos, desde GameBanana.', 'GameBananaのRiivolution MOD。', 'Mods de Riivolution para seus jogos, do GameBanana.', 'Mod Riivolution per i tuoi giochi, da GameBanana.')
+MORE["ko"]['Riivolution mods for your games, from GameBanana.'] = 'GameBanana의 Riivolution 모드.'
+MORE["fr"]['Riivolution mods for your games, from GameBanana.'] = 'Des mods Riivolution pour vos jeux, depuis GameBanana.'
 T['Games made by the homebrew community.'] = ('Juegos creados por la comunidad homebrew.', 'ホームブリューのコミュニティが作ったゲーム。', 'Jogos feitos pela comunidade homebrew.', 'Giochi creati dalla comunità homebrew.')
 MORE["ko"]['Games made by the homebrew community.'] = '홈브루 커뮤니티가 만든 게임.'
 MORE["fr"]['Games made by the homebrew community.'] = 'Des jeux faits par la communauté homebrew.'
@@ -9860,6 +9896,11 @@ FR.update({
 # Emulated NAND manager.
 T.update({
     'Manage emulated NAND': ('Gestionar NAND emulada', '仮想NANDの管理', 'Gerenciar NAND emulada', 'Gestisci NAND emulata'),
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
+        'Instala archivos WAD, o mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
+        'WADファイルをインストールしたり、仮想NANDの中身を見て変更したりします。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
+        'Instale arquivos WAD, ou veja e mude o que há numa NAND emulada: apague canais instalados nela, copie o save de um jogo ou os Miis entre ela e o Wii, ou remova a cópia das configurações do Wii.',
+        'Installa file WAD, oppure vedi e modifica il contenuto di una NAND emulata: elimina i canali installati, copia il salvataggio di un gioco o i Mii tra essa e la Wii, oppure rimuovi la sua copia delle impostazioni della Wii.'),
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": (
         'Mira y cambia lo que hay en una NAND emulada: borra canales instalados en ella, copia la partida de un juego o los Mii entre ella y la Wii, o quita su copia de los ajustes de la Wii.',
         '仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。',
@@ -9877,8 +9918,6 @@ T.update({
     'Checking the memory card in slot {1}...': ('Comprobando la tarjeta de memoria de la ranura {1}...', 'スロット{1}のメモリーカードを確認しています...', 'Verificando o cartão de memória no slot {1}...', 'Controllo della memory card nello slot {1}...'),
     "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": ('La tarjeta de memoria de la ranura {1} no responde. Sácala, vuelve a insertarla y reinicia RiftWii, o usa por ahora la tarjeta SD de este juego.', 'スロット{1}のメモリーカードが応答しません。抜いて差し直してからRiftWiiを再起動するか、今はこのゲームのSDカードを使ってください。', 'O cartão de memória no slot {1} não respondeu. Retire-o, coloque-o de novo e reinicie o RiftWii, ou use por enquanto o cartão SD deste jogo.', "La memory card nello slot {1} non ha risposto. Toglila, reinseriscila e riavvia RiftWii, oppure per ora usa la scheda SD di questo gioco."),
     'This title is already in {1}. Delete it there first to copy it again.': ('Este título ya está en {1}. Bórralo allí primero para volver a copiarlo.', 'このタイトルはすでに{1}にあります。もう一度コピーするには、先にそちらを削除してください。', 'Este título já está em {1}. Apague-o lá primeiro para copiá-lo de novo.', 'Questo titolo è già in {1}. Eliminalo prima lì per copiarlo di nuovo.'),
-    'Miis from Wii': ('Miis desde Wii', 'WiiからMiiをコピー', 'Miis do Wii', 'Mii dalla Wii'),
-    'Miis to Wii': ('Miis a Wii', 'WiiへMiiをコピー', 'Miis para o Wii', 'Mii sulla Wii'),
     'Remove Wii settings': ('Quitar ajustes de Wii', 'Wii設定のコピーを削除', 'Remover configurações do Wii', 'Rimuovi impostazioni Wii'),
     'SYSCONF: {1}; setting.txt: {2}': ('SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}', 'SYSCONF: {1}; setting.txt: {2}'),
     'Present': ('Presente', 'あり', 'Presente', 'Presente'),
@@ -9897,6 +9936,7 @@ T.update({
 })
 KO.update({
     'Manage emulated NAND': '에뮬레이트 NAND 관리',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": 'WAD 파일을 설치하거나 에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": '에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다.',
     'Copy save from Wii': 'Wii에서 저장 데이터 복사',
     'Copy save to Wii': 'Wii로 저장 데이터 복사',
@@ -9910,8 +9950,6 @@ KO.update({
     'Checking the memory card in slot {1}...': '슬롯 {1}의 메모리 카드를 확인하는 중...',
     "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": '슬롯 {1}의 메모리 카드가 응답하지 않습니다. 뺐다가 다시 꽂고 RiftWii를 다시 시작하거나, 지금은 이 게임의 SD 카드를 사용하세요.',
     'This title is already in {1}. Delete it there first to copy it again.': '이 타이틀은 이미 {1}에 있습니다. 다시 복사하려면 먼저 그곳에서 삭제하세요.',
-    'Miis from Wii': 'Wii에서 Mii 복사',
-    'Miis to Wii': 'Wii로 Mii 복사',
     'Remove Wii settings': 'Wii 설정 사본 삭제',
     'SYSCONF: {1}; setting.txt: {2}': 'SYSCONF: {1}; setting.txt: {2}',
     'Present': '있음',
@@ -9930,6 +9968,7 @@ KO.update({
 })
 FR.update({
     'Manage emulated NAND': 'Gérer la NAND émulée',
+    "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Installer des fichiers WAD, ou voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings.": "Voir et modifier le contenu d'une NAND émulée : supprimer les chaînes qui y sont installées, copier la sauvegarde d'un jeu ou les Mii entre elle et la Wii, ou retirer sa copie des paramètres de la Wii.",
     'Copy save from Wii': 'Copier la sauvegarde depuis la Wii',
     'Copy save to Wii': 'Copier la sauvegarde vers la Wii',
@@ -9943,8 +9982,6 @@ FR.update({
     'Checking the memory card in slot {1}...': 'Vérification de la carte mémoire du port {1}...',
     "The memory card in slot {1} did not answer. Take it out, put it back in and restart RiftWii, or use this game's SD card for now.": "La carte mémoire du port {1} ne répond pas. Retirez-la, remettez-la et redémarrez RiftWii, ou utilisez pour l'instant la carte SD de ce jeu.",
     'This title is already in {1}. Delete it there first to copy it again.': "Ce titre est déjà dans {1}. Supprimez-le d'abord là-bas pour le copier à nouveau.",
-    'Miis from Wii': 'Mii depuis la Wii',
-    'Miis to Wii': 'Mii vers la Wii',
     'Remove Wii settings': 'Retirer les paramètres Wii',
     'SYSCONF: {1}; setting.txt: {2}': 'SYSCONF : {1} ; setting.txt : {2}',
     'Present': 'Présent',
@@ -10324,6 +10361,188 @@ FR.update({
     'Other titles': 'Autres titres',
     'Emulated + Wii': 'Émulée + Wii',
 })
+
+# Downloaded saves. Keep these messages short enough for the existing row
+# pages and progress popups on both television aspect ratios.
+T.update({
+    "Get a save": ("Descargar partida", "セーブをダウンロード", "Baixar um save", "Scarica un salvataggio"),
+    "Download a save for this game. The current save is backed up first.": (
+        "Descarga una partida para este juego. Primero se guarda una copia de la actual.",
+        "このゲームのセーブをダウンロードします。今のセーブは先にコピーを残します。",
+        "Baixe um save para este jogo. Uma cópia do atual é guardada antes.",
+        "Scarica un salvataggio per questo gioco. Prima viene conservata una copia di quello attuale."),
+    "Installing the save...": ("Instalando la partida...", "セーブをインストール中...", "Instalando o save...", "Installazione del salvataggio..."),
+    "The save list could not be downloaded. Check the connection and try again.": (
+        "No se pudo descargar la lista de partidas. Comprueba la conexión e inténtalo de nuevo.",
+        "セーブの一覧をダウンロードできませんでした。接続を確認して、もう一度お試しください。",
+        "Não foi possível baixar a lista de saves. Verifique a conexão e tente de novo.",
+        "Impossibile scaricare l'elenco dei salvataggi. Controlla la connessione e riprova."),
+    "There are no saves listed for this version of the game yet.": (
+        "Aún no hay partidas en la lista para esta versión del juego.",
+        "このバージョンのゲームのセーブはまだ一覧にありません。",
+        "Ainda não há saves na lista para esta versão do jogo.",
+        "Non ci sono ancora salvataggi per questa versione del gioco."),
+    "This save needs to be extracted on a PC first. Source: {1}": (
+        "Esta partida se debe extraer primero en un PC. Fuente: {1}",
+        "このセーブは先にPCで展開する必要があります。入手先: {1}",
+        "Este save precisa ser extraído em um PC primeiro. Fonte: {1}",
+        "Questo salvataggio va prima estratto su PC. Fonte: {1}"),
+    "Choose a RiftWii SD memory card in Options before installing a download.": (
+        "Elige una tarjeta de memoria de RiftWii en SD en Opciones antes de instalar una descarga.",
+        "インストールする前に、オプションでRiftWiiのSDメモリーカードを選んでください。",
+        "Escolha um cartão de memória do RiftWii no SD em Opções antes de instalar um download.",
+        "Scegli una scheda di memoria RiftWii su SD nelle Opzioni prima di installare un download."),
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": (
+        "Las descargas solo van a la NAND emulada, nunca a la Wii. Elige primero una ubicación de partidas en SD o NAND emulada.",
+        "ダウンロード先は仮想NANDのみで、Wii本体には書き込みません。先にSDか仮想NANDをセーブ先に選んでください。",
+        "Downloads vão apenas para a NAND emulada, nunca para o Wii. Primeiro escolha um local de saves no SD ou na NAND emulada.",
+        "I download vanno solo nella NAND emulata, mai sulla Wii. Scegli prima una posizione dei salvataggi su SD o NAND emulata."),
+    "Install {1} in {2}? Any save it replaces is backed up first.": (
+        "¿Instalar {1} en {2}? Primero se guarda una copia de cualquier partida que se reemplace.",
+        "{1}を{2}にインストールしますか？置き換えるセーブは先にコピーを残します。",
+        "Instalar {1} em {2}? Uma cópia de qualquer save substituído é guardada antes.",
+        "Installare {1} in {2}? Prima viene conservata una copia dei salvataggi sostituiti."),
+    "The save could not be installed: {1}": (
+        "No se pudo instalar la partida: {1}",
+        "セーブをインストールできませんでした: {1}",
+        "Não foi possível instalar o save: {1}",
+        "Impossibile installare il salvataggio: {1}"),
+    "The save is installed.": ("La partida está instalada.", "セーブをインストールしました。", "O save foi instalado.", "Il salvataggio è installato."),
+    "The save is installed. Your previous save is kept next to it as {1}.": (
+        "La partida está instalada. La anterior se conserva a su lado como {1}.",
+        "セーブをインストールしました。前のセーブは{1}として隣に残しています。",
+        "O save foi instalado. O anterior está guardado ao lado como {1}.",
+        "Il salvataggio è installato. Quello precedente è conservato accanto come {1}."),
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": (
+        "Un juego en disco no puede usar una NAND emulada en la unidad USB. Elige primero una ubicación de partidas en la tarjeta SD.",
+        "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。",
+        "Um jogo em disco não pode usar uma NAND emulada na unidade USB. Escolha primeiro um local de saves no cartão SD.",
+        "Un gioco su disco non può usare una NAND emulata sull'unità USB. Scegli prima una posizione dei salvataggi sulla scheda SD."),
+    "The save is installed. The memory card was backed up first ({1}).": (
+        "La partida está instalada. Antes se hizo una copia de la tarjeta de memoria ({1}).",
+        "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。",
+        "O save foi instalado. Antes foi feita uma cópia do cartão de memória ({1}).",
+        "Il salvataggio è installato. Prima è stata fatta una copia della memory card ({1})."),
+})
+KO.update({
+    "Get a save": "세이브 받기",
+    "Download a save for this game. The current save is backed up first.": "이 게임의 세이브를 받습니다. 현재 세이브는 먼저 백업합니다.",
+    "Checking the download...": "다운로드 확인 중...",
+    "Installing the save...": "세이브 설치 중...",
+    "The save list could not be downloaded. Check the connection and try again.": "세이브 목록을 받지 못했습니다. 연결을 확인하고 다시 시도하세요.",
+    "There are no saves listed for this version of the game yet.": "이 버전의 게임에 맞는 세이브가 아직 목록에 없습니다.",
+    "This save needs to be extracted on a PC first. Source: {1}": "이 세이브는 먼저 PC에서 압축을 풀어야 합니다. 출처: {1}",
+    "Choose a RiftWii SD memory card in Options before installing a download.": "다운로드를 설치하기 전에 옵션에서 RiftWii SD 메모리 카드를 선택하세요.",
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": "다운로드는 에뮬레이트 NAND에만 저장하며 Wii에는 쓰지 않습니다. 먼저 SD 또는 에뮬레이트 NAND 세이브 위치를 선택하세요.",
+    "Install {1} in {2}? Any save it replaces is backed up first.": "{1}을(를) {2}에 설치할까요? 교체할 세이브는 먼저 백업합니다.",
+    "The save could not be installed: {1}": "세이브를 설치하지 못했습니다: {1}",
+    "The save is installed.": "세이브가 설치되었습니다.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "세이브가 설치되었습니다. 이전 세이브는 옆에 {1}(으)로 보관됩니다.",
+    "The save is installed. The memory card was backed up first ({1}).": "세이브가 설치되었습니다. 먼저 메모리 카드를 백업했습니다 ({1}).",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요.",
+})
+FR.update({
+    "Get a save": "Obtenir une sauvegarde",
+    "Download a save for this game. The current save is backed up first.": "Télécharger une sauvegarde pour ce jeu. Une copie de l'actuelle est conservée avant.",
+    "Checking the download...": "Vérification du téléchargement...",
+    "Installing the save...": "Installation de la sauvegarde...",
+    "The save list could not be downloaded. Check the connection and try again.": "Impossible de télécharger la liste des sauvegardes. Vérifiez la connexion et réessayez.",
+    "There are no saves listed for this version of the game yet.": "Aucune sauvegarde n'est encore proposée pour cette version du jeu.",
+    "This save needs to be extracted on a PC first. Source: {1}": "Cette sauvegarde doit d'abord être extraite sur PC. Source : {1}",
+    "Choose a RiftWii SD memory card in Options before installing a download.": "Choisissez une carte mémoire RiftWii sur SD dans Options avant d'installer un téléchargement.",
+    "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first.": "Les téléchargements vont uniquement dans la NAND émulée, jamais sur la Wii. Choisissez d'abord un emplacement sur SD ou NAND émulée.",
+    "Install {1} in {2}? Any save it replaces is backed up first.": "Installer {1} dans {2} ? Une copie de toute sauvegarde remplacée est conservée avant.",
+    "The save could not be installed: {1}": "Impossible d'installer la sauvegarde : {1}",
+    "The save is installed.": "La sauvegarde est installée.",
+    "The save is installed. Your previous save is kept next to it as {1}.": "La sauvegarde est installée. La précédente est conservée à côté sous le nom {1}.",
+    "The save is installed. The memory card was backed up first ({1}).": "La sauvegarde est installée. La carte mémoire a d'abord été copiée ({1}).",
+    "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first.": "Un jeu sur disque ne peut pas utiliser une NAND émulée sur le disque USB. Choisissez d'abord un emplacement de sauvegarde sur la carte SD.",
+})
+
+
+# Manage emulated NAND > Miis: the two-sided Mii page.
+T.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": ('{1} se copia en la NAND emulada, donde sustituye su copia anterior si la hay. Antes se guarda una copia de los Miis de la NAND emulada.', '{1}を仮想NANDにコピーします。古いコピーがあれば置き換えます。先に仮想NANDのMiiのバックアップを保存します。', '{1} é copiado para a NAND emulada, onde substitui a cópia antiga dele, se houver. Uma cópia dos Miis da NAND emulada é guardada antes.', "{1} viene copiato nella NAND emulata, dove sostituisce la sua copia precedente se c'è. Prima viene salvata una copia dei Mii della NAND emulata."),
+    'Copy all': ('Copiar todos', 'すべてコピー', 'Copiar todos', 'Copia tutti'),
+    '(no name)': ('(sin nombre)', '(名前なし)', '(sem nome)', '(senza nome)'),
+    'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': ('Un Mii de la NAND emulada. Pulsa A para copiarlo a la Wii o quitarlo.', '仮想NANDのMiiです。Aボタンで、Wiiへコピーするか削除できます。', 'Um Mii da NAND emulada. Aperte A para copiá-lo para o Wii ou removê-lo.', 'Un Mii della NAND emulata. Premi A per copiarlo sulla Wii o rimuoverlo.'),
+    'A Mii on the Wii. Press A to copy it to the emulated NAND.': ('Un Mii de la Wii. Pulsa A para copiarlo a la NAND emulada.', 'Wii本体のMiiです。Aボタンで仮想NANDへコピーします。', 'Um Mii do Wii. Aperte A para copiá-lo para a NAND emulada.', 'Un Mii della Wii. Premi A per copiarlo nella NAND emulata.'),
+    'Copy to the Wii': ('Copiar a la Wii', 'Wiiへコピー', 'Copiar para o Wii', 'Copia sulla Wii'),
+    'Copy to the emulated NAND': ('Copiar a la NAND emulada', '仮想NANDへコピー', 'Copiar para a NAND emulada', 'Copia nella NAND emulata'),
+    'In the emulated NAND': ('En la NAND emulada', '仮想NAND', 'Na NAND emulada', 'Nella NAND emulata'),
+    'Miis': ('Miis', 'Mii', 'Miis', 'Mii'),
+    'No Miis': ('No hay Miis', 'Miiがいません', 'Nenhum Mii', 'Nessun Mii'),
+    'Other side': ('Otro lado', '反対側', 'Outro lado', 'Altro lato'),
+    "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay.": ('Pone este Mii en la memoria de la Wii, o actualiza su copia allí. Tus otros Miis se quedan.', 'このMiiをWii本体のメモリーに入れるか、そこにあるコピーを更新します。ほかのMiiはそのままです。', 'Coloca este Mii na memória do Wii, ou atualiza a cópia dele lá. Seus outros Miis ficam.', 'Mette questo Mii nella memoria della Wii, o ne aggiorna la copia lì. Gli altri Mii restano.'),
+    "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed.": ('Pone este Mii en la NAND emulada, o actualiza su copia allí. Los Miis de la Wii no cambian.', 'このMiiを仮想NANDに入れるか、そこにあるコピーを更新します。Wii本体のMiiは変わりません。', 'Coloca este Mii na NAND emulada, ou atualiza a cópia dele lá. Os Miis do Wii não mudam.', 'Mette questo Mii nella NAND emulata, o ne aggiorna la copia lì. I Mii della Wii non cambiano.'),
+    'Reading Miis...': ('Leyendo los Miis...', 'Miiを読み込んでいます...', 'Lendo os Miis...', 'Lettura dei Mii...'),
+    'Remove from the emulated NAND': ('Quitar de la NAND emulada', '仮想NANDから削除', 'Remover da NAND emulada', 'Rimuovi dalla NAND emulata'),
+    "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first.": ('Sustituye todos los Miis de la Wii por los de la NAND emulada. Antes se guarda una copia.', 'Wii本体のMiiをすべて仮想NANDのMiiに置き換えます。先にバックアップを保存します。', 'Substitui todos os Miis do Wii pelos da NAND emulada. Uma cópia é guardada antes.', 'Sostituisce tutti i Mii della Wii con quelli della NAND emulata. Prima viene salvata una copia.'),
+    "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first.": ('Sustituye todos los Miis de la NAND emulada por los de la Wii. Antes se guarda una copia.', '仮想NANDのMiiをすべてWii本体のMiiに置き換えます。先にバックアップを保存します。', 'Substitui todos os Miis da NAND emulada pelos do Wii. Uma cópia é guardada antes.', 'Sostituisce tutti i Mii della NAND emulata con quelli della Wii. Prima viene salvata una copia.'),
+    "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed.": ('Quita este Mii de la NAND emulada. Los Miis de la Wii no cambian.', 'このMiiを仮想NANDから削除します。Wii本体のMiiは変わりません。', 'Remove este Mii da NAND emulada. Os Miis do Wii não mudam.', 'Rimuove questo Mii dalla NAND emulata. I Mii della Wii non cambiano.'),
+    'The Mii could not be changed. See session.log for the reason.': ('No se pudo cambiar el Mii. Consulta session.log para ver el motivo.', 'Miiを変更できませんでした。理由はsession.logを確認してください。', 'Não foi possível alterar o Mii. Veja o motivo em session.log.', 'Impossibile modificare il Mii. Vedi session.log per il motivo.'),
+    'The Miis could not be read. See session.log for the reason.': ('No se pudieron leer los Miis. Consulta session.log para ver el motivo.', 'Miiを読み込めませんでした。理由はsession.logを確認してください。', 'Não foi possível ler os Miis. Veja o motivo em session.log.', 'Impossibile leggere i Mii. Vedi session.log per il motivo.'),
+    'The Wii has no Miis.': ('La Wii no tiene Miis.', 'Wii本体にMiiがいません。', 'O Wii não tem Miis.', 'La Wii non ha Mii.'),
+    "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way.": ('Los Miis de la Wii y los de esta NAND emulada uno al lado del otro: copia uno o todos en cualquier sentido.', 'Wii本体とこの仮想NANDのMiiを並べて表示します。1人ずつでも全員でも、どちらの向きにもコピーできます。', 'Os Miis do Wii e os desta NAND emulada lado a lado: copie um ou todos em qualquer direção.', 'I Mii della Wii e quelli di questa NAND emulata affiancati: copiane uno o tutti in entrambe le direzioni.'),
+    'The emulated NAND has no Miis yet.': ('La NAND emulada aún no tiene Miis.', '仮想NANDにはまだMiiがいません。', 'A NAND emulada ainda não tem Miis.', 'La NAND emulata non ha ancora Mii.'),
+    "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.": ('Esto escribe {1} en la memoria de la Wii. Antes se guarda una copia de los Miis de la Wii en la carpeta de la NAND emulada. No apagues la Wii hasta terminar.', '{1}をWii本体のメモリーに書き込みます。先にWii本体のMiiのバックアップを仮想NANDのフォルダに保存します。終わるまでWiiの電源を切らないでください。', 'Isto grava {1} na memória do Wii. Uma cópia dos Miis do Wii é guardada antes na pasta da NAND emulada. Mantenha o Wii ligado até terminar.', 'Questo scrive {1} nella memoria della Wii. Prima viene salvata una copia dei Mii della Wii nella cartella della NAND emulata. Lascia la Wii accesa fino alla fine.'),
+    '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': ('{1} se quita de la NAND emulada. Antes se guarda una copia de sus Miis.', '{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。', '{1} é removido da NAND emulada. Uma cópia dos Miis dela é guardada antes.', '{1} viene rimosso dalla NAND emulata. Prima viene salvata una copia dei suoi Mii.'),
+})
+KO.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": '{1}을(를) 에뮬레이트 NAND에 복사합니다. 이전 사본이 있으면 바꿉니다. 먼저 에뮬레이트 NAND의 Mii 백업을 보관합니다.',
+    'Copy all': '모두 복사',
+    '(no name)': '(이름 없음)',
+    'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': '에뮬레이트 NAND의 Mii입니다. A 버튼으로 Wii에 복사하거나 삭제합니다.',
+    'A Mii on the Wii. Press A to copy it to the emulated NAND.': 'Wii 본체의 Mii입니다. A 버튼으로 에뮬레이트 NAND에 복사합니다.',
+    'Copy to the Wii': 'Wii로 복사',
+    'Copy to the emulated NAND': '에뮬레이트 NAND로 복사',
+    'In the emulated NAND': '에뮬레이트 NAND',
+    'Miis': 'Mii',
+    'No Miis': 'Mii 없음',
+    'Other side': '반대쪽',
+    "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay.": '이 Mii를 Wii 본체 메모리에 넣거나 그곳의 사본을 업데이트합니다. 다른 Mii는 그대로입니다.',
+    "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed.": '이 Mii를 에뮬레이트 NAND에 넣거나 그곳의 사본을 업데이트합니다. Wii 본체의 Mii는 바뀌지 않습니다.',
+    'Reading Miis...': 'Mii를 읽는 중...',
+    'Remove from the emulated NAND': '에뮬레이트 NAND에서 삭제',
+    "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first.": 'Wii 본체의 Mii를 모두 에뮬레이트 NAND의 Mii로 바꿉니다. 먼저 백업을 보관합니다.',
+    "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first.": '에뮬레이트 NAND의 Mii를 모두 Wii 본체의 Mii로 바꿉니다. 먼저 백업을 보관합니다.',
+    "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed.": '이 Mii를 에뮬레이트 NAND에서 삭제합니다. Wii 본체의 Mii는 바뀌지 않습니다.',
+    'The Mii could not be changed. See session.log for the reason.': 'Mii를 바꾸지 못했습니다. 이유는 session.log를 확인하세요.',
+    'The Miis could not be read. See session.log for the reason.': 'Mii를 읽지 못했습니다. 이유는 session.log를 확인하세요.',
+    'The Wii has no Miis.': 'Wii 본체에 Mii가 없습니다.',
+    "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way.": 'Wii 본체와 이 에뮬레이트 NAND의 Mii를 나란히 보여 줍니다. 하나씩 또는 전부를 어느 쪽으로든 복사할 수 있습니다.',
+    'The emulated NAND has no Miis yet.': '에뮬레이트 NAND에 아직 Mii가 없습니다.',
+    "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.": '{1}을(를) Wii 본체 메모리에 씁니다. 먼저 Wii의 Mii 백업을 에뮬레이트 NAND 폴더에 보관합니다. 끝날 때까지 Wii를 끄지 마세요.',
+    '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': '{1}을(를) 에뮬레이트 NAND에서 삭제합니다. 먼저 Mii 백업을 보관합니다.',
+})
+FR.update({
+    "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first.": "{1} est copié dans la NAND émulée, où il remplace son ancienne copie s'il y en a une. Une copie des Mii de la NAND émulée est gardée avant.",
+    'Copy all': 'Tout copier',
+    '(no name)': '(sans nom)',
+    'A Mii in the emulated NAND. Press A to copy it to the Wii or remove it.': 'Un Mii de la NAND émulée. Appuyez sur A pour le copier sur la Wii ou le retirer.',
+    'A Mii on the Wii. Press A to copy it to the emulated NAND.': 'Un Mii de la Wii. Appuyez sur A pour le copier dans la NAND émulée.',
+    'Copy to the Wii': 'Copier sur la Wii',
+    'Copy to the emulated NAND': 'Copier dans la NAND émulée',
+    'In the emulated NAND': 'Dans la NAND émulée',
+    'Miis': 'Mii',
+    'No Miis': 'Aucun Mii',
+    'Other side': 'Autre côté',
+    "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay.": 'Met ce Mii dans la mémoire de la Wii, ou met à jour sa copie. Vos autres Mii restent.',
+    "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed.": 'Met ce Mii dans la NAND émulée, ou met à jour sa copie. Les Mii de la Wii ne changent pas.',
+    'Reading Miis...': 'Lecture des Mii...',
+    'Remove from the emulated NAND': 'Retirer de la NAND émulée',
+    "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first.": 'Remplace tous les Mii de la Wii par ceux de la NAND émulée. Une copie est gardée avant.',
+    "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first.": 'Remplace tous les Mii de la NAND émulée par ceux de la Wii. Une copie est gardée avant.',
+    "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed.": 'Retire ce Mii de la NAND émulée. Les Mii de la Wii ne changent pas.',
+    'The Mii could not be changed. See session.log for the reason.': "Le Mii n'a pas pu être modifié. Voir session.log pour la raison.",
+    'The Miis could not be read. See session.log for the reason.': "Les Mii n'ont pas pu être lus. Voir session.log pour la raison.",
+    'The Wii has no Miis.': "La Wii n'a aucun Mii.",
+    "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way.": "Les Mii de la Wii et ceux de cette NAND émulée côte à côte : copiez-en un ou tous, dans un sens ou dans l'autre.",
+    'The emulated NAND has no Miis yet.': "La NAND émulée n'a pas encore de Mii.",
+    "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes.": "Ceci écrit {1} dans la mémoire de la Wii. Une copie des Mii de la Wii est d'abord gardée dans le dossier de la NAND émulée. Laissez la Wii allumée jusqu'à la fin.",
+    '{1} is taken out of the emulated NAND. A backup of its Miis is kept first.': '{1} est retiré de la NAND émulée. Une copie de ses Mii est gardée avant.',
+})
+
 
 if __name__ == "__main__":
     main()

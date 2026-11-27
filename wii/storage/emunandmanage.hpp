@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -32,6 +33,25 @@ bool emunand_manager_list(const std::string& folder, std::vector<EmuNandTitle>& 
 // CardWriteHold alive. All policy checks are repeated here, not just in UI.
 bool emunand_manager_action(const std::string& folder, EmuNandAction action,
                             std::uint64_t title, std::string& error);
+
+// The Miis page (Manage emulated NAND > a folder > Miis): the Wii's Mii
+// database and the emulated NAND's, read whole (riftwii/miidb.hpp lists
+// them). `emulated` is left empty when the folder has none yet. False, with
+// `error` (English, for session.log), when the Wii's can't be read or either
+// one is damaged.
+bool emunand_manager_read_miis(const std::string& folder, std::vector<std::uint8_t>& wii,
+                               std::vector<std::uint8_t>& emulated, std::string& error);
+
+enum class MiiChange { CopyToEmulated, CopyToWii, RemoveFromEmulated };
+// One Mii (by its slot in its own side's database) copied to the other
+// side, where it takes a free place or replaces its own older copy, or
+// taken out of the emulated NAND. Both files are read again first; the one
+// that changes is backed up in the emulated NAND folder before it is
+// written. A folder with no Mii database yet gets one made from the Wii's,
+// emptied of its Miis. Taking a Mii out of the Wii is not offered: game
+// saves on the Wii find Miis by their ID. Same preconditions as
+// emunand_manager_action.
+bool emunand_manager_change_mii(const std::string& folder, MiiChange change, std::size_t slot, std::string& error);
 
 // Moving a title between the drives, for a player whose emulated NAND is on
 // the USB drive: RiftWii plays channels and WADs only from one on the SD

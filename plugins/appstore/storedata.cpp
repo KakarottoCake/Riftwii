@@ -185,6 +185,9 @@ AppFileOnCard OnCard(const std::string& card_path, const AppRecordFile* recorded
 std::string AppTop(const AppListing& app, const std::string& card_path) {
     const std::string own = std::string("apps/") + app.id;
     if (card_path.compare(0, own.size() + 1, own + "/") == 0) return own;
+    // A mod's XMLs are in riivolution/, which every pack shares: emptied
+    // folders inside it go, the folder itself stays.
+    if (app.mod && card_path.compare(0, 12, "riivolution/") == 0) return "riivolution";
     for (std::uint8_t i = 0; i < app.data_folder_count; ++i) {
         const std::string data = app.data_folders[i];
         if (card_path.compare(0, data.size() + 1, data + "/") == 0) return data;
@@ -498,9 +501,10 @@ void Store::Refresh(std::size_t index) {
     if (index >= apps.size()) return;
     const AppListing& app = *apps[index].listing;
     // Installed means its program is there: a folder left with only its
-    // settings (a removal that kept them) is not.
+    // settings (a removal that kept them) is not. A mod's is its XML.
     const std::string own = std::string("sd:/apps/") + app.id;
-    const bool program = Exists(own + "/boot.dol") || Exists(own + "/boot.elf");
+    const bool program = app.mod ? Exists(std::string("sd:/") + app.program)
+                                 : Exists(own + "/boot.dol") || Exists(own + "/boot.elf");
     // The note's start is enough here: its version and checksum come first
     // (a file line cut off at the end is left out).
     char text[512];
@@ -515,10 +519,15 @@ void Store::Refresh(std::size_t index) {
     apps[index].state = app_state(app, program, has_record ? &record : nullptr);
 }
 
+bool UpdateWaiting(const App& app) {
+    if (app.state == AppState::ThisRiftWii) return riftwii_version_order(app.listing->version, Host().version()) > 0;
+    return app.state == AppState::Update;
+}
+
 std::size_t Store::UpdateCount() const {
     std::size_t count = 0;
     for (const App& app : apps) {
-        if (app.state == AppState::Update) ++count;
+        if (UpdateWaiting(app)) ++count;
     }
     return count;
 }
@@ -536,13 +545,14 @@ bool Store::StartInstall(std::size_t index) {
 }
 
 bool Store::StartRemove(std::size_t index) {
-    if (job_ != Job::None || index >= apps.size()) return false;
+    // RiftWii's own entry: removing it would delete the running RiftWii.
+    if (job_ != Job::None || index >= apps.size() || apps[index].listing->riftwii) return false;
     Start(Job::Remove, index);
     return job_ == Job::Remove;
 }
 
 bool Store::StartRemoveData(std::size_t index) {
-    if (job_ != Job::None || index >= apps.size()) return false;
+    if (job_ != Job::None || index >= apps.size() || apps[index].listing->riftwii) return false;
     Start(Job::RemoveData, index);
     return job_ == Job::RemoveData;
 }
@@ -590,7 +600,7 @@ void Store::RunList() {
         return;
     }
     std::uint32_t length = 0;
-    if (!Host().http_get(kAppListUrl, list_buffer_.data(), static_cast<std::uint32_t>(list_buffer_.size()), &length, error,
+    if (!Host().http_get(list_url_, list_buffer_.data(), static_cast<std::uint32_t>(list_buffer_.size()), &length, error,
                          sizeof(error))) {
         job_error_ = error;
         return;

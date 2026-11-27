@@ -148,7 +148,8 @@ Two scripts on the card drive a run without hands on a controller:
   limits below (`test_limits.txt`) to hold the memory back. CI builds both.
 - `sd:/riftwii/guiscript.txt` (test builds only, like `autorun.txt`: a
   release build logs that it ignored the file) plays input into the menu and saves
-  screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
+  screenshots (`wait`, `point`, `nopoint`, `press`, `gcpress` for a GameCube
+  controller's A or B on port 1, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
   transition for frame-by-frame screenshots, and `failnext` and `crash`
   to test the way back from a failed launch and the crash screen; see

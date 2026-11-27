@@ -75,10 +75,22 @@ bool title_installed(u64 title, unsigned& version) {
 
 }  // namespace
 
+// Remembered once found. A launch asks again after d2x's NAND emulation
+// is on (the game's saves in an emulated NAND on the USB drive or the SD
+// card), and ES then looks in that NAND, where the channel is not: a
+// game on a vWii went back to the Wii Menu instead of RiftWii (a tester,
+// 2611-242, Mario Kart Wii with saves in usb1:/vwiinand). The channel is
+// installed or removed only by other programs, so the answer from the
+// console's own NAND, asked at RiftWii's start, holds for this run.
 unsigned long long ChannelTitle() {
+    static u64 found = 0;
+    if (found != 0) return found;
     unsigned version = 0;
     for (u64 title : kChannelTitles) {
-        if (title_installed(title, version)) return title;
+        if (title_installed(title, version)) {
+            found = title;
+            return title;
+        }
     }
     return 0;
 }

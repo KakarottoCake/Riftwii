@@ -135,6 +135,17 @@ int main() {
     EXPECT_TRUE(theme_folder_ok(std::string(47, 'a')));
     // Addresses stay on riftwii.github.io.
     EXPECT_TRUE(theme_url_ok("https://riftwii.github.io/themes/themes/Indigo.zip"));
+    EXPECT_TRUE(theme_url_ok("https://riftwii.com/themes/themes/Indigo.zip"));
+    EXPECT_TRUE(!theme_url_ok("https://riftwii.com.evil.example/a.zip"));
+    EXPECT_TRUE(!theme_url_ok("https://riftwii.com@evil.example/a.zip"));
+    EXPECT_TRUE(!theme_url_ok("https://riftwii.com/../a.zip"));
+    EXPECT_TRUE(!theme_url_ok("https://riftwii.com/"));
+    // The old site only redirects now, so its addresses are fetched from the new one.
+    EXPECT_EQ(theme_fetch_url("https://riftwii.github.io/themes/themes/Indigo.zip"),
+              std::string("https://riftwii.com/themes/themes/Indigo.zip"));
+    EXPECT_EQ(theme_fetch_url("https://riftwii.com/themes/previews/Cyan.png"),
+              std::string("https://riftwii.com/themes/previews/Cyan.png"));
+    EXPECT_TRUE(theme_url_ok(kThemeListUrl));
     EXPECT_TRUE(!theme_url_ok("http://riftwii.github.io/themes/a.zip"));
     EXPECT_TRUE(!theme_url_ok("https://riftwii.github.io.evil.example/a.zip"));
     EXPECT_TRUE(!theme_url_ok("https://evil.example/riftwii.github.io/a.zip"));

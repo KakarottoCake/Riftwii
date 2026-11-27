@@ -41,6 +41,7 @@ headers, generated data and assets with the code that uses them.
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | The app store's list (apps.json) | `src/net/applist.cpp`, `include/riftwii/jsonreader.hpp`, `tools/app_list.py`, `tools/app_list_check.cpp`, `tests/applist_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
+| Riivolution mods from GameBanana (a game's Mods page > Get more mods) | `tools/mod_list.py` (builds mods.json), `tests/mod_list_tests.py`, the mod fields in `src/net/applist.cpp`, the store's mods mode in `plugins/appstore/storeui.cpp`, MenuMods in `wii/menu/rift_menu.cpp`, the chain order fix in `wii/online/tls.cpp`, [MODS.md](MODS.md) |
 | The Rift Store, the app store (Settings > Online > Rift Store) | The `appstore` plugin: `plugins/appstore/` (pages, jobs), `src/net/appcatalog.cpp` (categories, state, search, the install plan), `src/fs/zipread.cpp` (`zip_read_directory_at`, `zip_extract_at`), `src/art/storeicons.cpp` (its icons, painted by the plugin; `plugins/appstore/storemath.cpp` has the float functions they need); its screen and network in the DOL: `wii/menu/pluginscreen.cpp`, `wii/core/pluginhost.cpp`, `HttpGetStream` in `wii/online/httpmem.cpp`; `tests/appcatalog_tests.cpp`, `tests/httpchunk_tests.cpp`, [APPSTORE.md](APPSTORE.md) |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
@@ -138,7 +139,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
-| `mem1tail.c`, `mem1tail.h` | Home's scan stack, linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
+| `mem1tail.c`, `mem1tail.h` | Home's scan stack (and the music thread's after it), linked after every library so it is what spans `0x81000000`, where libogc's start-up copies its DSP boot code (`docs/MEMORY.md`, "The 16 MiB line") |
 | `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 | `pluginhost.cpp` | The plugin table's network and file entries: downloads into a buffer or streamed to the card with their SHA-256, the network thread's job, removing, renaming and listing |
@@ -271,7 +272,7 @@ The build compiles every folder into one, so no two files share a name.
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
 | `sharednandfind.cpp` | The Saves choice "Emulated NAND": the folder Settings names or the other loader's settings files give; the folder its channels are in |
 | `usbnand.hpp` | An emulated NAND on the USB drive (#487): d2x's partition for it, its FAT32 partition mounted to prepare the save, libfat handed to d2x and back (in `usbcatalog.cpp`) |
-| `wadinstall.cpp` | Settings > Games > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
+| `wadinstall.cpp` | Settings > Games > Manage emulated NAND > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `disccopy.cpp`, `disccopy.hpp` | Settings > Copy a game disc: the Wii disc in the drive to a split `.wbfs` file in `wbfs/` on a FAT32 USB drive or the SD card, every partition kept; restarts the menu under d2x first when needed |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
@@ -435,6 +436,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `miidb` | The Wii's Mii database (`RFL_DB.dat`): its check, its Miis by name and ID, one Mii copied in or taken out (Manage emulated NAND > Miis) |
 | `homelist` | `homelist.txt`: the games Home found the last time it read the drives, shown at the next start until each drive is read again |
 | `foldernames` | A folder's file names kept as hashes, to answer "is this file there?" for many files from one listing |
 | `padcal` | `gccalibration.txt`: each GameCube controller's calibration (Settings > Controllers), and the stretch a game applies, worked out ahead (`runtime/rtpadcal.h`) |
@@ -564,6 +566,7 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `app_list.py`, `app_list_check.cpp` | The app store's list: pins each app's release, checks its download and writes apps.json; reads it back as the Wii does |
+| `mod_list.py` | The Riivolution mods list: finds GameBanana mods that really are Riivolution packs and writes mods.json and their icons (docs/MODS.md) |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
 | `dolphin/` | Dolphin test harness: `run.sh`, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see `docs/HARNESS.md`) |
 | `attribution_audit.py`, `ci_rules.py` | Code-attribution comparison and the project rules checked by CI |

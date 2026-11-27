@@ -2406,7 +2406,7 @@ msgstr "WAD 파일 설치"
 msgid "{1} found"
 msgstr "{1}개"
 
-msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."
 msgstr "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다."
 
 msgid "No .wad files in the wad folder of the SD card."
@@ -2913,8 +2913,8 @@ msgstr "테마 더 받기"
 msgid "Browse"
 msgstr "둘러보기"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "커뮤니티가 만든 테마를 riftwii.github.io에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다."
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "커뮤니티가 만든 테마를 riftwii.com에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다."
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "사용 중인 테마를 삭제해서 메뉴가 기본 모양으로 돌아갑니다. 설정을 나가면 다시 시작합니다."
@@ -4143,23 +4143,23 @@ msgstr "아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "게임 패키지: 게임이 시작되는 동안 게임 패키지를 보여 줍니다. 아무 버튼이나 누르면 RiftWii가 하는 일을 볼 수 있습니다. 로그: 모든 단계를 한 줄씩 보여 줍니다. 실행에 실패하면 항상 로그가 나타납니다."
 
-msgid "The Rift Store: get homebrew apps"
-msgstr "Rift Store: 홈브루 앱 받기"
+msgid "Get more themes works again"
+msgstr "테마 받기가 다시 작동함"
 
-msgid "Search and Layout on Home's bar"
-msgstr "검색과 레이아웃이 홈 바에"
+msgid "A only presses what the pointer is on"
+msgstr "A는 포인터가 가리키는 것만 누름"
 
-msgid "Big libraries use less memory"
-msgstr "게임이 많아도 메모리를 덜 사용"
+msgid "Themes can draw the back of the box"
+msgstr "테마가 케이스 뒷면도 그릴 수 있음"
 
-msgid "USA games play on a Japanese Wii"
-msgstr "미국판 게임이 일본 Wii에서 실행됨"
+msgid "The menu no longer freezes with big themes"
+msgstr "큰 테마에서도 메뉴가 멈추지 않음"
 
-msgid "The pointer works after a Remote wakes up"
-msgstr "리모컨이 다시 켜져도 포인터가 작동"
+msgid "Emulated NAND games go back to RiftWii"
+msgstr "에뮬레이트 NAND 게임에서 RiftWii로 돌아옴"
 
-msgid "Pick a mod tile's GameTDB entry"
-msgstr "MOD 타일의 GameTDB 항목 선택"
+msgid "The GameCube pointer hides when unplugged"
+msgstr "게임큐브 컨트롤러를 빼면 포인터가 사라짐"
 
 msgid "Manage game"
 msgstr "게임 관리"
@@ -4299,6 +4299,12 @@ msgstr "아직 여기서 받은 앱이 SD 카드에 없습니다."
 msgid "On the SD card"
 msgstr "SD 카드에 있음"
 
+msgid "You have RiftWii {1}."
+msgstr "RiftWii {1} 사용 중입니다."
+
+msgid "Check for updates"
+msgstr "업데이트 확인"
+
 msgid "Get it on a PC"
 msgstr "PC에서 받기"
 
@@ -4415,6 +4421,36 @@ msgstr "파일 {1} / {2}"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "다른 앱을 설치하는 중입니다. 끝난 뒤 다시 시도하세요."
+
+msgid "Get more mods..."
+msgstr "모드 더 받기..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "GameBanana의 이 게임용 Riivolution 모드입니다. 고르면 SD 카드에 들어갑니다."
+
+msgid "Mods for {1}"
+msgstr "{1} 모드"
+
+msgid "Getting the list of mods..."
+msgstr "모드 목록을 받는 중..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "모드 목록을 받지 못했습니다: {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBanana에 아직 이 게임의 Riivolution 모드가 없습니다."
+
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "이 모드는 여기서 넣은 것이 아니라 이미 SD 카드에 있습니다. 버전 {1}이(가) XML과 폴더의 파일을 바꿉니다."
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "설치했습니다. 이 게임의 모드 페이지에 있습니다."
+
+msgid "Game"
+msgstr "게임"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "GameBanana의 Riivolution 모드."
 
 msgid "Games made by the homebrew community."
 msgstr "홈브루 커뮤니티가 만든 게임."
@@ -4815,6 +4851,9 @@ msgstr "RiftWii가 새 파일을 저장할 수 없어 설정, 게임 선택, 커
 msgid "Manage emulated NAND"
 msgstr "에뮬레이트 NAND 관리"
 
+msgid "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "WAD 파일을 설치하거나 에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다."
+
 msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
 msgstr "에뮬레이트 NAND의 내용을 보고 바꿉니다. 설치한 채널을 삭제하거나, 게임 세이브 데이터나 Mii를 Wii와 서로 복사하거나, Wii 설정 사본을 지울 수 있습니다."
 
@@ -4853,12 +4892,6 @@ msgstr "슬롯 {1}의 메모리 카드가 응답하지 않습니다. 뺐다가 �
 
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "이 타이틀은 이미 {1}에 있습니다. 다시 복사하려면 먼저 그곳에서 삭제하세요."
-
-msgid "Miis from Wii"
-msgstr "Wii에서 Mii 복사"
-
-msgid "Miis to Wii"
-msgstr "Wii로 Mii 복사"
 
 msgid "Remove Wii settings"
 msgstr "Wii 설정 사본 삭제"
@@ -5042,3 +5075,120 @@ msgstr "기타 타이틀"
 
 msgid "Emulated + Wii"
 msgstr "에뮬레이트 + Wii"
+
+msgid "Get a save"
+msgstr "세이브 받기"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "이 게임의 세이브를 받습니다. 현재 세이브는 먼저 백업합니다."
+
+msgid "Installing the save..."
+msgstr "세이브 설치 중..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "세이브 목록을 받지 못했습니다. 연결을 확인하고 다시 시도하세요."
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "이 버전의 게임에 맞는 세이브가 아직 목록에 없습니다."
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "이 세이브는 먼저 PC에서 압축을 풀어야 합니다. 출처: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "다운로드를 설치하기 전에 옵션에서 RiftWii SD 메모리 카드를 선택하세요."
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "다운로드는 에뮬레이트 NAND에만 저장하며 Wii에는 쓰지 않습니다. 먼저 SD 또는 에뮬레이트 NAND 세이브 위치를 선택하세요."
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "{1}을(를) {2}에 설치할까요? 교체할 세이브는 먼저 백업합니다."
+
+msgid "The save could not be installed: {1}"
+msgstr "세이브를 설치하지 못했습니다: {1}"
+
+msgid "The save is installed."
+msgstr "세이브가 설치되었습니다."
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "세이브가 설치되었습니다. 이전 세이브는 옆에 {1}(으)로 보관됩니다."
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "디스크 게임은 USB 드라이브의 에뮬레이트 NAND를 사용할 수 없습니다. 먼저 SD 카드의 세이브 위치를 선택하세요."
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "세이브가 설치되었습니다. 먼저 메모리 카드를 백업했습니다 ({1})."
+
+msgid "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first."
+msgstr "{1}을(를) 에뮬레이트 NAND에 복사합니다. 이전 사본이 있으면 바꿉니다. 먼저 에뮬레이트 NAND의 Mii 백업을 보관합니다."
+
+msgid "Copy all"
+msgstr "모두 복사"
+
+msgid "(no name)"
+msgstr "(이름 없음)"
+
+msgid "A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."
+msgstr "에뮬레이트 NAND의 Mii입니다. A 버튼으로 Wii에 복사하거나 삭제합니다."
+
+msgid "A Mii on the Wii. Press A to copy it to the emulated NAND."
+msgstr "Wii 본체의 Mii입니다. A 버튼으로 에뮬레이트 NAND에 복사합니다."
+
+msgid "Copy to the Wii"
+msgstr "Wii로 복사"
+
+msgid "Copy to the emulated NAND"
+msgstr "에뮬레이트 NAND로 복사"
+
+msgid "In the emulated NAND"
+msgstr "에뮬레이트 NAND"
+
+msgid "Miis"
+msgstr "Mii"
+
+msgid "No Miis"
+msgstr "Mii 없음"
+
+msgid "Other side"
+msgstr "반대쪽"
+
+msgid "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."
+msgstr "이 Mii를 Wii 본체 메모리에 넣거나 그곳의 사본을 업데이트합니다. 다른 Mii는 그대로입니다."
+
+msgid "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."
+msgstr "이 Mii를 에뮬레이트 NAND에 넣거나 그곳의 사본을 업데이트합니다. Wii 본체의 Mii는 바뀌지 않습니다."
+
+msgid "Reading Miis..."
+msgstr "Mii를 읽는 중..."
+
+msgid "Remove from the emulated NAND"
+msgstr "에뮬레이트 NAND에서 삭제"
+
+msgid "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."
+msgstr "Wii 본체의 Mii를 모두 에뮬레이트 NAND의 Mii로 바꿉니다. 먼저 백업을 보관합니다."
+
+msgid "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first."
+msgstr "에뮬레이트 NAND의 Mii를 모두 Wii 본체의 Mii로 바꿉니다. 먼저 백업을 보관합니다."
+
+msgid "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."
+msgstr "이 Mii를 에뮬레이트 NAND에서 삭제합니다. Wii 본체의 Mii는 바뀌지 않습니다."
+
+msgid "The Mii could not be changed. See session.log for the reason."
+msgstr "Mii를 바꾸지 못했습니다. 이유는 session.log를 확인하세요."
+
+msgid "The Miis could not be read. See session.log for the reason."
+msgstr "Mii를 읽지 못했습니다. 이유는 session.log를 확인하세요."
+
+msgid "The Wii has no Miis."
+msgstr "Wii 본체에 Mii가 없습니다."
+
+msgid "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."
+msgstr "Wii 본체와 이 에뮬레이트 NAND의 Mii를 나란히 보여 줍니다. 하나씩 또는 전부를 어느 쪽으로든 복사할 수 있습니다."
+
+msgid "The emulated NAND has no Miis yet."
+msgstr "에뮬레이트 NAND에 아직 Mii가 없습니다."
+
+msgid "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes."
+msgstr "{1}을(를) Wii 본체 메모리에 씁니다. 먼저 Wii의 Mii 백업을 에뮬레이트 NAND 폴더에 보관합니다. 끝날 때까지 Wii를 끄지 마세요."
+
+msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
+msgstr "{1}을(를) 에뮬레이트 NAND에서 삭제합니다. 먼저 Mii 백업을 보관합니다."

@@ -959,7 +959,7 @@ source worked. Korean-key and vWii-key WADs are not supported by this key reader
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
-and pick **Settings > Games > Install WAD files**. These copies stay on
+and pick **Settings > Games > Manage emulated NAND > Install WAD files**. These copies stay on
 Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
@@ -2255,13 +2255,22 @@ requires the title to be installed there and asks twice. Only that title's
 save folder is written; its program, ticket and system files are kept.
 These tools copy saves, so the source stays in place.
 
-**Miis from Wii** and **Miis to Wii** copy the complete Mii database,
-replacing all Miis at the destination. The old database is saved next to
-the emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`; a backup taken
-from the Wii uses `RFL_DB.dat.wii.bak0`. Later backups use the next free
-number. Writing Miis to the Wii asks twice and requires a database the
-same size as the Wii's current one. The files are copied as they are;
-RiftWii does not edit individual Miis or repair damaged databases.
+**Miis** shows the Wii's Miis on the left and the emulated NAND's on the
+right, each A to Z by name. Left and Right on the D-pad go to the other
+side. Press A on a Mii to copy it to the other side: it takes a free place
+there, or replaces its own older copy (the same Mii ID), and the other
+Miis stay. A Mii in the emulated NAND can also be removed from it. Miis
+can't be removed from the Wii here, because game saves on the Wii find
+their Miis by ID. **Copy all**, at the top of each side, replaces every
+Mii on the other side, as the old Miis from Wii and Miis to Wii did.
+
+Before a change, the database being changed is backed up next to the
+emulated copy as `shared2/menu/FaceLib/RFL_DB.dat.bak0`, or
+`RFL_DB.dat.wii.bak0` for the Wii's. Later backups use the next free
+number. Every change asks first. Copy all to the Wii asks twice; a single
+Mii copied to the Wii asks once, with Cancel lit. A damaged database (its check
+does not match) is not changed. An emulated NAND with no Miis yet gets a
+database made from the Wii's, with its Miis taken out.
 
 **Copy to <folder>** copies the whole title to another emulated NAND:
 its program, save and ticket, the shared contents it uses and its entry in

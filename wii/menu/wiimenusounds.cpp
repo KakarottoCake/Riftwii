@@ -21,6 +21,7 @@
 #include "filelist.h"
 #include "libwiigui/gui.h"
 #include "loadersettings.hpp"
+#include "mem1tail.h"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "riftwii/checkedalloc.hpp"
@@ -67,7 +68,6 @@ std::atomic<bool> g_running{false};
 std::atomic<bool> g_paused{false};
 std::atomic<bool> g_failed{false};
 std::atomic<int> g_volume{110};
-alignas(32) u8 g_music_stack[32768];
 
 bool ReadArchive(std::string& why) {
     WiiMenuContentReader reader("Wii Menu sounds");
@@ -328,7 +328,7 @@ bool WiiMenuMusicFound() {
     logf("Wii Menu music: loaded WIPL_BGM_MENU (%u decoded sample bytes, %u stream bytes, %u Hz)\n",
          static_cast<unsigned>(g_music_player.sample_bytes()), static_cast<unsigned>(kStreamBytes * 2), WiiSoundPlayer::kRate);
     logf("Wii Menu music: memory budget has %u resident archive, sample, effect and stream bytes; the producer stack is %u bytes\n",
-         static_cast<unsigned>(WiiMenuSoundBytes()), static_cast<unsigned>(sizeof g_music_stack));
+         static_cast<unsigned>(WiiMenuSoundBytes()), static_cast<unsigned>(sizeof riftwii_music_stack));
     mem::LogUsage("Wii Menu music loaded");
     return true;
 }
@@ -348,7 +348,7 @@ bool WiiMenuMusicStart() {
     const int volume = g_volume.load();
     if (ASND_SetVoice(0, VOICE_STEREO_16BIT, WiiSoundPlayer::kRate, 0, g_stream, kStreamBytes,
                       volume, volume, StreamCallback) != SND_OK ||
-        LWP_CreateThread(&g_music_thread, MusicThread, nullptr, g_music_stack, sizeof g_music_stack, 60) < 0) {
+        LWP_CreateThread(&g_music_thread, MusicThread, nullptr, riftwii_music_stack, sizeof riftwii_music_stack, 60) < 0) {
         g_running.store(false);
         ASND_StopVoice(0);
         logf("Wii Menu music: the audio thread could not start; RiftWii's own music is used\n");

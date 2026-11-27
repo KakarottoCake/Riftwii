@@ -2406,7 +2406,7 @@ msgstr "WADファイルをインストール"
 msgid "{1} found"
 msgstr "{1}個"
 
-msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND where USB Loader GX keeps its channels, and lists them on Home. The Wii itself is not changed."
 msgstr "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。"
 
 msgid "No .wad files in the wad folder of the SD card."
@@ -2913,8 +2913,8 @@ msgstr "テーマを追加"
 msgid "Browse"
 msgstr "見る"
 
-msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
-msgstr "みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
+msgid "Themes made by the community, from riftwii.com, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "みんなが作ったテーマをriftwii.comから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
 
 msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
 msgstr "使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。"
@@ -4143,23 +4143,23 @@ msgstr "ボタンを押すとRiftWiiの処理内容を表示します。"
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "ゲームのパッケージ：起動中はゲームのパッケージを表示します。ボタンを押すとRiftWiiの処理内容を表示します。ログ：すべての手順を1行ずつ表示します。起動に失敗したときは、必ずログを表示します。"
 
-msgid "The Rift Store: get homebrew apps"
-msgstr "Rift Store：homebrewアプリを入手"
+msgid "Get more themes works again"
+msgstr "テーマの追加がまた使える"
 
-msgid "Search and Layout on Home's bar"
-msgstr "検索とレイアウトはホームのバーに"
+msgid "A only presses what the pointer is on"
+msgstr "Aはポインターが指すものだけを押す"
 
-msgid "Big libraries use less memory"
-msgstr "ゲームが多くてもメモリが足りる"
+msgid "Themes can draw the back of the box"
+msgstr "テーマでケースの裏も描ける"
 
-msgid "USA games play on a Japanese Wii"
-msgstr "北米版のゲームが日本のWiiで遊べる"
+msgid "The menu no longer freezes with big themes"
+msgstr "大きなテーマでもメニューが止まらない"
 
-msgid "The pointer works after a Remote wakes up"
-msgstr "リモコンが復帰してもポインターが動く"
+msgid "Emulated NAND games go back to RiftWii"
+msgstr "エミュレートNANDのゲームからRiftWiiに戻れる"
 
-msgid "Pick a mod tile's GameTDB entry"
-msgstr "MODのタイルにGameTDBの項目を選べる"
+msgid "The GameCube pointer hides when unplugged"
+msgstr "GCコントローラーを抜くとポインターが消える"
 
 msgid "Manage game"
 msgstr "ゲームの管理"
@@ -4299,6 +4299,12 @@ msgstr "ここから入れたアプリはまだSDカードにありません。"
 msgid "On the SD card"
 msgstr "SDカードにあり"
 
+msgid "You have RiftWii {1}."
+msgstr "RiftWii {1}を使用中です。"
+
+msgid "Check for updates"
+msgstr "更新を確認"
+
 msgid "Get it on a PC"
 msgstr "パソコンで入手"
 
@@ -4415,6 +4421,36 @@ msgstr "{1} / {2}ファイル"
 
 msgid "Another app is being installed. Try again when it is done."
 msgstr "ほかのアプリをインストール中です。終わってからもう一度試してください。"
+
+msgid "Get more mods..."
+msgstr "MODをさらに入手..."
+
+msgid "Riivolution mods for this game from GameBanana: pick one and it is put on the SD card."
+msgstr "GameBananaにあるこのゲームのRiivolution MOD。選ぶとSDカードに入ります。"
+
+msgid "Mods for {1}"
+msgstr "{1}のMOD"
+
+msgid "Getting the list of mods..."
+msgstr "MODの一覧を取得中..."
+
+msgid "Could not get the list of mods: {1}"
+msgstr "MODの一覧を取得できませんでした: {1}"
+
+msgid "GameBanana has no Riivolution mods for this game yet."
+msgstr "GameBananaにはこのゲームのRiivolution MODがまだありません。"
+
+msgid "This mod is on the SD card already, not put there from here. Version {1} replaces its XML and the files in its folders."
+msgstr "このMODはここから入れたものではなく、すでにSDカードにあります。バージョン{1}がXMLとフォルダ内のファイルを置き換えます。"
+
+msgid "Installed. It is on this game's Mods page."
+msgstr "入りました。このゲームのMODページにあります。"
+
+msgid "Game"
+msgstr "ゲーム"
+
+msgid "Riivolution mods for your games, from GameBanana."
+msgstr "GameBananaのRiivolution MOD。"
 
 msgid "Games made by the homebrew community."
 msgstr "ホームブリューのコミュニティが作ったゲーム。"
@@ -4815,6 +4851,9 @@ msgstr "RiftWiiが新しいファイルを保存できないため、設定や�
 msgid "Manage emulated NAND"
 msgstr "仮想NANDの管理"
 
+msgid "Install WAD files, or see and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
+msgstr "WADファイルをインストールしたり、仮想NANDの中身を見て変更したりします。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。"
+
 msgid "See and change what is in an emulated NAND: delete channels installed in it, copy a game's save or the Miis between it and the Wii, or remove its copy of the Wii settings."
 msgstr "仮想NANDの中身を見て変更します。インストールしたチャンネルの削除、ゲームのセーブやMiiのWiiとのコピー、Wiiの設定のコピーの削除ができます。"
 
@@ -4853,12 +4892,6 @@ msgstr "スロット{1}のメモリーカードが応答しません。抜いて
 
 msgid "This title is already in {1}. Delete it there first to copy it again."
 msgstr "このタイトルはすでに{1}にあります。もう一度コピーするには、先にそちらを削除してください。"
-
-msgid "Miis from Wii"
-msgstr "WiiからMiiをコピー"
-
-msgid "Miis to Wii"
-msgstr "WiiへMiiをコピー"
 
 msgid "Remove Wii settings"
 msgstr "Wii設定のコピーを削除"
@@ -5042,3 +5075,120 @@ msgstr "その他のタイトル"
 
 msgid "Emulated + Wii"
 msgstr "仮想NANDとWii"
+
+msgid "Get a save"
+msgstr "セーブをダウンロード"
+
+msgid "Download a save for this game. The current save is backed up first."
+msgstr "このゲームのセーブをダウンロードします。今のセーブは先にコピーを残します。"
+
+msgid "Installing the save..."
+msgstr "セーブをインストール中..."
+
+msgid "The save list could not be downloaded. Check the connection and try again."
+msgstr "セーブの一覧をダウンロードできませんでした。接続を確認して、もう一度お試しください。"
+
+msgid "There are no saves listed for this version of the game yet."
+msgstr "このバージョンのゲームのセーブはまだ一覧にありません。"
+
+msgid "This save needs to be extracted on a PC first. Source: {1}"
+msgstr "このセーブは先にPCで展開する必要があります。入手先: {1}"
+
+msgid "Choose a RiftWii SD memory card in Options before installing a download."
+msgstr "インストールする前に、オプションでRiftWiiのSDメモリーカードを選んでください。"
+
+msgid "Downloads go only to emulated NAND, never to the Wii. Choose an SD or emulated NAND save location first."
+msgstr "ダウンロード先は仮想NANDのみで、Wii本体には書き込みません。先にSDか仮想NANDをセーブ先に選んでください。"
+
+msgid "Install {1} in {2}? Any save it replaces is backed up first."
+msgstr "{1}を{2}にインストールしますか？置き換えるセーブは先にコピーを残します。"
+
+msgid "The save could not be installed: {1}"
+msgstr "セーブをインストールできませんでした: {1}"
+
+msgid "The save is installed."
+msgstr "セーブをインストールしました。"
+
+msgid "The save is installed. Your previous save is kept next to it as {1}."
+msgstr "セーブをインストールしました。前のセーブは{1}として隣に残しています。"
+
+msgid "A game on a disc can't use an emulated NAND on the USB drive. Choose a save location on the SD card first."
+msgstr "ディスクのゲームはUSBドライブのエミュNANDを使えません。先にSDカードのセーブ場所を選んでください。"
+
+msgid "The save is installed. The memory card was backed up first ({1})."
+msgstr "セーブをインストールしました。先にメモリーカードをバックアップしました ({1})。"
+
+msgid "{1} is copied into the emulated NAND, where it replaces its own older copy if there is one. A backup of the emulated NAND's Miis is kept first."
+msgstr "{1}を仮想NANDにコピーします。古いコピーがあれば置き換えます。先に仮想NANDのMiiのバックアップを保存します。"
+
+msgid "Copy all"
+msgstr "すべてコピー"
+
+msgid "(no name)"
+msgstr "(名前なし)"
+
+msgid "A Mii in the emulated NAND. Press A to copy it to the Wii or remove it."
+msgstr "仮想NANDのMiiです。Aボタンで、Wiiへコピーするか削除できます。"
+
+msgid "A Mii on the Wii. Press A to copy it to the emulated NAND."
+msgstr "Wii本体のMiiです。Aボタンで仮想NANDへコピーします。"
+
+msgid "Copy to the Wii"
+msgstr "Wiiへコピー"
+
+msgid "Copy to the emulated NAND"
+msgstr "仮想NANDへコピー"
+
+msgid "In the emulated NAND"
+msgstr "仮想NAND"
+
+msgid "Miis"
+msgstr "Mii"
+
+msgid "No Miis"
+msgstr "Miiがいません"
+
+msgid "Other side"
+msgstr "反対側"
+
+msgid "Puts this Mii in the Wii's own memory, or updates its copy there. Your other Miis stay."
+msgstr "このMiiをWii本体のメモリーに入れるか、そこにあるコピーを更新します。ほかのMiiはそのままです。"
+
+msgid "Puts this Mii in the emulated NAND, or updates its copy there. The Wii's own Miis are not changed."
+msgstr "このMiiを仮想NANDに入れるか、そこにあるコピーを更新します。Wii本体のMiiは変わりません。"
+
+msgid "Reading Miis..."
+msgstr "Miiを読み込んでいます..."
+
+msgid "Remove from the emulated NAND"
+msgstr "仮想NANDから削除"
+
+msgid "Replaces all the Wii's Miis with the emulated NAND's. A backup is kept first."
+msgstr "Wii本体のMiiをすべて仮想NANDのMiiに置き換えます。先にバックアップを保存します。"
+
+msgid "Replaces all the emulated NAND's Miis with the Wii's. A backup is kept first."
+msgstr "仮想NANDのMiiをすべてWii本体のMiiに置き換えます。先にバックアップを保存します。"
+
+msgid "Takes this Mii out of the emulated NAND. The Wii's own Miis are not changed."
+msgstr "このMiiを仮想NANDから削除します。Wii本体のMiiは変わりません。"
+
+msgid "The Mii could not be changed. See session.log for the reason."
+msgstr "Miiを変更できませんでした。理由はsession.logを確認してください。"
+
+msgid "The Miis could not be read. See session.log for the reason."
+msgstr "Miiを読み込めませんでした。理由はsession.logを確認してください。"
+
+msgid "The Wii has no Miis."
+msgstr "Wii本体にMiiがいません。"
+
+msgid "The Wii's Miis and this emulated NAND's side by side: copy one or all of them either way."
+msgstr "Wii本体とこの仮想NANDのMiiを並べて表示します。1人ずつでも全員でも、どちらの向きにもコピーできます。"
+
+msgid "The emulated NAND has no Miis yet."
+msgstr "仮想NANDにはまだMiiがいません。"
+
+msgid "This writes {1} into the Wii's own memory. A backup of the Wii's Miis is kept in the emulated NAND folder first. Keep the Wii turned on until it finishes."
+msgstr "{1}をWii本体のメモリーに書き込みます。先にWii本体のMiiのバックアップを仮想NANDのフォルダに保存します。終わるまでWiiの電源を切らないでください。"
+
+msgid "{1} is taken out of the emulated NAND. A backup of its Miis is kept first."
+msgstr "{1}を仮想NANDから削除します。先にMiiのバックアップを保存します。"

@@ -18,7 +18,12 @@
  * drive scan, wii/menu/homescan.cpp) starts long after SYS_Init, so
  * whatever is left there is overwritten by the stack's own use.
  * tools/check_mem1_line.py fails the build when 0x81000000 is not well
- * inside it. */
+ * inside it.
+ *
+ * Every byte of code added before it moves the stack up, so other
+ * buffers that need nothing before main come after it here, which moves
+ * it down by as much: the Wii Menu music thread's stack (2611, when the
+ * Miis page left the line only 0x6C0 bytes into the scan stack). */
 #ifndef RIFTWII_WII_MEM1TAIL_H
 #define RIFTWII_WII_MEM1TAIL_H
 
@@ -29,12 +34,15 @@
  * Pinning the stack to the line in the linker script, so it stops
  * depending on the DOL's size, is planned separately. */
 #define RIFTWII_HOME_SCAN_STACK_BYTES (256 * 1024)
+#define RIFTWII_MUSIC_STACK_BYTES (32 * 1024)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern unsigned char riftwii_home_scan_stack[RIFTWII_HOME_SCAN_STACK_BYTES];
+/* wii/menu/wiimenusounds.cpp's music thread. */
+extern unsigned char riftwii_music_stack[RIFTWII_MUSIC_STACK_BYTES];
 
 #ifdef __cplusplus
 }

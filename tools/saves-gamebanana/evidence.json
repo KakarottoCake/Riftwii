@@ -1,0 +1,30 @@
+{
+  "gb528478-1237760": {
+    "game": "Go Vacation (Wii)",
+    "approved": true,
+    "evidence": "https://gamebanana.com/mods/528478",
+    "reviewer": "GameBanana source policy",
+    "note": "archive title path"
+  },
+  "gb49395-420255": {
+    "game": "Kirby's Return to Dream Land",
+    "approved": true,
+    "evidence": "https://gamebanana.com/mods/49395",
+    "reviewer": "GameBanana source policy",
+    "note": "unencrypted data.bin backup header"
+  },
+  "gb634610-1787656": {
+    "game": "Luigi's Mansion",
+    "approved": true,
+    "evidence": "https://gamebanana.com/mods/634610",
+    "reviewer": "GameBanana source policy",
+    "note": "GCI header"
+  },
+  "gb709787-1797413": {
+    "game": "Sonic Unleashed (Wii)",
+    "approved": true,
+    "evidence": "https://gamebanana.com/mods/709787",
+    "reviewer": "GameBanana source policy",
+    "note": "archive title path"
+  }
+}

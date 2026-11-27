@@ -3763,6 +3763,18 @@ u64 disc_d2x_return_title() {
 // True when the game's __OSLaunchMenu now starts `title`.
 bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
     if (title == 0) return false;
+    // With d2x's NAND emulation on, the patched game would look for the
+    // channel's ticket in the emulated NAND, where it is not, and fall back
+    // to a hot reset: the console restarts into the Wii Menu and d2x's
+    // return title is lost with it. Left unpatched, the game asks for the
+    // Wii Menu and d2x starts the channel instead (Dolphin's d2x build:
+    // Deca Sports 2 from the SD card with its saves in sd:/nands/01).
+    if (d2x_return_to_accepted(title) && d2x_nand_emulation_on()) {
+        logf("Return to %08x-%08x: d2x has it; the game is not patched, as it would look for the channel in the "
+             "emulated NAND and restart the console instead\n",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
+        return false;
+    }
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     const ReturnToReport report =
