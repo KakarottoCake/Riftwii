@@ -439,7 +439,7 @@ void GuiFlowList::Draw() {
         const bool buttonUnder = compact && stackedButton[i] && cards && r.button && !r.value.empty();
         const int compactPoints = r.heading ? 18 : (r.kind == FlowRow::Kind::Info && !fact) ? 14 : 16;
         if (compact) {
-            label[i]->SetPosition(textLeft, buttonUnder ? y + kCardGap + 3
+            label[i]->SetPosition(textLeft, buttonUnder ? y + kCardGap + kCompactTop
                 : valueUnder ? y + kCardGap + kCompactTop : y + (rowH - compactPoints) / 2 - 2);
             label[i]->Draw();
         } else if (notesUnder && !r.detail.empty()) {
@@ -527,14 +527,16 @@ void GuiFlowList::Draw() {
                 // A thing to do: its verb on a button of its own, the
                 // theme's primary tile, so it does not read as a setting.
                 const int tw = std::min(value[i]->GetTextWidth(), kChipW - 20);
-                const int bw = tw + 32, bh = buttonUnder ? 24 : kChipH + 2;
-                const int bx = right - bw, by = buttonUnder ? y + rowH - kCardGap - 2 - bh : cy - 1;
+                // Under a long name: at its left, on the value's line, clear of the name and the card's edge.
+                const int bw = tw + 32, bh = buttonUnder ? 22 : kChipH + 2;
+                const int bx = buttonUnder ? textLeft : right - bw;
+                const int by = buttonUnder ? y + kCardGap + kCompactTop + 20 : cy - 1;
                 const bool over = index == lit && !dragging;
                 skin::DrawNine(over ? skin::tile9PrimaryOver : skin::tile9Primary, bx - kCardShadow, by - kCardShadow,
                                bw + 2 * kCardShadow, bh + 2 * kCardShadow, skin::kTileCorner,
                                r.dim ? alpha / 2 : alpha);
                 value[i]->SetColor(r.dim ? skin::kInkDim : skin::kAccentInk);
-                value[i]->SetPosition(bx + (bw - tw) / 2, buttonUnder ? by + (bh - 15) / 2 - 2 : textY);
+                value[i]->SetPosition(bx + (bw - tw) / 2, buttonUnder ? by + (bh - 15) / 2 - 1 : textY);
                 value[i]->Draw();
             } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();

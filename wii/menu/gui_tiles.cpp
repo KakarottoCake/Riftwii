@@ -200,7 +200,7 @@ void GuiTiles::Layout(int i) {
     int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
     int size = points;
-    for (; size > 15; --size) {
+    for (; size > (s.ownSize ? 12 : 15); --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
     }
@@ -229,12 +229,12 @@ void GuiTiles::EvenTextSizes() {
     int labelMin = 0;
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
-        if (s.primary || s.label.empty()) continue;
+        if (s.primary || s.ownSize || s.label.empty()) continue;
         labelMin = labelMin == 0 ? labelSize[i] : std::min(labelMin, labelSize[i]);
     }
     if (labelMin == 0) return;
     for (int i = 0; i < Count(); ++i)
-        if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
+        if (!(*tiles)[i].primary && !(*tiles)[i].ownSize) label[i]->SetFontSize(labelMin);
 }
 
 void GuiTiles::Draw() {

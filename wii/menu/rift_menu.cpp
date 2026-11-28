@@ -20939,7 +20939,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	// (16:9) page keeps the rows as Settings had them: name and control on
 	// one line, the explanation under.
 	constexpr int kPaneGap = 18, kListTop = 88, kTilePitch = 34, kTileH = 30;
-	const int leftW = page.Width() > 600 ? 184 : 164;
+	const int leftW = page.Width() > 600 ? 188 : 168;
 	const int rowsX = twoPane ? page.left + leftW + kPaneGap : 40;
 	const int rowsW = twoPane ? page.right - rowsX : 560;
 	const bool compact = twoPane && rowsW < 470;
@@ -20973,6 +20973,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		exitTile.label = tr("Exit RiftWii");
 		exitTile.icon = skin::iconExit.data ? &skin::iconExit : &skin::iconPower;
 		exitTile.labelPoints = 18;
+		exitTile.ownSize = true;
 		sectionTiles.push_back(exitTile);
 		sectionList.SetTiles(&sectionTiles);
 		sectionList.SetSideKeys(true);
@@ -20988,9 +20989,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	NoteCard noteCard(noteX);
 	// The explanation under each row (the full width) at 16:9 and in a
 	// search: four rows of 58 end where the note starts (y 316). Narrow
-	// rows are 54 tall, four of them.
+	// rows are the same height (a button under a long name needs it).
 	GuiFlowList list(rowsX, 84, rowsW, 4);
-	list.SetRowHeight(compact ? 54 : 58);
+	list.SetRowHeight(58);
 	list.SetNotesUnder(!compact);
 	list.SetCompact(compact);
 	list.SetSideKeys(twoPane);

@@ -33,6 +33,9 @@ struct TileSpec {
     // under it, as the Wii Menu's own tiles (Settings' sections). For a
     // tile with a name and no value.
     bool stacked = false;
+    // A name that must fit whole (Settings' Exit RiftWii in a translation):
+    // it steps down to 12 points, on its own, before "..." cuts it.
+    bool ownSize = false;
 };
 
 class GuiTiles : public GuiElement {
