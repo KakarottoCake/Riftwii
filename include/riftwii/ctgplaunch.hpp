@@ -116,11 +116,20 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
 // only then: the game is Mario Kart Wii (its ID starts "RMC") and the pack's
 // only change is to start CTGP-R's channel app at exactly
 // "sd:/apps/ctgpr/boot.dol" (the path homebrew_app_stand_in returns; matched
-// without regard to letter case, as the card's file system is). This narrows
+// without regard to letter case, as the card's file system is, and in the
+// form ctgp_canonical_app_path gives). This narrows
 // the native CTGP-R launch, and the cheat/other-pack lockout that goes with it,
 // to that one case: a pack that swaps main.dol for some other /apps/*/*.dol,
 // even on an RMC-id disc, is an ordinary pack and must not get CTGP-R's Mario
 // Kart Wii hooks written into it.
+// The path given as the card resolves it, case kept: "." parts and doubled
+// slashes go and ".." takes the part before it, so "sd:/apps/ctgpr/./boot.dol"
+// and "sd://apps/ctgpr/boot.dol" both read "sd:/apps/ctgpr/boot.dol". A path
+// not on "sd:", or one that climbs above the root, comes back as it was. Both
+// checks of the channel's path (the one above and the launch's interrupted-
+// update check) compare this form, so no spelling slips past one of them.
+std::string ctgp_canonical_app_path(const std::string& app);
+
 bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app);
 
 // Whether a CTGP-R launch (its channel app or the native one) has to stop

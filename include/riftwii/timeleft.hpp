@@ -74,10 +74,14 @@ public:
     void update(double fraction, std::uint64_t ms) {
         if (fraction < 0) fraction = 0;
         if (fraction > 1) fraction = 1;
-        // The stall check below measures from the progress before this
-        // call: after a silent gap, the call that brings progress again
-        // holds the figure rather than counting the whole gap down.
-        const std::uint64_t last_progress_ms = progress_ms_;
+        // A gap with no calls at all (the bar was not drawn): whatever this
+        // call brings, the gap is not counted down from the figure, which
+        // would drop it to nothing; the rate, which includes the gap, still
+        // moves it as usual. With calls in between, the stall rule below
+        // holds the figure instead.
+        const bool silent_gap = called_ && ms >= last_call_ms_ + kStallMs;
+        called_ = true;
+        last_call_ms_ = ms;
         if (fraction > fraction_) progress_ms_ = ms;
         if (fraction < fraction_) fraction = fraction_;
         fraction_ = fraction;
@@ -107,9 +111,9 @@ public:
             shown_at_ = ms;
             return;
         }
-        const double elapsed = double(ms - shown_at_);
+        const double elapsed = silent_gap ? 0.0 : double(ms - shown_at_);
         shown_at_ = ms;
-        if (ms - last_progress_ms >= kStallMs) {
+        if (ms - progress_ms_ >= kStallMs) {
             // Nothing came in for a while (a long write): the figure holds
             // rather than counting down past the work or growing without end.
             outside_since_ = 0;
@@ -149,6 +153,8 @@ public:
 private:
     double fraction_ = 0;
     bool sampled_ = false;
+    bool called_ = false;
+    std::uint64_t last_call_ms_ = 0;
     std::uint64_t sample_ms_ = 0;
     std::uint64_t progress_ms_ = 0;
     double shown_ms_ = 0;

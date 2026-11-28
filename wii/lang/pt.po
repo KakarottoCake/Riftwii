@@ -5340,11 +5340,11 @@ msgstr "Layout e ordem"
 msgid "Home order: {1}"
 msgstr "Ordem do Início: {1}"
 
+msgid "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer."
+msgstr "Não foi possível apagar o ficheiro de atualização update.dif da pasta ctgpr do cartão SD. Apague-o num computador."
+
 msgid "the SD card could not be read; try again"
 msgstr "não foi possível ler o cartão SD; tente novamente"
 
 msgid "the update server could not be asked for the next one ({1})"
 msgstr "não foi possível perguntar ao servidor de atualizações pela seguinte ({1})"
-
-msgid "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again."
-msgstr "O seu ficheiro, update.dif na pasta ctgpr do cartão SD, não pôde ser apagado: apague-o para que o canal do CTGP-R volte a transferir a atualização."

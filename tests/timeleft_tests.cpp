@@ -279,6 +279,19 @@ int main() {
         EXPECT_TRUE(t.seconds() + 2 >= before);
         EXPECT_TRUE(t.text().wording == TimeLeftWording::AboutMinutes);
     }
+    // A steady job reported only every five seconds (no calls between): the
+    // figure is not frozen by the stall rule, it follows the job down.
+    {
+        TimeLeft t;
+        std::uint64_t at_100 = 0;
+        for (std::uint64_t s = 0; s <= 400; s += 5) {
+            t.update(double(s) / 1000.0, s * 1000);
+            if (s == 100) at_100 = t.seconds();
+        }
+        if (!(t.seconds() + 150 <= at_100)) std::cerr << "steady: " << at_100 << " s at 100 s, " << t.seconds() << " s at 400 s" << std::endl;
+        EXPECT_TRUE(at_100 >= 800 && at_100 <= 1000);
+        EXPECT_TRUE(t.seconds() + 150 <= at_100);
+    }
 
     // The wording's edges and steps.
     EXPECT_TRUE(time_left_text(0).wording == TimeLeftWording::UnderAMinute);

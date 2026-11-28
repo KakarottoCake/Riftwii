@@ -21857,13 +21857,11 @@ static bool RemoveCtgpUpdateFile(const char* path)
 static bool ShowCtgpChannelInstalls(bool native_launch_on, std::size_t done, const std::string& reached, bool form,
 	bool kept)
 {
-	const std::string kept_line = kept
-		? std::string(" ") + tr("Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again.")
-		: std::string();
+	const std::string kept_line = kept ? std::string(tr("The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer.")) : std::string();
 	if (native_launch_on) {
 		logf("CTGP-R update: CTGP-R's channel has to install the next update, but the native launch is on, so nothing starts the channel; the player chooses\n");
 		// Its own box first: the choice's text already fills one.
-		if (kept) ShowFullPopup(tr("CTGP-R update"), kept_line.substr(1));
+		if (kept) ShowFullPopup(tr("CTGP-R update"), kept_line);
 		// Back is the safe answer: A on it, B and HOME all mean Back, and
 		// Play anyway needs the pointer on it (ShowPopupSafeFirst).
 		const bool play_anyway = ShowPopupSafeFirst(tr("CTGP-R update"),
@@ -21884,7 +21882,7 @@ static bool ShowCtgpChannelInstalls(bool native_launch_on, std::size_t done, con
 			? std::string(tr("CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."))
 			: tr("CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.", {reached});
 	if (kept)
-		ShowFullPopup(tr("CTGP-R update"), text + kept_line);
+		ShowFullPopup(tr("CTGP-R update"), text + " " + kept_line);
 	else
 		ShowPopup(tr("CTGP-R update"), text, tr("OK"));
 	return true;
@@ -21909,10 +21907,13 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 		logf("CTGP-R update: the game runs from a disc, so its base files are not read here\n");
 		return true;
 	}
-	if (kind == riftwii::wii::LaunchSource::Kind::Sd) {
-		// The launch refuses CTGP-R with Mario Kart Wii on the SD card
-		// (ctgp_sd_image_blocked): no update is offered or written for a
-		// launch that won't start.
+	// The launch's own refusal (ctgp_sd_image_blocked, in RunLaunch): CTGP-R's
+	// channel app with Mario Kart Wii on the SD card. CtgprPackOn found a pack
+	// whose app passes ctgp_is_native_stand_in, so the app is the channel's,
+	// and only the game and where it lies decide. No update is offered or
+	// written for a launch that won't start.
+	if (riftwii::ctgp_sd_image_blocked(state.game_id, "sd:/apps/ctgpr/boot.dol",
+			kind == riftwii::wii::LaunchSource::Kind::Sd)) {
 		logf("CTGP-R update: the game's image is on the SD card, which CTGP-R can't start from, so no update is installed\n");
 		return true;
 	}

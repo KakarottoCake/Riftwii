@@ -6,7 +6,6 @@
 #include "d2xsd.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
-#include "riftwii/patch.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/wfstitle.hpp"
 #include "riftwii/imagevolume.hpp"
@@ -120,10 +119,7 @@ bool SetCtgpDefaults(const std::string& given_app, bool virtual_disc, std::strin
     // Compared as the card resolves it: "sd:/apps/ctgpr/./boot.dol" or a
     // doubled slash is still the channel, and must not skip the check of
     // an interrupted update below.
-    std::string app = given_app;
-    std::string resolved;
-    if (app.size() > 3 && strncasecmp(app.c_str(), "sd:", 3) == 0 && resolve_path("/", app.substr(3), resolved))
-        app = "sd:" + resolved;
+    const std::string app = ctgp_canonical_app_path(given_app);
     if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
         app.find('/', folder.size()) != std::string::npos)
         return true;

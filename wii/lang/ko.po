@@ -5340,11 +5340,11 @@ msgstr "레이아웃과 순서"
 msgid "Home order: {1}"
 msgstr "홈 정렬 순서: {1}"
 
+msgid "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer."
+msgstr "SD 카드의 ctgpr 폴더에 있는 업데이트 파일 update.dif를 삭제할 수 없었습니다. 컴퓨터에서 삭제하세요."
+
 msgid "the SD card could not be read; try again"
 msgstr "SD 카드를 읽을 수 없었습니다. 다시 시도하세요"
 
 msgid "the update server could not be asked for the next one ({1})"
 msgstr "다음 업데이트를 업데이트 서버에 요청할 수 없었습니다 ({1})"
-
-msgid "Its file, update.dif in the ctgpr folder on the SD card, could not be removed: delete it, so CTGP-R's channel downloads the update again."
-msgstr "SD 카드의 ctgpr 폴더에 있는 해당 파일 update.dif를 삭제할 수 없었습니다. CTGP-R 채널이 업데이트를 다시 다운로드하도록 직접 삭제하세요."

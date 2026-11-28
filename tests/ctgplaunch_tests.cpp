@@ -549,6 +549,16 @@ static void test_native_stand_in() {
     EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", ""));
     // a bare prefix with no region letter is not a disc ID
     EXPECT_TRUE(!ctgp_is_native_stand_in("RMC", "sd:/apps/ctgpr/boot.dol"));
+    // other spellings the card resolves to the same file are the same app
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCE01", "sd:/apps/ctgpr/./boot.dol"));
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCE01", "sd://apps//ctgpr/boot.dol"));
+    EXPECT_TRUE(ctgp_is_native_stand_in("RMCE01", "sd:/apps/other/../ctgpr/boot.dol"));
+    EXPECT_TRUE(!ctgp_is_native_stand_in("RMCE01", "sd:/apps/ctgpr/../boot.dol"));
+    EXPECT_EQ(ctgp_canonical_app_path("sd:/apps/./ctgpr//boot.dol"), std::string("sd:/apps/ctgpr/boot.dol"));
+    EXPECT_EQ(ctgp_canonical_app_path("SD:/Apps/CTGPR/boot.dol"), std::string("sd:/Apps/CTGPR/boot.dol"));
+    // above the root, or not on the card: left as given
+    EXPECT_EQ(ctgp_canonical_app_path("sd:/../boot.dol"), std::string("sd:/../boot.dol"));
+    EXPECT_EQ(ctgp_canonical_app_path("usb:/apps/ctgpr/boot.dol"), std::string("usb:/apps/ctgpr/boot.dol"));
 }
 
 // CTGP-R with Mario Kart Wii on the SD card stops: d2x and CTGP-R would both

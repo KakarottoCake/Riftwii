@@ -15,7 +15,32 @@
 
 namespace riftwii {
 
-bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app) {
+std::string ctgp_canonical_app_path(const std::string& app) {
+    if (app.size() < 3) return app;
+    const bool sd = (app[0] == 's' || app[0] == 'S') && (app[1] == 'd' || app[1] == 'D') && app[2] == ':';
+    if (!sd) return app;
+    std::vector<std::string> parts;
+    std::size_t at = 3;
+    while (at <= app.size()) {
+        std::size_t end = app.find('/', at);
+        if (end == std::string::npos) end = app.size();
+        const std::string part = app.substr(at, end - at);
+        if (part == "..") {
+            // Above the card's root: not a path the card resolves.
+            if (parts.empty()) return app;
+            parts.pop_back();
+        } else if (!part.empty() && part != ".") {
+            parts.push_back(part);
+        }
+        at = end + 1;
+    }
+    std::string out = "sd:";
+    for (const std::string& part : parts) out += "/" + part;
+    return parts.empty() ? out + "/" : out;
+}
+
+bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& given_app) {
+    const std::string app = ctgp_canonical_app_path(given_app);
     // Mario Kart Wii only: every region's disc ID starts "RMC" (RMCE, RMCP,
     // RMCJ, RMCK...). The region letter is the fourth character, so a full ID
     // is needed, not the bare prefix.
