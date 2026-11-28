@@ -378,6 +378,23 @@ The pack's memory patches keep off the copy (`boot.cpp`), as they keep off
 the restart area: a launch that fails comes back through a warm restart,
 and that restart unpacks the font again from the copy.
 
+### What stays in MEM1 under the heap
+
+The heap starts on the DOL's MEM1 copy of the code, the read-only data and
+the stash, so until the heap first writes a line, RAM there holds code
+words. A real Wii reads that RAM back whenever a dirty cache line is dropped
+without being written back, and libogc's `IOS_Read` drops every line its
+buffer touches before it reads. 2611-268 lost malloc's top-chunk header
+this way. An `ISFS_Read` whose length was not a multiple of 32 shared its
+last line with that header, and the top chunk took a code word as its size.
+malloc then handed out MEM1 past the heap's end without calling `_sbrk_r`,
+and the first heap check at start found it broken. Dolphin keeps no such
+cache, so it was clean there, with `AccurateCPUCache` too. The linker wraps
+`IOS_Read` (`wii/core/memlimits.cpp`), which reads a partial last line
+into a line of its own. Any other `DCInvalidateRange` on a heap buffer must
+cover whole lines of its own: allocate it with `memalign(32, ...)` at a
+size rounded up to 32.
+
 ### Warm restarts
 
 A warm restart re-enters crt0 without loading the DOL again. By then the
