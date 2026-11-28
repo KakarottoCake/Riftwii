@@ -1569,6 +1569,20 @@ T = {
         "オフ: このゲームではWiiリモコンのスピーカーから音が出ません。",
         "Desligado: sem som dos alto-falantes dos Wii Remotes neste jogo.",
         "Disattivato: nessun suono dagli altoparlanti dei telecomandi Wii in questo gioco."),
+    "GameCube controllers": ("Mandos de GameCube", "ゲームキューブコントローラー", "Controles de GameCube",
+        "Controller GameCube"),
+    "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.": (
+        "Cada mando de GameCube juega como un mando clásico (el puerto 1 como el mando de Wii 1, y así sucesivamente), en los juegos que lo admiten.",
+        "各ゲームキューブコントローラーがクラシックコントローラーとして動きます（ポート1はWiiリモコン1、以下同様）。対応するゲーム用です。",
+        "Cada controle de GameCube joga como um Classic Controller (a porta 1 como o Wii Remote 1 e assim por diante), nos jogos que aceitam um.",
+        "Ogni controller GameCube gioca come un controller tradizionale (la porta 1 come il telecomando Wii 1 e così via), nei giochi che lo supportano."),
+    "A code build doesn't use it.": ("Una compilación de código no lo usa.", "コードビルドでは使われません。", "Uma build de código não o usa.",
+        "Una build di codice non lo usa."),
+    "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller.": (
+        "Los mandos de GameCube solo funcionan en los juegos hechos para ellos. Las otras opciones los hacen jugar como un mando de Wii.",
+        "ゲームキューブコントローラーは対応するゲームでのみ使えます。ほかの選択肢では、Wiiのコントローラーとして動きます。",
+        "Os controles de GameCube só funcionam nos jogos feitos para eles. As outras opções fazem com que joguem como um controle de Wii.",
+        "I controller GameCube funzionano solo nei giochi pensati per loro. Le altre scelte li fanno giocare come un controller Wii."),
     "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.": (
         "Para un juego de otra región (importado): el juego ve los nombres de país de su región donde busca los de la consola.",
         "ほかの地域のゲーム（輸入版）用: 本体の国名を探す場所で、ゲームは自分の地域の国名を見ます。",
@@ -3442,6 +3456,14 @@ KO = {
         "끔: 이 게임에서는 Wii 리모컨이 절대 진동하지 않습니다.",
     "Off: no sound from the Wii Remotes' speakers in this game.":
         "끔: 이 게임에서는 Wii 리모컨 스피커에서 소리가 나지 않습니다.",
+    "GameCube controllers":
+        "게임큐브 컨트롤러",
+    "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.":
+        "각 게임큐브 컨트롤러가 클래식 컨트롤러로 작동합니다(포트 1은 Wii 리모컨 1 등). 지원하는 게임용입니다.",
+    "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller.":
+        "게임큐브 컨트롤러는 전용 게임에서만 작동합니다. 다른 선택지에서는 Wii 컨트롤러로 작동합니다.",
+    "A code build doesn't use it.":
+        "코드 빌드에서는 사용되지 않습니다.",
     "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.":
         "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지역 정보를 확인해야 할 위치에서 자사 지역의 국가명을 인식합니다.",
     "Don't show again":
@@ -5314,6 +5336,14 @@ FR = {
         "Désactivé : désactive totalement les vibrations de la Télécommande Wii sur ce jeu.",
     "Off: no sound from the Wii Remotes' speakers in this game.":
         "Désactivé : coupe le haut-parleur intégré des Télécommandes Wii pour ce jeu.",
+    "GameCube controllers":
+        "Manettes GameCube",
+    "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.":
+        "Chaque manette GameCube joue comme une manette Classic (le port 1 comme la Télécommande Wii 1, et ainsi de suite), dans les jeux qui l'acceptent.",
+    "GameCube controllers work only in games made for them. The other choices have them play as a Wii controller.":
+        "Les manettes GameCube ne fonctionnent que dans les jeux faits pour elles. Les autres choix les font jouer comme une manette Wii.",
+    "A code build doesn't use it.":
+        "Une build de code ne l'utilise pas.",
     "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.":
         "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine.",
     "Don't show again":
@@ -7327,6 +7357,7 @@ T.update({
     'Makes this game use 4:3 or widescreen.': ('Hace que este juego use 4:3 o pantalla panorámica.', 'このゲームを4:3かワイドにします。', 'Faz este jogo usar 4:3 ou tela panorâmica.', 'Fa usare a questo gioco il 4:3 o il panoramico.'),
     'Lets the Wii Remotes rumble in this game.': ('Deja vibrar los mandos de Wii en este juego.', 'このゲームでWiiリモコンを振動させます。', 'Deixa os Wii Remotes vibrarem neste jogo.', 'Fa vibrare i telecomandi Wii in questo gioco.'),
     "Sound from the Wii Remotes' speakers.": ('Sonido de los altavoces de los mandos de Wii.', 'Wiiリモコンのスピーカーの音です。', 'Som dos alto-falantes dos Wii Remotes.', 'Suono dagli altoparlanti dei telecomandi Wii.'),
+    'GameCube controllers as a Wii controller in this game.': ('Los mandos de GameCube como un mando de Wii en este juego.', 'このゲームでゲームキューブコントローラーをWiiのコントローラーとして使います。', 'Os controles de GameCube como um controle de Wii neste jogo.', 'I controller GameCube come un controller Wii in questo gioco.'),
     'Country names for a game from another region.': ('Nombres de países para un juego de otra región.', 'ほかの地域のゲームの国名です。', 'Nomes de países para um jogo de outra região.', "Nomi dei paesi per un gioco di un'altra regione."),
     'The language this game is told to use.': ('El idioma que se indica a este juego.', 'このゲームに伝える言語です。', 'O idioma informado a este jogo.', 'La lingua comunicata a questo gioco.'),
     'The system software this game runs under.': ('El software de sistema con el que funciona este juego.', 'このゲームを動かすシステムソフトです。', 'O software de sistema em que este jogo roda.', 'Il software di sistema con cui gira questo gioco.'),
@@ -7353,6 +7384,7 @@ KO.update({
     'Makes this game use 4:3 or widescreen.': '이 게임을 4:3 또는 와이드로 표시합니다.',
     'Lets the Wii Remotes rumble in this game.': '이 게임에서 Wii 리모컨 진동을 켭니다.',
     "Sound from the Wii Remotes' speakers.": 'Wii 리모컨 스피커의 소리입니다.',
+    'GameCube controllers as a Wii controller in this game.': '이 게임에서 게임큐브 컨트롤러를 Wii 컨트롤러로 씁니다.',
     'Country names for a game from another region.': '다른 지역 게임의 국가 이름입니다.',
     'The language this game is told to use.': '이 게임에 알려 주는 언어입니다.',
     'The system software this game runs under.': '이 게임이 실행되는 시스템 소프트웨어입니다.',
@@ -7379,6 +7411,7 @@ FR.update({
     'Makes this game use 4:3 or widescreen.': 'Fait passer ce jeu en 4:3 ou en écran large.',
     'Lets the Wii Remotes rumble in this game.': 'Fait vibrer les Wiimotes dans ce jeu.',
     "Sound from the Wii Remotes' speakers.": 'Le son des haut-parleurs des Wiimotes.',
+    'GameCube controllers as a Wii controller in this game.': 'Les manettes GameCube comme une manette Wii dans ce jeu.',
     'Country names for a game from another region.': "Les noms de pays pour un jeu d'une autre région.",
     'The language this game is told to use.': 'La langue indiquée à ce jeu.',
     'The system software this game runs under.': 'Le logiciel système sous lequel tourne ce jeu.',
@@ -10746,6 +10779,21 @@ FR.update({
     'Hidden titles': 'Titres masqués',
     'Other titles': 'Autres titres',
     'Emulated + Wii': 'Émulée + Wii',
+})
+T.update({
+    "In a game with no GameCube controller code, only the adapter's controllers play.": (
+        "En un juego sin código para mandos de GameCube, solo juegan los mandos del adaptador.",
+        "ゲームキューブコントローラーに対応していないゲームでは、アダプターのコントローラーだけが使えます。",
+        "Num jogo sem código para controles de GameCube, só jogam os controles do adaptador.",
+        "In un gioco senza codice per i controller GameCube, giocano solo i controller dell'adattatore."),
+})
+KO.update({
+    "In a game with no GameCube controller code, only the adapter's controllers play.":
+        "게임큐브 컨트롤러 코드가 없는 게임에서는 어댑터의 컨트롤러만 쓸 수 있습니다.",
+})
+FR.update({
+    "In a game with no GameCube controller code, only the adapter's controllers play.":
+        "Dans un jeu sans code pour les manettes GameCube, seules les manettes de l'adaptateur jouent.",
 })
 
 # Downloaded saves. Keep these messages short enough for the existing row

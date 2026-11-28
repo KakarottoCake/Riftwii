@@ -1111,15 +1111,17 @@ namespace {
 // adapter's USB handle open only when it is On.
 // Whether a launch may put the pad code in, for loading the pads plugin
 // while the card is RiftWii's (PadsPluginForLaunch): Settings > GameCube
-// adapter not Off, or USB pads configured or plugged in, which
-// settle_gc_adapter turns Off into Automatic for. The USB pads' list is
+// adapter not Off, the game's GameCube controllers setting on (it works on
+// a Wii's own ports with no adapter), or USB pads configured or plugged
+// in, which settle_gc_adapter turns Off into Automatic for. The USB pads' list is
 // read first if nothing has yet (a channel started straight from the card
 // asks before settle_gc_adapter, whose own read then returns at once). It
 // may load the plugin for a launch that ends up without it, never the
 // other way.
 bool pads_may_be_wanted() {
     HidPadsPreload();
-    return g_extras.gc_adapter != GcAdapterMode::Off || HidPadsWanted() || HidPadsConnected();
+    return g_extras.gc_adapter != GcAdapterMode::Off || g_extras.gc_as_classic || HidPadsWanted() ||
+           HidPadsConnected();
 }
 
 void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
@@ -1303,21 +1305,35 @@ const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
 // (false when it turns the adapter off; its USB handle is then let go,
 // so the game's own USB gets it), and Settings > GameCube rumble Off.
 // `patches` are the packs' <memory> patches, not applied yet: a PADRead
-// one of them writes is found too.
-bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, const std::vector<MemoryPatch>& patches,
-                     PadHook& pad) {
+// one of them writes is found too. `classic_without_usb`: the game's
+// GameCube controllers as Classic Controllers setting wants the hook even
+// with no adapter (the Wii's own ports).
+bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, bool classic_without_usb,
+                     const std::vector<MemoryPatch>& patches, PadHook& pad) {
     if (gx_protected && g_extras.gc_adapter != GcAdapterMode::Off)
         logf("GameCube adapter: off: the game checks its own code (MetaFortress)\n");
+    // With no adapter the hook still goes in for the Wii's own ports, and
+    // USB is left alone.
+    const bool usb = gc_adapter;
+    if (!gc_adapter && classic_without_usb && !gx_protected) gc_adapter = true;
     if (gc_adapter) {
         std::string why;
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, pad, why)) {
+        // The stand-in only where this launch can take it (not a code
+        // build, nor a game that clears MEM1's top: classic_without_usb), so
+        // a game with no PADRead isn't taken on for a hook it can't get
+        // (CodeRabbit on #609).
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, patches, classic_without_usb, usb,
+                                pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
             gc_adapter = false;
         }
     }
-    // A launch the pads plugin refused keeps the menu's adapter session: the
-    // failure screen comes next and needs the adapter (console, 24 Nov: with
-    // the session closed, the screen's adapter answered -4 to everything).
+    // The adapter off: the menu's adapter session is let go, except after a
+    // launch the pads plugin refused: the failure screen comes next and
+    // needs the adapter (console, 24 Nov: with the session closed, the
+    // screen's adapter answered -4 to everything). The Wii's own ports only
+    // (pad.no_usb): the launch lets it go once the pad code is fetched, so a
+    // refused copy leaves it for that screen too (CodeRabbit on #609).
     if (!gc_adapter && !pads_plugin_stopped_launch()) close_adapter_session();
     // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
     // once, for the Wii's own ports and the adapter alike (the adapter's
@@ -1432,6 +1448,10 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         const std::uint32_t resident_stage = resident != nullptr && resident->data_base != resident->stage_base
                                                  ? resident->stage_base : 0;
         out.pad.calibration = g_extras.pad_calibrated ? &g_extras.pad_calibration : nullptr;
+        // The same gate as discovery and the fetch (boot_after_unmount): a
+        // game that clears MEM1's top, or a code build, takes no stand-in
+        // (CodeRabbit, fork #22).
+        out.pad.as_classic = g_extras.gc_as_classic && !ctx.clears_mem1_top && !ctx.code_build;
         if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
                            resident != nullptr ? resident->ioctl_async_original : 0,
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
@@ -1702,7 +1722,9 @@ void prepare_restart_request(const BootOptions& options) {
         // restarts the way the console always does.
         PadResetLaunch launch;
         launch.reset_wanted = true;
-        launch.pads_on = g_extras.gc_adapter != GcAdapterMode::Off;
+        // GameCube controllers as Classic Controllers put the hook in even
+        // with no adapter (the Wii's own ports).
+        launch.pads_on = g_extras.gc_adapter != GcAdapterMode::Off || g_extras.gc_as_classic;
         launch.runtime_in = false;
         // The test that puts the pad blob in MEM2 (boot_after_unmount): a small code mod in the code
         // handler's own space leaves it in MEM1, where OSRestart can reach it.
@@ -2683,7 +2705,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The adapter's PAD search while boot.log is open; the rest of its
     // setup comes after the runtime's, when the log has ended.
     GameExtras extras;
-    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, options.memory_patches, extras.pad);
+    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, g_extras.gc_as_classic && !clears_mem1_top && !code_build,
+                                 options.memory_patches, extras.pad);
     // Its code from the pads plugin while the card is still RiftWii's.
     // Refused before the adapter's handle was taken (pads_plugin_usable): the
     // launch stops here, the adapter left for the failure screen.
@@ -2692,6 +2715,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return false;
     }
     if (gc_adapter && !fetch_pad_build(extras.pad, code_build, error)) return false;
+    if (gc_adapter && extras.pad.no_usb) close_adapter_session();  // the Wii's own ports only (prepare_gc_pads)
     if (!gc_adapter) release_pads_plugin();
 
     // The game's own Reset where no runtime takes it (#458): the adapter's
@@ -3947,6 +3971,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         g_extras.aspect = -1;
         g_extras.rumble_off = false;
         g_extras.speaker_off = false;
+        g_extras.gc_as_classic = false;
         g_extras.region_strings = false;
         g_extras.language = -1;
         g_extras.gc_rumble_off = false;
@@ -4621,7 +4646,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     extras_context.arena1_hi = channel_arena_top;
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
-    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, {}, extras.pad);
+    extras_context.gc_adapter =
+        prepare_gc_pads(dol, adapter_wanted, gx_protected, g_extras.gc_as_classic && !clears_mem1_top, {}, extras.pad);
     // Its code from the pads plugin while the card is still RiftWii's
     // (a channel is never a code build).
     // Refused before the adapter's handle was taken (pads_plugin_usable), or
@@ -4637,6 +4663,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         card_again();
         return false;
     }
+    // The Wii's own ports only: the menu's adapter session goes now that the
+    // pad code is fetched (prepare_gc_pads).
+    if (extras_context.gc_adapter && extras.pad.no_usb) close_adapter_session();
     if (!extras_context.gc_adapter) release_pads_plugin();
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;

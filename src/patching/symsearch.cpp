@@ -32,16 +32,19 @@ std::uint32_t bl_target(std::uint32_t address, std::uint32_t insn) {
     return address + static_cast<std::uint32_t>(displacement);
 }
 
+// An entry of the view with no bytes behind it holds no code to read:
+// neither helper looks into one (CodeRabbit CLI, fork #23).
 bool inside(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (const CodeRange& r : text) {
-        if (address >= r.address && address < r.address + r.size) return true;
+        if (r.bytes != nullptr && address >= r.address && address < r.address + r.size) return true;
     }
     return false;
 }
 
 std::uint32_t word_at(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (const CodeRange& r : text) {
-        if (address >= r.address && address + 4 <= r.address + r.size) return be32(r.bytes + (address - r.address));
+        if (r.bytes != nullptr && address >= r.address && address + 4 <= r.address + r.size)
+            return be32(r.bytes + (address - r.address));
     }
     return 0;
 }
@@ -594,6 +597,99 @@ bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address) {
         }
     }
     return sites >= kMinReadSites && one_memset;
+}
+
+namespace {
+
+// One of the video library's screen-dimming resets at word `i` of `r`: a
+// flag cleared by one store, and 1 returned. `li r0,0; stw r0,d(r13);
+// li r3,1; blr` (the middle two either way round), or with the flag's address made by `lis rX` before or
+// after the `li r0,0` (LEGO Star Wars III's other reset), `li r3,1` before
+// or after its store.
+// Read by address: the words may cross from one range into the next
+// touching one (a patch over part of it with the same bytes splits it in
+// code_with_patches' view; CodeRabbit on #610); a gap ends it.
+bool one_store_reset(const std::vector<CodeRange>& text, std::uint32_t at) {
+    std::uint32_t words_here[5] = {};
+    std::size_t words = 0;
+    for (; words < 5; ++words) {
+        const std::uint32_t a = at + static_cast<std::uint32_t>(words * 4);
+        bool found = false;
+        for (const CodeRange& t : text) {
+            if (t.bytes != nullptr && a >= t.address && a - t.address + 4 <= t.size && ((a - t.address) & 3u) == 0) {
+                words_here[words] = be32(t.bytes + (a - t.address));
+                found = true;
+                break;
+            }
+        }
+        if (!found) break;
+    }
+    const auto w = [&](std::size_t k) { return words_here[k]; };
+    if (words < 4) return false;
+    // The store and the return value in either order, as idle_reset_flag takes them.
+    if (w(0) == kLiR0Zero && w(3) == kBlr &&
+        ((is_stw_r0_sda(w(1)) && w(2) == kLiR3One) || (w(1) == kLiR3One && is_stw_r0_sda(w(2)))))
+        return true;
+    if (words < 5) return false;
+    const auto lis_then_store = [&](std::uint32_t lis, std::uint32_t store) {
+        const std::uint32_t rx = (lis >> 21) & 31u;
+        return (lis & 0xFC1F0000u) == 0x3C000000u && (store >> 26) == 36u && ((store >> 21) & 31u) == 0u &&
+               ((store >> 16) & 31u) == rx && rx != 0u;
+    };
+    if (w(0) == kLiR0Zero && lis_then_store(w(1), w(2)) && w(3) == kLiR3One && w(4) == kBlr) return true;
+    if (lis_then_store(w(0), w(2)) && w(1) == kLiR0Zero && w(3) == kLiR3One && w(4) == kBlr) return true;
+    // `li r3,1` before the store (CodeRabbit on #609), when the flag's
+    // address isn't in r3 (the return value would overwrite it): `li r0,0`
+    // and `lis rX` in either order, then `li r3,1`, the store and the return.
+    const bool not_r3 = ((w(0) >> 21) & 31u) != 3u && ((w(1) >> 21) & 31u) != 3u;
+    return w(2) == kLiR3One && w(4) == kBlr && not_r3 &&
+           ((w(0) == kLiR0Zero && lis_then_store(w(1), w(3))) || (w(1) == kLiR0Zero && lis_then_store(w(0), w(3))));
+}
+
+}  // namespace
+
+std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std::uint32_t wpad_probe) {
+    if (wpad_probe == 0) return 0;
+    // Every bl within kWpadReach of WPADProbe (the Wii Remote library's own
+    // code) whose target is a one-store reset: the library calls the Wii
+    // Remotes' one on each report (LEGO Star Wars III: 0x8080B700 from
+    // 0x807C1578 and 0x807C35F8, WPADProbe at 0x807C3A10; Kamen Rider:
+    // Dragon Knight: 0x8026C520 from 0x8026F988 and 0x80271864, WPADProbe
+    // at 0x80271CB0). One such target, or none.
+    constexpr std::uint32_t kWpadReach = 0x10000;
+    std::uint32_t found = 0;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            if (at + kWpadReach < wpad_probe || at > wpad_probe + kWpadReach) continue;
+            const std::uint32_t w = be32(r.bytes + i * 4);
+            if (!is_bl(w)) continue;
+            const std::uint32_t target = bl_target(at, w);
+            if (!one_store_reset(text, target)) continue;
+            if (found != 0 && found != target) return 0;  // two: not guessed
+            found = target;
+        }
+    }
+    if (found == 0) return 0;
+    // It must be the Wii Remote library's own: called from inside it (near
+    // WPADProbe) at least twice, and from nowhere else, as in every one of
+    // 32 dumped games that have it (two calls each, both there). A game
+    // helper of the same shape that the window happens to reach is called
+    // from the game's own code too (CodeRabbit on #609).
+    unsigned near = 0;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t w = be32(r.bytes + i * 4);
+            if (!is_bl(w)) continue;
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            if (bl_target(at, w) != found) continue;
+            if (at + kWpadReach < wpad_probe || at > wpad_probe + kWpadReach) return 0;
+            ++near;
+        }
+    }
+    return near >= 2 ? found : 0;
 }
 
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {

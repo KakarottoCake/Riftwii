@@ -4,7 +4,7 @@
 #define RIFTWII_PLUGIN_PADS_H
 
 /* The pads plugin's request (docs/PLUGINS.md, "The pads plugin"): the
- * in-game pad code (runtime/pad) is six builds, carried by the plugin
+ * in-game pad code (runtime/pad) is eight builds, carried by the plugin
  * instead of the DOL. At a Wii game's launch the DOL asks for the one
  * the game takes (wii/hooks/padhook.cpp picks it); the plugin copies it
  * into the DOL's buffer and is shut down before the game starts. */
@@ -17,8 +17,9 @@ extern "C" {
 
 /* The builds, in padhook.cpp's BlobKind order: the full one, adapter
  * only, other USB pads only, then the same three without the HOME Menu
- * by the controller. */
-#define RWP_PAD_BUILDS 6u
+ * by the controller, then the full and adapter-only ones with the Wii
+ * controller stand-ins (#587), for a game whose setting is on. */
+#define RWP_PAD_BUILDS 8u
 
 #define RWP_PADS_ERROR_BYTES 160u
 

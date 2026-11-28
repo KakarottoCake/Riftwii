@@ -131,6 +131,10 @@ struct GameSettings {
     std::string aspect = "global";      // Settings' (LoaderSettings::aspect), or "game", "4:3", "16:9" (gx_force_aspect)
     std::string rumble = "on";          // "off": gx_rumble_off
     std::string speaker = "on";         // "off": gx_speaker_off
+    // GameCube controllers in a Wii game (#587): "off" (the default) leaves
+    // them as they are; "classic": each one is a Classic Controller on its
+    // own Wii Remote channel (runtime/rtgcwii.h).
+    std::string gc_controllers = "off";
     std::string region_strings = "off"; // "on": the Region strings fix (gx_country_strings)
     std::string nand_source = "auto";
     // A GameCube game's disc reads: "drive" take a GameCube drive's time

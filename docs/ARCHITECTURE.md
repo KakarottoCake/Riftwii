@@ -194,8 +194,10 @@ and Settings > Leaving a game on HOME only get the pad blob built without
 the HOME Menu (`RT_PAD_NO_HOME`: none of its hooks or code, and the
 256-byte context), so they give up none of their memory to it. SIProbe's
 hook is in both builds. The six builds (adapter only, other USB pads only,
-or both, each with and without the HOME Menu) are the `pads` plugin's, and
-the DOL copies the one a game takes from it at the launch ([PLUGINS.md](PLUGINS.md#the-pads-plugin)).
+or both, each with and without the HOME Menu), and two more with the Wii
+controller stand-ins for a game whose GameCube controllers setting is on,
+are the `pads` plugin's, and the DOL copies the one a game takes from it at
+the launch ([PLUGINS.md](PLUGINS.md#the-pads-plugin)).
 The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
 Console programs (Super Mario World, A Link to the Past, Bomberman '93)
 have neither the banner nor this KPAD layout, and keep the way back.

@@ -239,6 +239,7 @@ struct LaunchExtras {
     int aspect = -1;              // -1 the game's own, 0 4:3, 1 16:9 (gx_force_aspect)
     bool rumble_off = false;      // gx_rumble_off
     bool speaker_off = false;     // gx_speaker_off
+    bool gc_as_classic = false;   // GameCube controllers as Classic Controllers (#587, runtime/rtgcwii.h)
     bool region_strings = false;  // the Region strings fix (gx_country_strings)
     bool pack_keeps_saves = false;  // a pack's <savegame> decides where the saves go
     // The launch that starts this game again after its own Reset (the HOME

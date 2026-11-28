@@ -52,10 +52,13 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c runtime/rthome.c runtime/rtrestart.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c runtime/rthome.c runtime/rtgcwii.c runtime/rtslot.c runtime/rtsrc.c runtime/rtshape.c runtime/rtdeliver.c runtime/rtrestart.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
+# The Wii controller stand-ins' code (#587; the pad builds with RT_PAD_STANDIN),
+# which the tests cover; rthome.h's layout follows it, so it is public.
+target_compile_definitions(riftwii_runtime PUBLIC RT_PAD_STANDIN)
 target_link_libraries(riftwii_runtime PRIVATE zstddec)
 set_target_properties(riftwii_runtime PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -509,7 +512,21 @@ if(BUILD_TESTING)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()
-    foreach(suite ctgprsave dnsquery applist appcatalog httpchunk foldernames homelist disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig hidimport builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig ctgparena ctgpapply ctgpefa ctgpfat ctgpfields ctgpfiles ctgpdsa ctgphash ctgpimage ctgplaunch ctgpmmu ctgppackages ctgpsign ctgptables ctgpstage2 theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand emunand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gctri gcvolume gcaram stash plugin gcrequest gcmempatch gcexecpacks gcgcad gcdsp gcreal osrestart rtrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug sdwrite wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra gcstorage padcal hbmsearch padhome miidb)
+    # The stand-in's layers (runtime/rtslot.h, rtsrc.h, rtdeliver.h): slot
+    # ownership's spec (one test per past review finding), the sources and
+    # the delivery's words.
+    add_executable(rtslot_tests tests/rtslot_tests.cpp runtime/rtslot.c)
+    add_executable(rtsrc_tests tests/rtsrc_tests.cpp runtime/rtsrc.c runtime/rthome.c)
+    add_executable(rtdeliver_tests tests/rtdeliver_tests.cpp runtime/rtdeliver.c)
+    foreach(layer rtslot rtsrc rtdeliver)
+        target_include_directories(${layer}_tests PRIVATE runtime)
+        target_compile_definitions(${layer}_tests PRIVATE RT_PAD_STANDIN)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(${layer}_tests PRIVATE -Wall -Wextra -Werror)
+        endif()
+        add_test(NAME ${layer} COMMAND ${layer}_tests)
+    endforeach()
+    foreach(suite ctgprsave dnsquery applist appcatalog httpchunk foldernames homelist disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig hidimport builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig ctgparena ctgpapply ctgpefa ctgpfat ctgpfields ctgpfiles ctgpdsa ctgphash ctgpimage ctgplaunch ctgpmmu ctgppackages ctgpsign ctgptables ctgpstage2 theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand emunand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gctri gcvolume gcaram stash plugin gcrequest gcmempatch gcexecpacks gcgcad gcdsp gcreal osrestart rtrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug sdwrite wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra gcstorage padcal hbmsearch padhome gcwii miidb)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(suite STREQUAL "redirect")
