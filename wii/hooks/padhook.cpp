@@ -317,8 +317,16 @@ bool blob_whole(int kind) {
         if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes) return false;
     }
     if (no_home(kind)) return true;
-    if (h.hook_kpad == 0 || h.hook_probe == 0 || h.hook_menu == 0 || h.hook_select == 0 || h.hook_unified == 0)
-        return false;
+    // The HOME Menu's five sites, each with its replay and way back: one
+    // without them would have the install write at the blob's start
+    // (CodeRabbit on #616).
+    const std::uint32_t home_sites[][3] = {{h.hook_kpad, h.replay_kpad, h.continue_kpad},
+                                           {h.hook_probe, h.replay_probe, h.continue_probe},
+                                           {h.hook_menu, h.replay_menu, h.continue_menu},
+                                           {h.hook_select, h.replay_select, h.continue_select},
+                                           {h.hook_unified, h.replay_unified, h.continue_unified}};
+    for (const auto& site : home_sites)
+        if (site[0] == 0 || site[1] == 0 || site[2] == 0) return false;
     // Every stand-in build has WPADGetInfoAsync's site (the 2006 KPAD games
     // wait for its answer); a copy with none would have the install write at
     // the blob's start (CodeRabbit CLI). WPADRead's and WPADSetDataFormat's
@@ -860,9 +868,13 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, co
     // The 2006 WPAD's by its marks; a later one's through its blocking
     // caller, which loads WPAD's control-block table (the 2006 marks also
     // fit another function there: Mario Strikers Charged).
+    // One scan of the later WPAD's connect table serves both its uses
+    // (here and the callback slot below; CodeRabbit on #616).
+    WpadConnect2006 later_connect;
+    if (out.standin && !old_kpad) later_connect = find_wpad_connect_later(text);
     out.wpad_info = !out.standin ? 0
                     : old_kpad   ? find_wpad_get_info(text)
-                                 : find_wpad_get_info_later(text, find_wpad_connect_later(text).table);
+                                 : find_wpad_get_info_later(text, later_connect.table);
     out.info_answers = old_kpad;
     if (out.standin) {
         if (out.wpad_info != 0)
@@ -957,7 +969,7 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, co
         WpadConnect2006 slot;
         slot.table = out.wpad_connect_table;
         slot.offset = out.wpad_connect_offset;
-        if (slot.table == 0) slot = find_wpad_connect_later(text);
+        if (slot.table == 0) slot = old_kpad ? find_wpad_connect_later(text) : later_connect;
         if (out.kpad_connect == 0 && out.wpad_connect_table == 0) {
             out.wpad_connect_table = slot.table;
             out.wpad_connect_offset = slot.offset;
