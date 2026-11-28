@@ -4479,6 +4479,9 @@ msgstr "このリンクから、このゲームの動作状況を報告できま
 msgid "Report"
 msgstr "報告"
 
+msgid "{1}: {2}"
+msgstr "{1}：{2}"
+
 msgid "Wii saves"
 msgstr "Wiiのセーブ"
 

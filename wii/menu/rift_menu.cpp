@@ -21288,7 +21288,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				shownRow = focused;
 				std::string about = help(actions[static_cast<std::size_t>(focused)]);
 				// Narrow rows have no tag line: when a change takes effect leads the note.
-				if (compact && !row.tag.empty() && !about.empty()) about = row.tag + ": " + about;
+				if (compact && !row.tag.empty() && !about.empty()) about = tr("{1}: {2}", {row.tag, about});
 				noteTxt.SetText(about.c_str());
 			}
 		}

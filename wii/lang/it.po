@@ -4479,6 +4479,9 @@ msgstr "Vai a questo link per segnalare come funziona questo gioco. Il modulo si
 msgid "Report"
 msgstr "Segnala"
 
+msgid "{1}: {2}"
+msgstr "{1}: {2}"
+
 msgid "Wii saves"
 msgstr "Salvataggi Wii"
 

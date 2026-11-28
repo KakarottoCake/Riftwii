@@ -9027,6 +9027,16 @@ FR.update({
     "Report": "Signaler",
 })
 
+T.update({
+    "{1}: {2}": ("{1}: {2}", "{1}：{2}", "{1}: {2}", "{1}: {2}"),
+})
+KO.update({
+    "{1}: {2}": "{1}: {2}",
+})
+FR.update({
+    "{1}: {2}": "{1} : {2}",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

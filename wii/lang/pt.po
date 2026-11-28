@@ -4479,6 +4479,9 @@ msgstr "Acesse este link para informar como funciona este jogo. O formulário ab
 msgid "Report"
 msgstr "Informar"
 
+msgid "{1}: {2}"
+msgstr "{1}: {2}"
+
 msgid "Wii saves"
 msgstr "Saves do Wii"
 
