@@ -33,6 +33,7 @@ constexpr const char* kPlayLogName = "/title/00000001/00000002/data/play_rec.dat
 PlayHistory g_history;
 PlayTotals g_totals;
 bool g_totals_loaded = false;
+bool g_totals_blocked = false;  // there, but not read: never written over
 bool g_history_loaded = false;
 constexpr const char* kHomeOrderPath = "sd:/riftwii/order.txt";
 std::vector<std::string> g_home_order;
@@ -112,7 +113,18 @@ const PlayTotals& Totals() {
     if (!g_totals_loaded) {
         g_totals_loaded = true;
         std::string text;
-        if (ReadReplacedFile(kPlayTotalsPath, text)) g_totals.parse(text);
+        if (ReadReplacedFile(kPlayTotalsPath, text)) {
+            g_totals.parse(text);
+        } else {
+            // Absent is a first start; there but unreadable is not: writing a new file would erase every total.
+            struct stat st;
+            const std::string backup = std::string(kPlayTotalsPath) + ".bak";
+            if (stat(kPlayTotalsPath, &st) == 0 || stat(backup.c_str(), &st) == 0) {
+                g_totals_blocked = true;
+                logf("Play time: %s is there but could not be read, so no play time is added or saved this time\n",
+                     kPlayTotalsPath);
+            }
+        }
     }
     return g_totals;
 }
@@ -238,6 +250,7 @@ void CollectPlayTime() {
         return;
     }
     Totals();
+    if (g_totals_blocked) return;  // the session's time stays unadded rather than lose the others
     const PlayTotal* now = g_totals.find(key);
     std::uint64_t seconds = 0;
     const SessionVerdict verdict =
@@ -277,7 +290,7 @@ void ForgetPlays(const std::string& game_id) {
     g_history.forget(game_id);
     WriteHistory();
     Totals();
-    if (g_totals.find(game_id)) {
+    if (!g_totals_blocked && g_totals.find(game_id)) {
         g_totals.forget(game_id);
         if (!WriteTotals()) logf("Play time: %s could not be written\n", kPlayTotalsPath);
     }
@@ -345,6 +358,7 @@ void ForgetCardHistoryAndOrder() {
     g_history_loaded = false;
     g_totals = PlayTotals{};
     g_totals_loaded = false;
+    g_totals_blocked = false;
     g_home_order.clear();
     g_home_order_loaded = false;
     g_home_order_unreadable = false;
