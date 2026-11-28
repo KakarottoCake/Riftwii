@@ -443,7 +443,9 @@ channel installs it itself. A card that refuses writes also stops the step
 before anything is written, and the file stays for the next start. The writes
 go through their own undo journal (`sd:/ctgpr/update-journal-jelly.bin`);
 everything is read back and checked before the journal is removed, and any
-failure puts jelly.bin back.
+failure tries to put jelly.bin back. When the card refuses that too, the
+journal stays on the card and CTGP-R can't be launched until the next start's
+replay succeeds.
 
 The start-up replay of the undo journal stays in the DOL on purpose. An
 install cut off by a power loss or a crash leaves blob.bin half written, and

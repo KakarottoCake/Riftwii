@@ -109,6 +109,7 @@ int libc_rename(const char* from, const char* to) { return std::rename(from, to)
 int libc_fflush(std::FILE* file) { return std::fflush(file); }
 int libc_fileno(std::FILE* file) { return fileno(file); }
 int libc_fsync(int fd) { return fsync(fd); }
+int libc_ftruncate(int fd, long long length) { return ftruncate(fd, off_t(length)); }
 int* libc_errno() { return &errno; }
 
 
@@ -167,6 +168,7 @@ bool CtgpUpdater::run(CtgpUpdRequest& request, std::string& error) {
     request.libc.fflush = libc_fflush;
     request.libc.fileno = libc_fileno;
     request.libc.fsync = libc_fsync;
+    request.libc.ftruncate = libc_ftruncate;
     request.libc.errno_location = libc_errno;
     request.log = [](const std::string& line) { logf("CTGP-R update: %s\n", line.c_str()); };
 
@@ -375,20 +377,25 @@ bool recover_jelly_journal(std::string& error) {
     // the SD driver (write_blocks, past libfat and its cache), which returns
     // once they are written, and the journal reads every one back from the
     // card (read_card) before it removes itself.
-    const CtgpJournalRecovery result = ctgp_journal_recover(
-        kCtgpJellyJournalPath, io, jelly.entry.size & ~std::uint64_t(511), [] { return true; }, restored, error);
+    // The entry is read again before the journal goes: if it is not what it
+    // was, the journal stays, so every later start checks again and CTGP-R
+    // is not reported ready on a jelly.bin whose key no longer fits.
+    const auto entry_unchanged = [&jelly, &why](std::string& message) {
+        forget_sd_layout();
+        Fat32File after;
+        if (resolve_sd_file(kCtgprJellyPath, after, why) && after.entry.write_time == jelly.entry.write_time &&
+            after.entry.write_date == jelly.entry.write_date && after.entry.create_time == jelly.entry.create_time &&
+            after.entry.create_date == jelly.entry.create_date && after.entry.size == jelly.entry.size &&
+            after.entry.first_cluster == jelly.entry.first_cluster)
+            return true;
+        message = "jelly.bin's directory entry is not what it was before the undo; the journal is kept";
+        return false;
+    };
+    const CtgpJournalRecovery result =
+        ctgp_journal_recover(kCtgpJellyJournalPath, io, jelly.entry.size & ~std::uint64_t(511), [] { return true; },
+                             restored, error, entry_unchanged);
     if (result == CtgpJournalRecovery::Failed) {
         logf("CTGP-R update: an interrupted jelly.bin update could not be undone: %s\n", error.c_str());
-        return false;
-    }
-    forget_sd_layout();
-    Fat32File after;
-    if (!resolve_sd_file(kCtgprJellyPath, after, why) || after.entry.write_time != jelly.entry.write_time ||
-        after.entry.write_date != jelly.entry.write_date || after.entry.create_time != jelly.entry.create_time ||
-        after.entry.create_date != jelly.entry.create_date || after.entry.size != jelly.entry.size ||
-        after.entry.first_cluster != jelly.entry.first_cluster) {
-        error = "jelly.bin's directory entry is not what it was before the undo";
-        logf("CTGP-R update: %s\n", error.c_str());
         return false;
     }
     if (result == CtgpJournalRecovery::RolledBack)

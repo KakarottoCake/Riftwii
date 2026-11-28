@@ -181,10 +181,12 @@ int main() {
     {   // writes, then recovery restores the original
         MemPack p = make_pack(size);
         auto orig = p.data;
-        CtgpPackJournal j;
-        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
-        do_writes(j.io());
-        EXPECT_EQ(j.chunks(), std::size_t(4));
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+            EXPECT_EQ(j.chunks(), std::size_t(4));
+        }  // a crash: the journal's file is closed (Windows can't remove an open file)
         EXPECT_TRUE(p.data != orig);
         std::size_t n = 0;
         // Simulate a crash: journal object just stops; recovery runs at next start.
@@ -193,6 +195,29 @@ int main() {
         EXPECT_TRUE(p.data == orig);
         EXPECT_TRUE(!exists(jp));
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::None);
+    }
+    {   // a check before the journal goes (jelly.bin's entry) that fails keeps
+        // the journal, so the next start checks again
+        MemPack p = make_pack(size);
+        auto orig = p.data;
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+        }
+        std::size_t n = 0;
+        const auto refuse = [](std::string& why) {
+            why = "the entry changed";
+            return false;
+        };
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err, refuse) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(err == "the entry changed");
+        EXPECT_TRUE(exists(jp));
+        EXPECT_TRUE(p.data == orig);  // put back; only the removal waits
+        const auto accept = [](std::string&) { return true; };
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err, accept) ==
+                    CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(!exists(jp));
     }
     {   // commit
         MemPack p = make_pack(size);
@@ -235,9 +260,11 @@ int main() {
     {   // torn last entry, and recovery twice from a copy of the journal
         MemPack p = make_pack(size);
         auto orig = p.data;
-        CtgpPackJournal j;
-        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
-        do_writes(j.io());
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+        }  // a crash, the journal's file closed
         auto jd = slurp(jp);
         // Chunk 3's pack write "never started": undo it by hand, tear its entry.
         auto torn = jd;
@@ -268,9 +295,11 @@ int main() {
     {   // a damaged entry with more after it: the journal itself is damaged,
         // so the replay fails and the journal is kept for another try
         MemPack p = make_pack(size);
-        CtgpPackJournal j;
-        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
-        do_writes(j.io());
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+        }  // a crash, the journal's file closed
         auto jd = slurp(jp);
         jd[kHeader + 12 + 100] ^= 0xFF;  // inside the first entry's data
         spit(jp, jd);
@@ -282,9 +311,11 @@ int main() {
     }
     {   // pack size mismatch: nothing written, journal kept
         MemPack p = make_pack(size);
-        CtgpPackJournal j;
-        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
-        do_writes(j.io());
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+        }  // a crash, the journal's file closed
         auto changed = p.data;
         std::size_t n = 0;
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size + 512, p.sync(), n, err) == CtgpJournalRecovery::Failed);
@@ -371,9 +402,15 @@ int main() {
         auto a = filled(kChunk, 0xA1);
         EXPECT_TRUE(j.io().write(0, a.data(), kChunk));
         card.losing = true;
-        card.lose_from = fs::file_size(jp);  // the next entry never reaches the card
+        const auto confirmed = fs::file_size(jp);
+        card.lose_from = confirmed;  // the next entry never reaches the card
         auto b = filled(1024, 0xB2);
         EXPECT_TRUE(!j.io().write(2 * kChunk, b.data(), 1024));
+#if defined(__unix__) || defined(__APPLE__)
+        // Cut back to the confirmed entries, so a start-up replay never meets
+        // the failed one (whole, with a bad checksum on a real card).
+        EXPECT_TRUE(fs::file_size(jp) == confirmed);
+#endif
         EXPECT_TRUE(std::equal(orig.begin() + 2 * kChunk, orig.begin() + 3 * kChunk, p.cache.begin() + 2 * kChunk));
         EXPECT_TRUE(!j.io().write(4 * kChunk, b.data(), 1024));  // nothing after it either
         EXPECT_TRUE(std::equal(orig.begin() + 4 * kChunk, orig.end(), p.cache.begin() + 4 * kChunk));
@@ -418,9 +455,11 @@ int main() {
         EXPECT_TRUE(!exists(jp));
 
         // A start-up replay the card does not keep fails and keeps the journal.
-        CtgpPackJournal k;
-        EXPECT_TRUE(k.begin(jp, p.io(), size, err));
-        do_writes(k.io());
+        {
+            CtgpPackJournal k;
+            EXPECT_TRUE(k.begin(jp, p.io(), size, err));
+            do_writes(k.io());
+        }  // a crash, the journal's file closed
         EXPECT_TRUE(p.sync()());
         p.lose = {0};
         EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);

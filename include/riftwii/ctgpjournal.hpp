@@ -89,8 +89,12 @@ enum class CtgpJournalRecovery { None, RolledBack, Failed };
 // more after it, a read error, a journal from another version, or one made
 // for a pack of another size or identity fails and leaves the journal for
 // another try (Failed). A pack of another size or identity is never written.
+// `before_remove` (may be empty) runs after the replay checked out and before
+// the journal is removed; false (with `error` set) keeps the journal, so a
+// check that fails is made again at the next start (Failed).
 CtgpJournalRecovery ctgp_journal_recover(const std::string& path, const CtgpPackIo& pack, std::uint64_t pack_size,
                                          const std::function<bool()>& sync_pack, std::size_t& restored,
-                                         std::string& error);
+                                         std::string& error,
+                                         const std::function<bool(std::string&)>& before_remove = {});
 
 }  // namespace riftwii

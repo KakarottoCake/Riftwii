@@ -167,8 +167,12 @@ EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::u
 // entry whose bytes are all there but don't check out, or a read error,
 // means the journal itself is damaged: the replay fails and the journal is
 // kept.
+// `limit`: only the journal's first `limit` bytes count (a rollback in the
+// same session passes what was confirmed on the card: an entry past it never
+// let its chunk be written, whatever the card holds of it).
 CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_t pack_size, std::size_t& restored,
-                              std::vector<Written>& put_back, std::string& error) {
+                              std::vector<Written>& put_back, std::string& error,
+                              std::uint64_t limit = UINT64_MAX) {
     restored = 0;
     put_back.clear();
     if (std::fseek(f, 0, SEEK_END) != 0) {
@@ -180,7 +184,7 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
         error = "the journal could not be read";
         return CtgpJournalRecovery::Failed;
     }
-    const std::uint64_t size = std::uint64_t(end);
+    const std::uint64_t size = std::min<std::uint64_t>(std::uint64_t(end), limit);
     std::uint8_t header[kHeaderBytes];
     // The header is written whole before any pack write, so a journal that
     // ends inside it (its magic and version aside) stopped before any. One
@@ -307,14 +311,16 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
 }
 
 CtgpJournalRecovery play_back_file(const std::string& path, const CtgpPackIo& pack, std::uint64_t pack_size,
-                                   const std::function<bool()>& sync_pack, std::size_t& restored, std::string& error) {
+                                   const std::function<bool()>& sync_pack, std::size_t& restored, std::string& error,
+                                   std::uint64_t limit = UINT64_MAX,
+                                   const std::function<bool(std::string&)>& before_remove = {}) {
     std::FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) {
         error = "cannot open the journal";
         return CtgpJournalRecovery::Failed;
     }
     std::vector<Written> put_back;
-    CtgpJournalRecovery result = play_back(f, pack, pack_size, restored, put_back, error);
+    CtgpJournalRecovery result = play_back(f, pack, pack_size, restored, put_back, error, limit);
     std::fclose(f);
     if (result != CtgpJournalRecovery::RolledBack) return result;
     if (sync_pack && !sync_pack()) {
@@ -330,6 +336,7 @@ CtgpJournalRecovery play_back_file(const std::string& path, const CtgpPackIo& pa
             return CtgpJournalRecovery::Failed;
         }
     }
+    if (before_remove && !before_remove(error)) return CtgpJournalRecovery::Failed;
     if (std::remove(path.c_str()) != 0) {
         error = "cannot remove the journal";
         return CtgpJournalRecovery::Failed;
@@ -345,6 +352,9 @@ struct CtgpPackJournal::Impl {
     std::uint64_t pack_size = 0;
     std::FILE* file = nullptr;
     std::uint64_t file_bytes = 0;  // what has been appended so far
+    // What was appended and confirmed on the card: every entry before it let
+    // its chunk be written; one after it (an append that failed) never did.
+    std::uint64_t confirmed_bytes = 0;
     // All sized by begin, so no write later needs memory it might not get:
     // one bit per chunk of the pack for each set (4 KiB for a 1 GiB pack),
     // and with a card reader one checksum per chunk (128 KiB for 1 GiB).
@@ -371,10 +381,29 @@ struct CtgpPackJournal::Impl {
         if (std::fwrite(bytes, 1, length, file) != length || !sync_file(file)) return false;
         const std::uint64_t at = file_bytes;
         file_bytes += length;
-        if (!pack.read_card_file) return true;
-        if (!scratch_room(scratch, length)) return false;
-        return pack.read_card_file(path, at, std::uint32_t(length), scratch.data()) &&
-               std::memcmp(scratch.data(), bytes, length) == 0;
+        if (pack.read_card_file) {
+            if (!scratch_room(scratch, length)) return false;
+            if (!pack.read_card_file(path, at, std::uint32_t(length), scratch.data()) ||
+                std::memcmp(scratch.data(), bytes, length) != 0)
+                return false;
+        }
+        confirmed_bytes = file_bytes;
+        return true;
+    }
+
+    // After an append that failed: the journal is cut back to what was
+    // confirmed, so a start-up replay does not meet a whole entry with a bad
+    // checksum (which it must take as damage) for a chunk never written. If
+    // the card refuses that too, the replay keeps failing safe: the journal
+    // stays, and the rollback in this session still stops at the boundary.
+    void cut_back_to_confirmed() {
+#ifdef RIFTWII_JOURNAL_FSYNC
+        std::fflush(file);
+        if (ftruncate(fileno(file), off_t(confirmed_bytes)) == 0) {
+            sync_file(file);
+            file_bytes = confirmed_bytes;
+        }
+#endif
     }
 
     bool journal_chunk(std::uint64_t index) {
@@ -388,6 +417,7 @@ struct CtgpPackJournal::Impl {
         put32(buf + 12 + length, crc_update(0, buf, 12 + length));
         if (!append(buf, kEntryOverhead + length)) {
             failed = true;
+            cut_back_to_confirmed();
             return false;
         }
         done.add(index);
@@ -542,6 +572,7 @@ bool CtgpPackJournal::begin(const std::string& path, const CtgpPackIo& pack, std
     impl_->pack_size = pack_size;
     impl_->file = f;
     impl_->file_bytes = 0;
+    impl_->confirmed_bytes = 0;
     impl_->done_count = 0;
     impl_->failed = false;
     if (!impl_->append(header, sizeof header)) {
@@ -603,8 +634,8 @@ bool CtgpPackJournal::rollback(const std::function<bool()>& sync_pack, std::stri
     }
     impl_->close();
     std::size_t restored = 0;
-    if (play_back_file(impl_->path, impl_->pack, impl_->pack_size, sync_pack, restored, error) !=
-        CtgpJournalRecovery::RolledBack)
+    if (play_back_file(impl_->path, impl_->pack, impl_->pack_size, sync_pack, restored, error,
+                       impl_->confirmed_bytes) != CtgpJournalRecovery::RolledBack)
         return false;
     impl_->active = false;
     return true;
@@ -614,7 +645,7 @@ std::size_t CtgpPackJournal::chunks() const { return impl_->done_count; }
 
 CtgpJournalRecovery ctgp_journal_recover(const std::string& path, const CtgpPackIo& pack, std::uint64_t pack_size,
                                          const std::function<bool()>& sync_pack, std::size_t& restored,
-                                         std::string& error) {
+                                         std::string& error, const std::function<bool(std::string&)>& before_remove) {
     error.clear();
     restored = 0;
     switch (presence(path)) {
@@ -626,7 +657,7 @@ CtgpJournalRecovery ctgp_journal_recover(const std::string& path, const CtgpPack
     case Presence::Present:
         break;
     }
-    return play_back_file(path, pack, pack_size, sync_pack, restored, error);
+    return play_back_file(path, pack, pack_size, sync_pack, restored, error, UINT64_MAX, before_remove);
 }
 
 }  // namespace riftwii

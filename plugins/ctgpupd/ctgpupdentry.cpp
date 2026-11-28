@@ -370,7 +370,7 @@ bool download(CtgpUpdRequest& request) {
         char line[96];
         std::snprintf(line, sizeof line, "downloaded %s version %08x%s", dia.component.c_str(),
                       static_cast<unsigned>(dia.version),
-                      request.channel_installs != 0 ? ", which CTGP-R's channel installs: removed" : "");
+                      request.channel_installs != 0 ? ", which CTGP-R's channel installs" : "");
         if (ok || request.channel_installs != 0) log_line(request, line);
     }
     const std::string bad_path = request.update_path + ".bad";
@@ -387,6 +387,13 @@ bool download(CtgpUpdRequest& request) {
     case riftwii::CtgpDownloadEnd::Removed:
         // Nothing was kept as update.dif.bad, so the menu must not say so.
         request.bad_update = 0;
+        if (request.channel_installs != 0) log_line(request, "the download was removed for CTGP-R's channel");
+        if (ok) request.error = "the update could not be renamed to " + request.update_path;
+        return false;
+    case riftwii::CtgpDownloadEnd::Left:
+        request.bad_update = 0;
+        log_line(request, "the download could not be removed from the card (" + request.part_path +
+                              "); the next download replaces it");
         if (ok) request.error = "the update could not be renamed to " + request.update_path;
         return false;
     }
@@ -406,7 +413,8 @@ bool note_version(riftwii::CtgpPackWriter& pack, std::uint32_t version, std::str
                                 (std::uint32_t(list[14]) << 8) | list[15];
     for (std::uint32_t i = 0; i < count && 16 + i * 16 + 16 <= list.size(); ++i) {
         std::uint8_t* record = list.data() + 16 + i * 16;
-        if (std::memcmp(record, "CTGPR", 5) != 0) continue;
+        // Exactly "CTGPR" (the name ends at its first NUL): not a CTGPRX.
+        if (std::memcmp(record, "CTGPR", 5) != 0 || record[5] != 0) continue;
         record[8] = std::uint8_t(version >> 24);
         record[9] = std::uint8_t(version >> 16);
         record[10] = std::uint8_t(version >> 8);
@@ -592,6 +600,11 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
     raw.identity = riftwii::ctgp_pack_identity(jelly->entry, true);
     bool rolled_back = true;
     bool needs_growth = false;
+    // Made before the install: once it commits, nothing that can run out of
+    // memory may turn the success into a reported failure (the journal is
+    // already gone, so the DOL would have nothing to replay).
+    const std::string done_line =
+        "jelly.bin now has hash lists " + version_text(dia.version) + " (written in place; its entry and key unchanged)";
     // libogc's SD driver writes synchronously: a raw write is on the card
     // when it returns.
     const bool ok = riftwii::ctgp_hash_update_install(raw, jelly->entry.size & ~511ull, key, riftwii::ctgp_blob_chunk_iv(),
@@ -602,8 +615,7 @@ bool install_hash(CtgpUpdRequest& request, const riftwii::CtgpDia& dia, std::uin
     if (!ok && needs_growth) request.channel_installs = 1;
     if (ok) {
         if (request.step) request.step(0, 1, "jelly.bin", 1.0, 1.0);
-        log_line(request, "jelly.bin now has hash lists " + version_text(dia.version) +
-                              " (written in place; its entry and key unchanged)");
+        log_line(request, done_line);
     } else if (rolled_back) {
         log_line(request, "nothing of this update was left in jelly.bin");
     }
@@ -687,6 +699,11 @@ bool install(CtgpUpdRequest& request) {
             if (failure == riftwii::CtgpUpdateFailure::Unsupported) request.channel_installs = 2;
         } else {
             log_line(request, "the pack could not be put back now (" + journal_error + "); the next start tries again");
+            // blob.bin is part-changed until the journal is played back: no
+            // newer lists or another download now (the menu would replace
+            // update.dif), only the reason and the next start's recovery.
+            request.hash_list_trouble = 0;
+            error += "; the pack could not be put back now (" + journal_error + "), the next start tries again";
         }
     }
     std::fclose(blob);
@@ -785,5 +802,6 @@ int* __errno(void) {
 }
 int fileno(FILE* file) { return g_libc != nullptr ? g_libc->fileno(file) : -1; }
 int fsync(int fd) { return g_libc != nullptr ? g_libc->fsync(fd) : -1; }
+int ftruncate(int fd, off_t length) { return g_libc != nullptr ? g_libc->ftruncate(fd, (long long)length) : -1; }
 
 }  // extern "C"

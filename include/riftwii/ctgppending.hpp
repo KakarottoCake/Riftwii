@@ -9,6 +9,7 @@
 
 #include <sys/types.h>
 
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
@@ -86,8 +87,10 @@ inline CtgpUpdateKind ctgp_update_kind(bool read, bool dia0, bool signed_ok, boo
 // How a download ends. A checked one replaces `update`; one the check
 // found can never be installed (CtgpUpdRequest::bad_update) is kept as
 // `bad_path`, so the menu can say it was set aside, as it does for one found
-// waiting; anything else (the card, the connection) is removed.
-enum class CtgpDownloadEnd { Kept, SetAside, Removed };
+// waiting; anything else (the card, the connection) is removed. Left: the
+// card refused to remove the download (it is still at `part`); a part file
+// already gone counts as removed.
+enum class CtgpDownloadEnd { Kept, SetAside, Removed, Left };
 inline CtgpDownloadEnd ctgp_finish_download(bool checked, bool bad, const std::string& part,
                                             const std::string& update, const std::string& bad_path,
                                             const std::function<int(const char*)>& remove,
@@ -97,8 +100,36 @@ inline CtgpDownloadEnd ctgp_finish_download(bool checked, bool bad, const std::s
     } else if (bad) {
         if (ctgp_move_aside(part, bad_path, remove, rename)) return CtgpDownloadEnd::SetAside;
     }
-    remove(part.c_str());
+    errno = 0;
+    if (remove(part.c_str()) != 0 && errno != ENOENT) return CtgpDownloadEnd::Left;
     return CtgpDownloadEnd::Removed;
+}
+
+// A waiting update the hash lists can't vouch for yet is held at `held`
+// while the server is asked for the lists it needs, so the download (which
+// replaces `update`) never removes it. Holding it again is refused when a
+// held file is already there: that one is the older wait, and it is put back
+// first (ctgp_restore_held).
+inline bool ctgp_hold_update(const std::string& update, const std::string& held,
+                             const std::function<int(const char*, std::uint64_t*)>& size_of,
+                             const std::function<int(const char*, const char*)>& rename) {
+    std::uint64_t size = 0;
+    if (size_of(held.c_str(), &size) != -1) return false;  // there, or the card can't say
+    return rename(update.c_str(), held.c_str()) == 0;
+}
+
+// Puts a held update back once `update` is free (the prerequisite went in
+// and was retired, or its download came to nothing), also at the next start
+// after a power cut. Only when the card says `update` is not there and
+// `held` is: a probe error moves nothing. `size_of` as for
+// ctgp_update_waiting (0 there, -1 not there, else the card could not say).
+inline bool ctgp_restore_held(const std::string& update, const std::string& held,
+                              const std::function<int(const char*, std::uint64_t*)>& size_of,
+                              const std::function<int(const char*, const char*)>& rename) {
+    std::uint64_t size = 0;
+    if (size_of(update.c_str(), &size) != -1) return false;
+    if (size_of(held.c_str(), &size) != 0) return false;
+    return rename(held.c_str(), update.c_str()) == 0;
 }
 
 // The length of an open file, left at its start. False when the card would

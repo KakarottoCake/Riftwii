@@ -136,24 +136,63 @@ int main() {
     EXPECT_TRUE(ctgp_finish_download(false, true, "update.dif.part", "update.dif", "update.dif.bad", remove,
                                      no_rename) == CtgpDownloadEnd::Removed);
     EXPECT_TRUE(files.empty());
+    // A part file the card won't remove is reported as left, not removed.
+    files = {"update.dif.part"};
+    locked = true;
+    EXPECT_TRUE(ctgp_finish_download(false, false, "update.dif.part", "update.dif", "update.dif.bad", remove,
+                                     rename) == CtgpDownloadEnd::Left);
+    EXPECT_TRUE(files == std::set<std::string>{"update.dif.part"});
+    locked = false;
+
+    // The waiting update is held aside while the hash lists it needs are
+    // downloaded, and comes back once update.dif is free, even when the
+    // download's rename fails (both files gone from update.dif).
+    {
+        const auto probe = [&files](const char* path, std::uint64_t* size) {
+            if (!files.count(path)) return -1;
+            *size = 1;
+            return 0;
+        };
+        files = {"update.dif"};
+        EXPECT_TRUE(ctgp_hold_update("update.dif", "update.dif.held", probe, rename));
+        EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
+        // The download checks out, but its rename fails: it is removed, and
+        // the held update is untouched.
+        files.insert("update.dif.part");
+        EXPECT_TRUE(ctgp_finish_download(true, false, "update.dif.part", "update.dif", "update.dif.bad", remove,
+                                         no_rename) == CtgpDownloadEnd::Removed);
+        EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, rename));
+        EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
+        // While the prerequisite waits at update.dif, nothing comes back.
+        files = {"update.dif", "update.dif.held"};
+        EXPECT_TRUE(!ctgp_restore_held("update.dif", "update.dif.held", probe, rename));
+        EXPECT_TRUE(files == (std::set<std::string>{"update.dif", "update.dif.held"}));
+        // An older held file stops a second hold.
+        EXPECT_TRUE(!ctgp_hold_update("update.dif", "update.dif.held", probe, rename));
+        // A card that can't say moves nothing.
+        const auto unreadable = [](const char*, std::uint64_t*) { return -2; };
+        files = {"update.dif.held"};
+        EXPECT_TRUE(!ctgp_restore_held("update.dif", "update.dif.held", unreadable, rename));
+        EXPECT_TRUE(!ctgp_hold_update("update.dif", "update.dif.held", unreadable, rename));
+        EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
+    }
 
     // The size of a file, and a stream the card can't size (a pipe: its seeks
     // fail), which must not look like an empty or huge file.
     {
-        const std::string path = "ctgppending_size_test.bin";
-        std::FILE* out = std::fopen(path.c_str(), "wb");
-        EXPECT_TRUE(out != nullptr);
-        if (out != nullptr) {
-            std::fwrite("0123456789", 1, 10, out);
-            std::fclose(out);
+        // A private temporary file: nothing in the working folder is touched.
+        std::FILE* in = std::tmpfile();
+        EXPECT_TRUE(in != nullptr);
+        if (in != nullptr) {
+            std::fwrite("0123456789", 1, 10, in);
+            std::fflush(in);
         }
-        std::FILE* in = std::fopen(path.c_str(), "rb");
         std::uint64_t size = 99;
         EXPECT_TRUE(in != nullptr && ctgp_file_size(in, size) && size == 10);
         char first = 0;
         EXPECT_TRUE(in != nullptr && std::fread(&first, 1, 1, in) == 1 && first == '0');  // left at the start
         if (in != nullptr) std::fclose(in);
-        std::remove(path.c_str());
         std::FILE* pipe = popen("true", "r");
         EXPECT_TRUE(pipe != nullptr);
         if (pipe != nullptr) {

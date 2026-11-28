@@ -76,6 +76,9 @@ struct CtgpUpdLibc {
     int (*fflush)(std::FILE* file) = nullptr;
     int (*fileno)(std::FILE* file) = nullptr;
     int (*fsync)(int fd) = nullptr;
+    // Cuts an undo journal back to its last confirmed entry after an append
+    // failed (libfat's ftruncate).
+    int (*ftruncate)(int fd, long long length) = nullptr;
     // The DOL's errno: the plugin's stat is the DOL's (rwp_host::path_info),
     // and the journal tells "not there" from an SD error by it.
     int* (*errno_location)() = nullptr;
@@ -129,12 +132,16 @@ struct CtgpUpdRequest {
     // once nothing of it is left in blob.bin. 0 for a failure of the card,
     // memory or anything else that may pass next time.
     std::uint32_t bad_update = 0;
-    // Install: not 0 when the update is genuine but RiftWii can't put it in,
-    // so CTGP-R's own channel installs it: 1 for a HASH update that only
-    // goes in with jelly.bin made larger (more room, or a list it doesn't
-    // hold yet); 2 for any update in a DIF0 form RiftWii doesn't know
-    // (CtgpUpdateFailure::Unsupported). Nothing of it is left on the card;
-    // the DOL removes the file so the channel downloads it fresh.
+    // Not 0 when the update is genuine but RiftWii can't put it in, so
+    // CTGP-R's own channel installs it. Inspect, Download and Install: 2 for a
+    // signed update for another package (GHOST, refused before anything else); after Inspect the file is still at
+    // update.dif (the DOL removes it), after Download it was never kept there
+    // (the part file is removed). Install: 1 for a HASH update that only goes
+    // in with jelly.bin made larger (more room, or a list it doesn't hold
+    // yet); 2 for any update in a DIF0 form RiftWii doesn't know
+    // (CtgpUpdateFailure::Unsupported). Nothing of it is left in the pack, and
+    // the file is still at update.dif for the DOL to remove, so the channel
+    // downloads it fresh.
     std::uint32_t channel_installs = 0;
     // Install of a game update: 1 when the update could not go in because
     // jelly.bin's hash list is older than the update, or does not vouch for
@@ -174,7 +181,7 @@ inline bool ctgpupd_request_check(const void* raw, std::uint32_t bytes, std::str
     }
     const CtgpUpdLibc& c = request->libc;
     if (c.remove == nullptr || c.rename == nullptr || c.fflush == nullptr || c.fileno == nullptr ||
-        c.fsync == nullptr || c.errno_location == nullptr || request->sd.read == nullptr || request->sd.write == nullptr ||
+        c.fsync == nullptr || c.ftruncate == nullptr || c.errno_location == nullptr || request->sd.read == nullptr || request->sd.write == nullptr ||
         request->sd.read_from_card == nullptr) {
         why = "the request is missing one of the DOL's functions";
         return false;
