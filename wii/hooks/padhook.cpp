@@ -1711,6 +1711,25 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         if (s.used()) image.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
     const PackWrites plan = standin ? plan_pack_writes(patches, image) : PackWrites{};
+    // The Wii Remotes' dimming reset found above, as all the pack's writes
+    // leave it: the view it was found in has the plain patches only, so a
+    // search patch's write over it (or a file patch's, whose bytes aren't
+    // read yet) means it isn't the game's any more, and none is used
+    // (CodeRabbit on #651).
+    if (pad.idle_reset != 0) {
+        constexpr std::uint64_t kResetBytes = 5 * 4;  // the longest one-store reset
+        const std::uint64_t lo = pad.idle_reset, hi = lo + kResetBytes;
+        bool written_over = plan.incomplete;
+        for (const PackWrite& w : plan.writes)
+            written_over = written_over || (w.at < hi && std::uint64_t(w.at) + patches[w.patch].value.size() > lo);
+        for (const PackWrites::File& f : plan.files)
+            written_over = written_over || (f.at < hi && std::uint64_t(f.at) + kMaxMemoryValueBytes > lo);
+        if (written_over) {
+            logf("GameCube adapter: a pack writes over the Wii Remotes' dimming reset at 0x%08x, so none is used\n",
+                 pad.idle_reset);
+            pad.idle_reset = 0;
+        }
+    }
     // The pack's writes as they end up, in order, joined (pack_spans): where
     // a PADRead they write is looked for, and its port reads and SIProbe.
     // Past their byte limit the checks can't follow the plan (as with too
