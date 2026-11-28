@@ -321,7 +321,7 @@ void SaveHomeOrder(const std::vector<std::string>& order) {
          kHomeOrderPath);
 }
 
-std::string PlayNote(const std::string& game_id) {
+std::string PlayNote(const std::string& game_id, bool compact) {
     if (Settings().play_history == "off") return "";
     const PlayRecord* r = History().find(game_id);
     if (!r || r->count == 0) return "";
@@ -329,6 +329,7 @@ std::string PlayNote(const std::string& game_id) {
     struct tm local;
     localtime_r(&when, &local);
     const std::string day = tr("{1}/{2}", {std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
+    if (compact) return r->count == 1 ? tr("Played once") : tr("Played {1} times", {std::to_string(r->count)});
     if (r->count == 1) return tr("Played once, on {1}", {day});
     return tr("Played {1} times, last on {2}", {std::to_string(r->count), day});
 }

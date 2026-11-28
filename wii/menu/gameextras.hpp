@@ -61,7 +61,8 @@ std::string LastGameKey();
 // Drops a tile from the history (a profile removed).
 void ForgetPlays(const std::string& game_id);
 // "Played 3 times, last on 9/21" for the game page; empty when never.
-std::string PlayNote(const std::string& game_id);
+// `compact` leaves the date out (the page line is too wide).
+std::string PlayNote(const std::string& game_id, bool compact = false);
 
 // Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
 // once; and written back after the player moves a game.
