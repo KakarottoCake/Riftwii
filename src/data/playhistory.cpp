@@ -3,6 +3,7 @@
 #include "riftwii/playhistory.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
 
 #include "riftwii/profiles.hpp"
@@ -37,9 +38,12 @@ void PlayHistory::parse(const std::string& text) {
         if (!fields.next(id, '\t') || !fields.next(count, '\t') || !fields.next(last)) continue;
         if (!plausible_id(id)) continue;
         char* end = nullptr;
+        errno = 0;
         const unsigned long c = std::strtoul(count.c_str(), &end, 10);
         if (end == count.c_str() || *end) continue;
-        const long long t = std::strtoll(last.c_str(), &end, 10);
+        // A count past the largest is kept at it (below), and so is a time: the game stays listed.
+        errno = 0;
+        const long long t = std::strtoll(last.c_str(), &end, 10);  // ERANGE gives LLONG_MAX
         if (end == last.c_str() || *end || t < 0) continue;
         PlayRecord& r = games_[id];
         r.count = static_cast<std::uint32_t>(std::min<unsigned long>(c, 0xFFFFFFFFul));

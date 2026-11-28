@@ -10,6 +10,7 @@
 #include "riftwii/langfile.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/playtime.hpp"
 #include "riftwii/returnto.hpp"
 #include "riftwii/launchargs.hpp"
 #include "riftwii/settingsfile.hpp"
@@ -3063,6 +3064,145 @@ void TestLang() {
     EXPECT_TRUE(cps == want);
 }
 
+void TestPlayTime() {
+    constexpr std::uint64_t kTick = kWiiTicksPerSecond;
+    constexpr std::int64_t kLaunch = 1800000000;  // Unix time of the launch
+    const std::uint64_t base = (static_cast<std::uint64_t>(kLaunch) + 10 - kWiiEpochUnix) * kTick;  // 10 s after it
+    // A record the writer above makes, then the two times set as a game's SDK does.
+    std::vector<std::uint8_t> rec = play_log_record("Mario", "RMCE01", 0);
+    const auto put64 = [&](std::size_t at, std::uint64_t v) {
+        for (int i = 7; i >= 0; --i, v >>= 8) rec[at + i] = static_cast<std::uint8_t>(v & 0xFF);
+    };
+    put64(0x58, base);
+    put64(0x60, base + 3725 * kTick + 123);
+    PlayLogSession s;
+    EXPECT_TRUE(parse_play_log(rec.data(), rec.size(), s));
+    EXPECT_EQ(s.game_id, "RMCE01");
+    EXPECT_EQ(s.start, base);
+    std::uint64_t secs = 99;
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch, secs) == SessionVerdict::counted);
+    EXPECT_EQ(secs, 3725u);
+    // A profile's tile of the same game takes it; another game does not.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01@retro", 0, kLaunch, secs) == SessionVerdict::counted);
+    EXPECT_TRUE(judge_play_session(s, "SB4E01", 0, kLaunch, secs) == SessionVerdict::other_game);
+    EXPECT_EQ(secs, 0u);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", base, kLaunch, secs) == SessionVerdict::counted_already);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 5 * kTick, kLaunch, secs) == SessionVerdict::counted);
+    // A record from before the launch is an older play's (message_board off writes none): not credited.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch + 3600, secs) == SessionVerdict::before_launch);
+    // Within the clock tolerance it counts; just outside it does not.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch + 10 + kLaunchToleranceSeconds, secs) == SessionVerdict::counted);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch + 11 + kLaunchToleranceSeconds, secs) == SessionVerdict::before_launch);
+    // A record with no start (0) is refused, so a zero never reads as "none counted" twice.
+    PlayLogSession nostart = s;
+    nostart.start = 0;
+    nostart.last = kTick;
+    EXPECT_TRUE(judge_play_session(nostart, "RMCE01", 0, 0, secs) == SessionVerdict::no_start);
+    EXPECT_EQ(secs, 0u);
+    // A clock jumped forwards: a record over 24 hours after the launch is no play of it.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch - kLaunchWindowSeconds - 100, secs) == SessionVerdict::after_launch);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch - kLaunchWindowSeconds + 10, secs) == SessionVerdict::counted);
+    // Limits: ends before it starts, over 24 hours; exactly 24 hours counts.
+    PlayLogSession back = s;
+    back.last = back.start - 1;
+    EXPECT_TRUE(judge_play_session(back, "RMCE01", 0, kLaunch, secs) == SessionVerdict::backwards);
+    PlayLogSession edge = s;
+    edge.last = edge.start + kMaxSessionSeconds * kTick;
+    EXPECT_TRUE(judge_play_session(edge, "RMCE01", 0, kLaunch, secs) == SessionVerdict::counted);
+    EXPECT_EQ(secs, kMaxSessionSeconds);
+    edge.last += kTick;
+    EXPECT_TRUE(judge_play_session(edge, "RMCE01", 0, kLaunch, secs) == SessionVerdict::too_long);
+    // Not a record: short, or an ID that is not six letters and digits.
+    EXPECT_FALSE(parse_play_log(rec.data(), 0x7F, s));
+    std::vector<std::uint8_t> zero(0x80, 0);
+    EXPECT_FALSE(parse_play_log(zero.data(), zero.size(), s));
+
+    // The totals live in their own file; it round-trips, and history.txt is untouched by them.
+    PlayTotals t;
+    t.add("RMCE01", 3725, 1000 * kTick);
+    t.add("RMCE01", 75, 2000 * kTick);
+    t.add("RMCE01@retro", 60, 7);
+    PlayTotals back2;
+    back2.parse(t.serialize());
+    EXPECT_EQ(back2.size(), 2u);
+    EXPECT_EQ(back2.find("RMCE01")->seconds, 3800u);
+    EXPECT_EQ(back2.find("RMCE01")->session_start, 2000 * kTick);
+    EXPECT_EQ(back2.find("RMCE01@retro")->seconds, 60u);
+    EXPECT_TRUE(back2.find("SB4E01") == nullptr);
+    PlayHistory h;
+    h.record("RMCE01", 1790000000);
+    EXPECT_TRUE(h.serialize().find("playtime") == std::string::npos);
+    // Bad lines are left out; forgetting drops a tile.
+    PlayTotals bad;
+    bad.parse("# c\nRMCE01\tx\t1\nRMCE01\t-5\t1\nRMCE01\t7\nbad\t1\t1\nSB4E01\t5\t6\r\n");
+    EXPECT_EQ(bad.size(), 1u);
+    EXPECT_EQ(bad.find("SB4E01")->seconds, 5u);
+    back2.forget("RMCE01");
+    EXPECT_TRUE(back2.find("RMCE01") == nullptr);
+    // A number past 64 bits is no number; the largest one is kept.
+    PlayTotals huge;
+    huge.parse("RMCE01\t18446744073709551616\t1\nSB4E01\t18446744073709551615\t1\nR2SE18\t1\t18446744073709551616\n");
+    EXPECT_TRUE(huge.find("RMCE01") == nullptr);
+    EXPECT_TRUE(huge.find("R2SE18") == nullptr);
+    EXPECT_EQ(huge.find("SB4E01")->seconds, 0xFFFFFFFFFFFFFFFFull);
+    PlayHistory over;
+    over.parse("RMCE01\t1\t99999999999999999999\nSB4E01\t99999999999999999999\t5\n");
+    // An overflowing time is clamped, not a reason to drop the game from the history.
+    EXPECT_TRUE(over.find("RMCE01") != nullptr && over.find("RMCE01")->last > 0);
+    EXPECT_EQ(over.find("SB4E01")->count, 0xFFFFFFFFu);
+    // Saturates instead of wrapping.
+    PlayTotals big;
+    big.add("RMCE01", 0xFFFFFFFFFFFFFFF0ull, 1);
+    big.add("RMCE01", 100, 2);
+    EXPECT_EQ(big.find("RMCE01")->seconds, 0xFFFFFFFFFFFFFFFFull);
+
+    // The launch note round-trips; a bad key or time is refused; the emulated NAND line is optional.
+    PlayMarker m, mo;
+    m.key = "RMCE01@retro";
+    m.launch = kLaunch;
+    m.emu_nand = "sd:/nands/a";
+    EXPECT_TRUE(parse_play_marker(serialize_play_marker(m), mo));
+    EXPECT_EQ(mo.key, "RMCE01@retro");
+    EXPECT_EQ(mo.launch, kLaunch);
+    EXPECT_EQ(mo.emu_nand, "sd:/nands/a");
+    EXPECT_TRUE(parse_play_marker("RMCE01\n1800000000\n", mo) && mo.emu_nand.empty());
+    EXPECT_FALSE(parse_play_marker("rmce01\n1800000000\n", mo));
+    EXPECT_FALSE(parse_play_marker("RMCE01\nsoon\n", mo));
+    EXPECT_FALSE(parse_play_marker("RMCE01\n", mo));
+    EXPECT_FALSE(parse_play_marker("RMCE01\n0\n", mo));   // no launch time
+    EXPECT_FALSE(parse_play_marker("RMCE01\n-5\n", mo));
+    EXPECT_FALSE(parse_play_marker("", mo));
+
+    // The lifecycle the Wii side follows: a launch writes the note; the next start parses it once and
+    // (the file being removed) a second start finds none. A restart before the game ever ran finds only an
+    // older record: refused, and the totals do not move. Then the game runs and the next launch is credited.
+    PlayTotals totals;
+    PlayMarker note;
+    note.key = "RMCE01";
+    note.launch = kLaunch;
+    std::string file = serialize_play_marker(note);  // launch 1 written
+    PlayMarker got;
+    EXPECT_TRUE(parse_play_marker(file, got));
+    file.clear();  // consumed: removed before anything else
+    EXPECT_FALSE(parse_play_marker(file, got));  // a second start has nothing to read
+    PlayLogSession older = s;  // the record of an earlier play, long before the launch
+    older.start = (static_cast<std::uint64_t>(kLaunch) - 5000 - kWiiEpochUnix) * kTick;
+    older.last = older.start + 600 * kTick;
+    EXPECT_TRUE(judge_play_session(older, got.key, 0, got.launch, secs) == SessionVerdict::before_launch);
+    EXPECT_TRUE(totals.find("RMCE01") == nullptr);
+    note.launch = kLaunch + 7200;  // launch 2, the game then runs 3725 s
+    PlayLogSession ran = s;
+    ran.start = (static_cast<std::uint64_t>(note.launch) + 20 - kWiiEpochUnix) * kTick;
+    ran.last = ran.start + 3725 * kTick;
+    EXPECT_TRUE(parse_play_marker(serialize_play_marker(note), got));
+    EXPECT_TRUE(judge_play_session(ran, got.key, 0, got.launch, secs) == SessionVerdict::counted);
+    totals.add(got.key, secs, ran.start);
+    // The same record read again (a second note for the same launch is never written, but if it were) is counted once.
+    EXPECT_TRUE(judge_play_session(ran, got.key, totals.find("RMCE01")->session_start, got.launch, secs) ==
+                SessionVerdict::counted_already);
+    EXPECT_EQ(totals.find("RMCE01")->seconds, 3725u);
+}
+
 void TestHistory() {
     PlayHistory h;
     h.parse("# comment\r\nSB4E01\t3\t1790000000\nRMCE01\t1\t1790000500\nbad line\nrmce01\t1\t5\nSMNE01\tx\t1\n");
@@ -3355,6 +3495,7 @@ int main() {
     TestCoverDownloads();
     TestLang();
     TestHistory();
+    TestPlayTime();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

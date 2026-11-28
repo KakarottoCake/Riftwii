@@ -23,6 +23,7 @@
 #include "nandchannels.hpp"
 #include "wfsdrive.hpp"
 #include "disccopy.hpp"
+#include "gameextras.hpp"
 #include "menumusic.hpp"
 #include "menusounds.hpp"
 #include "screenshot.hpp"
@@ -724,6 +725,8 @@ int main() {
     riftwii::wii::InitializeFrontend(state);
     riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
     timed("settings and language");
+    // Play time (#642): the log the game left in the NAND, once.
+    if (sd_mounted) riftwii::wii::CollectPlayTime();
 
     InitVideo();
     // Logged either side: with four Wii Remotes connected the menu froze on a

@@ -332,6 +332,9 @@ bool launch(const std::vector<std::string>& args, HeadlessSource request_source,
     PrepareLaunchExtras(state, &h);
     // Not for the same play started again by its own Reset.
     if (!h.reset) {
+        // The previous launch's play time first: RecordPlay replaces its note, so a
+        // run of headless launches would otherwise never collect the sessions between (#642).
+        CollectPlayTime();
         RecordPlay(state.game_id);
         TagGame(state.game_id, false);  // before the cIOS reload takes the network
     }

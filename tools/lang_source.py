@@ -10946,5 +10946,29 @@ FR.update({
 })
 
 
+# Play time on the game page (#642).
+T.update({
+    'Play time {1}': ('Tiempo de juego {1}', 'プレイ時間 {1}', 'Tempo de jogo {1}', 'Tempo di gioco {1}'),
+    'Play time not recorded': ('Tiempo de juego sin registrar', 'プレイ時間は記録されません', 'Tempo de jogo não registrado', 'Tempo di gioco non registrato'),
+    '{1} h {2} min': ('{1} h {2} min', '{1}時間{2}分', '{1} h {2} min', '{1} h {2} min'),
+    '{1} min': ('{1} min', '{1}分', '{1} min', '{1} min'),
+    'under 1 min': ('menos de 1 min', '1分未満', 'menos de 1 min', 'meno di 1 min'),
+})
+KO.update({
+    'Play time {1}': '플레이 시간 {1}',
+    'Play time not recorded': '플레이 시간이 기록되지 않음',
+    '{1} h {2} min': '{1}시간 {2}분',
+    '{1} min': '{1}분',
+    'under 1 min': '1분 미만',
+})
+FR.update({
+    'Play time {1}': 'Temps de jeu {1}',
+    'Play time not recorded': 'Temps de jeu non enregistré',
+    '{1} h {2} min': '{1} h {2} min',
+    '{1} min': '{1} min',
+    'under 1 min': 'moins de 1 min',
+})
+
+
 if __name__ == "__main__":
     main()

@@ -16285,26 +16285,47 @@ static std::string GcSaveNote(const FrontendState& state)
 
 // The band's line of facts: the ID, the year, the genre, how many play,
 // online, how often it was played here (GameTDB's from the cache only).
-static std::string GameFacts(const FrontendState& state)
+// `level` shortens the line when it is too wide (FitFacts): 1 drops the
+// played-last date, then 2 "Online", 3 the players, 4 the genre, 5 the year,
+// 6 a profile's name, 7 the ID. The play time is never dropped or cut.
+static std::string GameFacts(const FrontendState& state, int level = 0)
 {
 	std::vector<std::string> parts;
 	// A profile's page is headed with its own name: which game it starts.
-	if (!state.profile_key.empty()) parts.push_back(GameOwnTitle(state));
-	if (!state.game_id.empty()) parts.push_back(state.game_id);
-	if (SelectedGcGame(state)) parts.push_back(tr("GameCube"));
+	if (!state.profile_key.empty() && level < 6) parts.push_back(GameOwnTitle(state));
+	if (!state.game_id.empty() && level < 7) parts.push_back(state.game_id);
+	if (SelectedGcGame(state) && level < 7) parts.push_back(tr("GameCube"));
 	riftwii::GameInfo info;
 	if (!state.game_id.empty() && riftwii::wii::PeekGameInfo(TileDetailsId(state), info)) {
-		if (info.year) parts.push_back(std::to_string(info.year));
-		if (!info.genres.empty()) parts.push_back(GenreText({info.genres[0]}));
-		if (info.players == 1) parts.push_back(tr("1 player"));
-		else if (info.players > 1) parts.push_back(tr("1 to {1} players", {std::to_string(info.players)}));
-		if (info.online_players > 0) parts.push_back(tr("Online"));
+		if (info.year && level < 5) parts.push_back(std::to_string(info.year));
+		if (!info.genres.empty() && level < 4) parts.push_back(GenreText({info.genres[0]}));
+		if (level < 3) {
+			if (info.players == 1) parts.push_back(tr("1 player"));
+			else if (info.players > 1) parts.push_back(tr("1 to {1} players", {std::to_string(info.players)}));
+		}
+		if (info.online_players > 0 && level < 2) parts.push_back(tr("Online"));
 	}
-	const std::string played = riftwii::wii::PlayNote(riftwii::wii::TileKey(state));
+	const std::string key = riftwii::wii::TileKey(state);
+	const std::string played = riftwii::wii::PlayNote(key, level >= 1);
 	if (!played.empty()) parts.push_back(played);
+	const std::string playTime = riftwii::wii::PlayTimeNote(key, SelectedGcGame(state) != nullptr);
+	if (!playTime.empty()) parts.push_back(playTime);
 	std::string out;
 	for (const std::string& part : parts) out += (out.empty() ? "" : " \xC2\xB7 ") + part;
 	return out;
+}
+
+// Sets the facts line to the fullest level that fits `width` (the play time
+// stays whole; the rest gives way first).
+static std::string FitFacts(const FrontendState& state, GuiText& text, int width)
+{
+	std::string facts;
+	for (int level = 0; level <= 7; ++level) {
+		facts = GameFacts(state, level);
+		text.SetText(facts.c_str());
+		if (text.GetTextWidth() <= width) break;
+	}
+	return facts;
 }
 
 // How many of the game's own settings differ from Settings.
@@ -17424,13 +17445,14 @@ static int MenuHome(FrontendState& state)
 	const bool titleWraps = sizeTitle();
 	const int titleY = titleWraps ? 44 : 48, factsY = titleWraps ? 92 : 86;
 	g_gamePageTiming.Step("building the banner text");
-	const std::string facts = GameFacts(state);
 	g_gamePageTiming.Step("checking cached game information");
-	GuiText factsTxt(facts.c_str(), 17, kFactsInk);
+	GuiText factsTxt("", 17, kFactsInk);
 	OutlinedText whereOutlined(whereTxt, tilesX + 1, kWhereY, kWhereInk, 1, 1);
 	OutlinedText titleOutlined(titleTxt, tilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, tilesX, factsY, kFactsInk, 1, 1);
 	factsOutlined.SetMarquee(tilesWidth);
+	FitFacts(state, factsTxt, tilesWidth);
+	factsOutlined.ResetMarquee();
 
 	const auto refreshTitle = [&] {
 		titleTxt.SetText(GameTitle(state).c_str());
@@ -17698,7 +17720,7 @@ static int MenuHome(FrontendState& state)
 		BuildGameTiles(state, tiles, tileWhat, hero.HasDisc());
 		tileGrid.Refresh();
 		lightHero();
-		factsTxt.SetText(GameFacts(state).c_str());
+		FitFacts(state, factsTxt, tilesWidth);
 		factsOutlined.ResetMarquee();
 		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
@@ -18192,7 +18214,7 @@ static int MenuHome(FrontendState& state)
 		const bool playing = g_lingerBanner != nullptr;
 		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
-		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
+		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state), SelectedGcGame(state) != nullptr);
 		riftwii::wii::TagGame(state.game_id, true);
 		if (playing) HaltGui();
 	}

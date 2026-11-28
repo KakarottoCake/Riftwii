@@ -43,17 +43,27 @@ bool CheckCodeBuilds(const FrontendState& state, std::string& error);
 const PlayHistory& History();
 // Remembers the last launch even with history off. With history on, also
 // counts a start of the game (or of a profile's tile) and saves the history.
-void RecordPlay(const std::string& game_id);
+// `gamecube`: a GameCube game, which leaves no play log to collect.
+void RecordPlay(const std::string& game_id, bool gamecube = false);
 // The tile launched (the game ID, or a profile's key), kept in
 // sd:/riftwii/last_tile.txt even with the history off: a problem report
 // then shows the choices that ran (riftwii/profiles.hpp's launched_choices_key).
 void RememberLaunchedTile(const std::string& key);
+// At RiftWii's start: adds the play time the Wii Menu's play log holds for
+// the tile launched last to its total (riftwii/playtime.hpp). Needs the card
+// and the settings; leaves the log itself alone.
+void CollectPlayTime();
+// The game page's play time: "Play time 2 h 5 min", or "Play time not
+// recorded" for a GameCube game or an emulator game. Empty with history off,
+// for a tile never played and for a Wii game with no time yet.
+std::string PlayTimeNote(const std::string& game_id, bool gamecube);
 // The last game's key for automatic start, including when Play history is off.
 std::string LastGameKey();
 // Drops a tile from the history (a profile removed).
 void ForgetPlays(const std::string& game_id);
 // "Played 3 times, last on 9/21" for the game page; empty when never.
-std::string PlayNote(const std::string& game_id);
+// `compact` leaves the date out (the page line is too wide).
+std::string PlayNote(const std::string& game_id, bool compact = false);
 
 // Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
 // once; and written back after the player moves a game.

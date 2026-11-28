@@ -5,6 +5,7 @@
 #include "d2xsave.hpp"
 #include "d2xsd.hpp"
 #include "progress.hpp"
+#include "playtimemark.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/wfstitle.hpp"
@@ -309,8 +310,11 @@ bool Session::ensure_probe(std::string& error) {
             if (!own_saves_on_usb && source.game.device == ImageDevice::Sd && base != 56 && base != 57)
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
                      "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
-            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why, scope, nullptr, nullptr,
+            else if (PlayTimeLaunchNand(own_saves_dir),  // the play log's place for the next start (#642), noted while the card is still RiftWii's
+                     !(d2x_saves = enable_d2x_saves(own_saves_dir, why, scope, nullptr, nullptr,
                                                     own_saves_usb_partition))) {
+                // Emulation did not come on: the game writes to the Wii's own NAND.
+                if (!own_saves_on_usb && !sd_held_by_d2x_fat()) PlayTimeLaunchNand("");
                 if (own_saves_on_usb) {
                     error = "Saves: " + why;
                     return false;

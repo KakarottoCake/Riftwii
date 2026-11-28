@@ -46,6 +46,7 @@
 #include "memlimits.hpp"
 #include "nandchannels.hpp"
 #include "stash.hpp"
+#include "playtimemark.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/nandcheck.hpp"
@@ -4325,6 +4326,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // waits: ES would give its saves to the wrong owner, or find none of the
     // shared contents its titles use.
     if (!files.emu_nand.empty()) {
+        // Where the next start finds the game's play log (play time, #642); the card is d2x's after this.
+        PlayTimeLaunchNand(files.emu_nand);
         struct SystemList {
             const char* path;
             const char* what;
