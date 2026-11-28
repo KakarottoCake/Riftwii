@@ -477,9 +477,6 @@ msgstr "다시 게임을 찾아보기"
 msgid "Rescan"
 msgstr "재검색"
 
-msgid "Leave RiftWii"
-msgstr "RiftWii 나가기"
-
 msgid "Exit"
 msgstr "나가기"
 
@@ -4481,6 +4478,9 @@ msgstr "이 링크에서 이 게임의 실행 상태를 보고할 수 있습니�
 
 msgid "Report"
 msgstr "보고"
+
+msgid "{1}: {2}"
+msgstr "{1}: {2}"
 
 msgid "Wii saves"
 msgstr "Wii 세이브"

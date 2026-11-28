@@ -267,7 +267,10 @@ void AddSoyjak(Canvas& c) {
 // of its own: GuiBackdrop draws it, unless the theme gives background.png.
 Tex Pick(const ThemeImage& im) {
     std::vector<std::uint8_t> rgba;
-    if (LoadThemeImage(im.name, im.w, im.h, rgba)) {
+    // A theme made before the exit sign has the power icon in its place.
+    const bool exitFromPower = std::strcmp(im.name, "icon_exit") == 0 && !ThemeImageExists("icon_exit") &&
+                               ThemeImageExists("icon_power");
+    if (LoadThemeImage(exitFromPower ? "icon_power" : im.name, im.w, im.h, rgba)) {
         Tex t;
         t.data = Mem2Alloc(rgba.size());
         if (t.data && to_gx_rgba8(rgba.data(), im.w, im.h, t.data)) {
@@ -355,7 +358,7 @@ Tex tileEmpty;
 Tex shelfPlank;
 Tex tile9, tile9Over, tile9Primary, tile9PrimaryOver, promptButton;
 Tex iconPlay, iconMods, iconCheats, iconSaves, iconInfo, iconHelp, iconPicture, iconControllers, iconOnline,
-    iconHome, iconSound, iconPower, iconWii, iconGameCube;
+    iconHome, iconSound, iconPower, iconExit, iconWii, iconGameCube;
 
 Tex ArtFrame(int w, int h) {
     // Two sizes at most (with and without the popup's hint line), each painted once.
@@ -413,7 +416,7 @@ const Slot kSlots[] = {
     {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
     {"icon_mods", &iconMods}, {"icon_cheats", &iconCheats}, {"icon_saves", &iconSaves}, {"icon_info", &iconInfo},
     {"icon_help", &iconHelp}, {"icon_picture", &iconPicture}, {"icon_controllers", &iconControllers},
-    {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower},
+    {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower}, {"icon_exit", &iconExit},
     {"icon_wii", &iconWii}, {"icon_gamecube", &iconGameCube},
     {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
     {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},

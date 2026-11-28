@@ -33,6 +33,11 @@ struct TileSpec {
     // under it, as the Wii Menu's own tiles (Settings' sections). For a
     // tile with a name and no value.
     bool stacked = false;
+    // A name that must fit whole (Settings' Exit RiftWii in a translation):
+    // it steps down to 12 points, on its own, before "..." cuts it.
+    bool ownSize = false;
+    // The smallest size a name steps down to before "..." cuts it; 0 for 15.
+    int minPoints = 0;
 };
 
 class GuiTiles : public GuiElement {
@@ -45,8 +50,24 @@ public:
     // The lit tile, or the one the D-pad lit last while the pointer is
     // off the tiles.
     int Selected() const { return hover >= 0 ? hover : focus; }
+    bool Hovered() const { return hover >= 0; }  // the pointer is on a tile
     // The tile A was pressed on since the last call; -1 when none.
     int GetClicked();
+    // Settings' section list sits beside another list. While keys are off
+    // the D-pad and A leave these tiles alone and none is lit by the focus
+    // (the pointer still lights and presses them). With side keys on, Right
+    // is not a move between tiles: TakeRight() reports it instead, as the
+    // way into the other list.
+    void SetKeysActive(bool on) { keysActive = on; }
+    void SetSideKeys(bool on) { sideKeys = on; }
+    bool TakeRight() {
+        const bool r = rightPressed;
+        rightPressed = false;
+        return r;
+    }
+    // The tile a page is on while the focus is elsewhere: its name in the
+    // accent colour and a thin bar at its side, no ring. -1 for none.
+    void SetCurrent(int index) { current = index; }
     // How lit the tile looks, 0 to 1, for a hidden tile's own element.
     float Lift(int index) const {
         return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
@@ -64,7 +85,8 @@ private:
     void EvenTextSizes();
 
     const std::vector<TileSpec>* tiles = nullptr;
-    int focus = 0, hover = -1, clicked = -1;
+    int focus = 0, hover = -1, clicked = -1, current = -1;
+    bool keysActive = true, sideKeys = false, rightPressed = false;
     int pressedTile = -1;
     float pressElapsed = -1.0f, pressScale = 1.0f;
     std::vector<float> lift;  // each tile's lit look, eased 0 to 1
@@ -72,6 +94,7 @@ private:
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
     std::vector<int> labelSize;  // the size Layout picked for each tile's name
+    std::vector<char> labelMarked;   // names drawn in the accent colour (SetCurrent)
     std::vector<char> chevronShown;  // opensPage, unless the name needed its room
     bool dirty = true;
     GuiSound* soundOver;

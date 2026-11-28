@@ -19953,14 +19953,57 @@ static void MenuParentalControls()
 	});
 }
 
-// One section of Settings (the hub's tile): its rows only. `backToHub`:
-// left with Back, for the hub (any other way out goes where it says).
+// What Settings' two-pane page tells the loop around it (MenuSettings):
+// whether it is coming back from the search (its slide), and whether it
+// is leaving for the search. `section` out: the section lit when it left.
+struct SettingsPaneState {
+	bool fromSearch = false;
+	bool searchAsked = false;
+	int section = 0;
+	// The page asks to be built again (a change of language or of the menu's
+	// shape or size moves everything): with the side and the row it was on.
+	bool redo = false;
+	int side = 0;
+	int row = 0;
+};
+
+// What each section holds, in a line: the note while its name is lit, and
+// the note of the Exit button.
+static const char* SectionAbout(int index)
+{
+	switch (index) {
+		case 0: return "Game picture: width, flicker filter, borders, video mode and aspect ratio.";
+		case 1: return "Game language, saves, emulated NAND, quitting and screenshots.";
+		case 2: return "USB controllers, button layouts and controller rumble.";
+		case 3: return "Home layout, game order, drives, play history and clock.";
+		case 4: return "Menu language, theme, font, screen size, sounds and music.";
+		case 5: return "Downloads, game servers and RiftWii updates.";
+		case 6: return "Find games and network packs, or copy a game disc.";
+		case 7: return "Problem reports, what's new, help, the RiftWii channel and credits.";
+		default:
+			return riftwii::parental_rules(riftwii::wii::Settings()).exits == riftwii::ParentalExits::Hidden ? "Wii Menu or power off."
+				: HomeRestartsConsole() ? "Homebrew Channel, Wii Menu, restart or power off."
+				: "Homebrew Channel, Wii Menu, Priiloader or power off.";
+	}
+}
+
+// Settings: the sections in a list on the left, the lit section's rows on
+// the right (they follow the focus before A is pressed). `section` is the
+// one lit first. Left and Right go between the two sides, Up and Down move
+// within one, A changes the lit row (or opens the lit section), B goes
+// from the rows back to the list and from the list out (MENU_SOURCE).
 // SettingsSection::Count is Settings' search: every section's rows that
-// match what the player types first (the hub's Search button).
-static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
+// match what the player types first, in a single list (the search button;
+// `backToHub` there: left with Back, for the two-pane page).
+static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub,
+	SettingsPaneState* pane = nullptr)
 {
 	int menu = MENU_NONE;
 	const bool searching = section == SettingsSection::Count;
+	const bool twoPane = !searching;
+	// 0: the list of sections has the focus, 1: its rows.
+	int side = twoPane && pane ? pane->side : 0;
+	bool redoPane = false;  // a change that needs the page's geometry and texts again
 	std::string query;
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	// The theme and font this run of the menu shows (read at the first
@@ -20407,6 +20450,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
+	std::string steamGridSuffixCached;
+	bool steamGridStale = true;
 	const auto build = [&]() {
 		rows.clear();
 		actions.clear();
@@ -20638,7 +20683,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			FlowRow::Kind::Toggle);
 		option(tr("Covers for emulator games"), settings.emulator_covers ? tr("On") : tr("Off"),
 			settings.emulator_covers, kEmulatorCovers, FlowRow::Kind::Toggle);
-		const std::string steamGridSuffix = riftwii::wii::SteamGridKeySuffix();
+		// Read from the card once, and again after the key changes: build()
+		// runs at every step through the sections.
+		if (steamGridStale) {
+			steamGridSuffixCached = riftwii::wii::SteamGridKeySuffix();
+			steamGridStale = false;
+		}
+		const std::string steamGridSuffix = steamGridSuffixCached;
 		const bool steamGridKey = !steamGridSuffix.empty();
 		option(tr("SteamGridDB covers"), steamGridKey
 			? (settings.steamgrid_covers ? tr("On (key found)") : tr("Off (key found)")) : tr("No API key"),
@@ -20750,8 +20801,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		actions.push_back(kCredits);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
-		exitRow.label = "Leave RiftWii";
-		exitRow.value = "Exit";
+		exitRow.label = tr("Exit RiftWii");
+		exitRow.value = tr("Exit");
 		rows.push_back(exitRow);
 		actions.push_back(kExit);
 
@@ -20864,9 +20915,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	}
 	build();
 
-	const std::string sectionTitle = searching ? tr("Search: {1}", {FlatCapped(query, 24)}) : SectionName(section);
-	GuiText titleTxt(sectionTitle.c_str(), 30, skin::kInk);
-	Place(titleTxt, 78, 28);
+	// What the sub-pages (a choice's list) name as the page they came from.
+	const auto currentTitle = [&]() -> std::string {
+		return searching ? std::string(tr("Search: {1}", {FlatCapped(query, 24)})) : SectionName(section);
+	};
+	const auto pageTitle = [&]() -> std::string {
+		return twoPane ? std::string(tr("Settings")) : currentTitle();
+	};
+	// The page's room: 40 to 600 at 4:3, wider at 16:9 (inside the overscan).
+	const PageBounds page = twoPane ? WidePageBounds() : PageBounds{};
+	GuiText titleTxt(pageTitle().c_str(), 30, skin::kInk);
+	Place(titleTxt, twoPane ? page.left : 78, 28);
 	TitleBand titleBand;
 	PageIcon pageIcon(searching ? &skin::iconSearch : SectionIcon(section));
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
@@ -20885,20 +20944,80 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (g_scanning) g_renameAfterScan = true;
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	versionTxt.SetPosition(-40, 40);
-	NoteCard noteCard;
-	// Two lines a row: the name with its value or switch, and under them
-	// what it is, in plain words (FlowRow::detail, SetNotesUnder): four rows
-	// of 58 end where the note card starts (y 316).
-	GuiFlowList list(40, 84, 560, 4);
+	versionTxt.SetPosition(twoPane ? page.right - 52 - 640 : -40, 40);
+
+	// Two-pane geometry. The section list takes the left; the rows the rest.
+	// At 4:3 the rows are narrow (about 380 wide): each row then shows its
+	// name above its value with two small arrows (GuiFlowList::SetCompact),
+	// so a long French or Portuguese name or value still fits. A wider
+	// (16:9) page keeps the rows as Settings had them: name and control on
+	// one line, the explanation under.
+	constexpr int kPaneGap = 18, kListTop = 87, kTilePitch = 34, kTileH = 30;
+	const int leftW = page.Width() > 600 ? 188 : 168;
+	const int rowsX = twoPane ? page.left + leftW + kPaneGap : 40;
+	const int rowsW = twoPane ? page.right - rowsX : 560;
+	const bool compact = twoPane && rowsW < 470;
+	const int noteX = twoPane ? rowsX : NoteCard::kX;
+	// The note ends where the rows' cards do (the scroll column, 42 wide,
+	// is left clear), and is three lines at 4:3.
+	const int noteW = twoPane ? rowsW - 42 - 36 : NoteCard::kTextW;
+
+	std::vector<TileSpec> sectionTiles;
+	GuiTiles sectionList;
+	SkinButton* searchButton = nullptr;
+	std::unique_ptr<SkinButton> searchOwned;
+	if (twoPane) {
+		for (int i = 0; i <= static_cast<int>(SettingsSection::More); ++i) {
+			TileSpec t;
+			t.x = page.left;
+			t.y = kListTop + i * kTilePitch;
+			t.w = leftW;
+			t.h = kTileH;
+			t.label = SectionName(static_cast<SettingsSection>(i));
+			t.icon = SectionIcon(static_cast<SettingsSection>(i));
+			t.labelPoints = 18;
+			t.minPoints = 13;  // a long name (Controladores, コントローラー) steps down, all alike, before "..."
+			sectionTiles.push_back(t);
+		}
+		// Exit is a button of its own, apart from the sections.
+		TileSpec exitTile;
+		exitTile.x = page.left;
+		exitTile.y = kListTop + 8 * kTilePitch + 8;
+		exitTile.w = leftW;
+		exitTile.h = kTileH;
+		exitTile.label = tr("Exit RiftWii");
+		exitTile.icon = skin::iconExit.data ? &skin::iconExit : &skin::iconPower;
+		exitTile.labelPoints = 18;
+		exitTile.ownSize = true;
+		sectionTiles.push_back(exitTile);
+		sectionList.SetTiles(&sectionTiles);
+		sectionList.SetSideKeys(true);
+		sectionList.Select(static_cast<int>(section));
+		sectionList.SetCurrent(static_cast<int>(section));
+		// Search every setting: at the band's right, as Home's is on its
+		// bar; 1 (Classic Y, GameCube Y) too.
+		searchOwned.reset(new SkinButton(skin::roundBtn, skin::roundBtnOver, 2, page.right - 38, 22, nullptr,
+			WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f));
+		searchOwned->backAction = false;
+		searchButton = searchOwned.get();
+	}
+	NoteCard noteCard(noteX);
+	// The explanation under each row (the full width) at 16:9 and in a
+	// search: four rows of 58 end where the note starts (y 316). Narrow
+	// rows are the same height (a button under a long name needs it).
+	GuiFlowList list(rowsX, 84, rowsW, 4);
 	list.SetRowHeight(58);
-	list.SetNotesUnder(true);
+	list.SetNotesUnder(!compact);
+	list.SetCompact(compact);
+	list.SetSideKeys(twoPane);
 	list.SetCards(true);
 	list.SetRows(&rows);
-	list.Select(0);
-	GuiText noteTxt("", 15, skin::kInkSoft);
-	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
-	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	list.Select(twoPane && pane ? pane->row : 0);
+	if (twoPane) list.SetKeysActive(false);
+	const int noteLines = NoteCard::kLines;  // four lines of 13 points end at y 402 at 4:3, 15 points at y 410 at 16:9
+	GuiText noteTxt("", compact ? 13 : 15, skin::kInkSoft);
+	Place(noteTxt, noteX + 36, NoteCard::kTextY);
+	noteTxt.SetWrap(true, noteW, noteLines);
 	if (searching && rows.empty()) noteTxt.SetText(tr("No settings match \"{1}\".", {query}).c_str());
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -20906,7 +21025,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	prompts.Add("B", tr("Back"));
-	const int promptChange = prompts.Add("A", tr("Change"));
+	if (twoPane) prompts.Add("1", tr("Search"));
+	const int promptChange = prompts.Add("A", twoPane ? tr("Open") : tr("Change"));
 
 	HaltGui();
 	f32 safeX, safeW;
@@ -20914,15 +21034,20 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	riftwii::wii::BusyRing networkBusy(static_cast<int>(safeX + safeW) - 58, 70, false);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
-	w.Append(&pageIcon);
+	if (!twoPane) w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
+	if (twoPane) {
+		w.Append(&sectionList);
+		w.Append(&searchButton->button);
+	}
 	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
 	w.Append(&networkBusy);
+	if (pane && pane->fromSearch) transition::Hold(transition::Kind::SlideBack);
 	mainWindow->Append(&w);
 	ResumeGui();
 
@@ -21047,6 +21172,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	int shownRow = -1;
 	std::string shownVerb;
+	bool sectionNote = false;  // two-pane: the note is the lit section's
+	int rowMemory[static_cast<int>(SettingsSection::More) + 1] = {};  // two-pane: each section's last row
+	if (twoPane && pane && static_cast<int>(section) < static_cast<int>(SettingsSection::More) + 1)
+		rowMemory[static_cast<int>(section)] = pane->row;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -21060,10 +21189,93 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				ShowPopup(tr("Network Test"), tr(networkTest.error.c_str()), tr("OK"));
 		}
 		ClearStaleButtons({&backBtn.button});
+		if (twoPane) {
+			ClearStaleButtons({&searchButton->button});
+			// Where the pointers are: on the rows (not the note under them), or on
+			// the tiles' column at all.
+			bool pointerOnRows = false, anyPointer = false;
+			for (int chan = 0; chan < 4; ++chan) {
+				const auto* wpad = userInput[chan].wpad;
+				if (!wpad || !wpad->ir.valid) continue;
+				anyPointer = true;
+				if (wpad->ir.x >= rowsX - 8 && wpad->ir.y >= 80 && wpad->ir.y < 316) pointerOnRows = true;
+			}
+			// The right-hand rows follow the section list's focus, or the
+			// pointer on a section, before A is pressed. Each section keeps
+			// the row it was left on.
+			const int lastSection = static_cast<int>(SettingsSection::More);
+			const int litTile = sectionList.Selected();
+			if (litTile >= 0 && litTile <= lastSection && litTile != static_cast<int>(section)) {
+				rowMemory[static_cast<int>(section)] = list.Selected();
+				section = static_cast<SettingsSection>(litTile);
+				build();
+				list.Refresh();
+				list.Select(std::min(rowMemory[litTile], std::max(0, static_cast<int>(rows.size()) - 1)));
+				sectionList.SetCurrent(litTile);
+				shownRow = -1;
+				// The pointer chose another section: the list has the focus again.
+				if (side == 1) {
+					side = 0;
+					shownVerb.clear();
+				}
+			}
+			// The pointer left the Exit tile: its focus does not stay lit.
+			if (anyPointer && !sectionList.Hovered() && sectionList.Selected() > lastSection)
+				sectionList.Select(static_cast<int>(section));
+			const auto intoRows = [&]() {
+				if (rows.empty()) return;
+				side = 1;
+				// Where this section was left (a fact or a note is not a row to stop on).
+				int at = std::min(rowMemory[static_cast<int>(section)], static_cast<int>(rows.size()) - 1);
+				for (int tries = 0; tries < static_cast<int>(rows.size()) && (rows[at].kind == FlowRow::Kind::Info);
+				     ++tries)
+					at = (at + 1) % static_cast<int>(rows.size());
+				list.Select(at);
+				shownRow = -1;
+				shownVerb.clear();
+			};
+			const int pressed = sectionList.GetClicked();
+			if (pressed == lastSection + 1) {
+				if (ShowHomeMenu() > 0) menu = MENU_EXIT;
+			} else if (pressed >= 0) {
+				intoRows();
+			} else if (side == 0 && sectionList.TakeRight() && litTile <= lastSection) {
+				intoRows();
+			}
+			if (side == 1 && list.TakeLeft()) {
+				rowMemory[static_cast<int>(section)] = list.Selected();
+				side = 0;
+				shownRow = -1;
+			}
+			sectionList.SetKeysActive(side == 0);
+			list.SetKeysActive(side == 1);
+			if (searchButton->Clicked()) {
+				if (pane) pane->searchAsked = true;
+				transition::Hold(transition::Kind::SlideForward);
+				menu = MENU_SOURCE;
+				backToHub = true;
+			}
+			// While the sections have the focus, the note is the lit
+			// section's (or the Exit button's), the key hint opens it.
+			// The pointer on the rows shows their help, not the section's.
+			sectionNote = side == 0 && !pointerOnRows;
+			if (sectionNote) {
+				const int tile = std::min(sectionList.Selected(), static_cast<int>(SettingsSection::More) + 1);
+				const int noteKey = -100 - tile;
+				if (noteKey != shownRow) {
+					shownRow = noteKey;
+					noteTxt.SetText(tr(SectionAbout(tile)));
+					prompts.SetAction(promptChange, tr("Open"));
+					shownVerb.clear();
+				}
+			}
+		}
 		const int focused = list.Selected();
-		if (focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
+		if (!(twoPane && sectionNote) && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
 			const FlowRow& row = rows[static_cast<std::size_t>(focused)];
 			std::string verb = tr("Change");
+			// A on an option opens its choices (Left and Right go between the two panes).
+			if (twoPane && row.kind == FlowRow::Kind::Option && !row.dim) verb = tr("Choose");
 			if (row.dim || row.kind == FlowRow::Kind::Info)
 				verb = tr("About this");
 			else if (row.kind == FlowRow::Kind::Action) {
@@ -21082,7 +21294,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			prompts.SetShown(promptChange, row.kind != FlowRow::Kind::Info);
 			if (focused != shownRow) {
 				shownRow = focused;
-				noteTxt.SetText(help(actions[static_cast<std::size_t>(focused)]).c_str());
+				std::string about = help(actions[static_cast<std::size_t>(focused)]);
+				// Narrow rows have no tag line: when a change takes effect leads the note.
+				if (compact && !row.tag.empty() && !about.empty()) about = tr("{1}: {2}", {row.tag, about});
+				noteTxt.SetText(about.c_str());
 			}
 		}
 		int acted = list.GetClicked();
@@ -21153,7 +21368,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int picked = -1;
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
-					RunRowPage(actedRow.label, sectionTitle, choiceRows,
+					RunRowPage(actedRow.label, currentTitle(), choiceRows,
 						[&](int i) { return i < static_cast<int>(notes.size()) && !notes[i].empty() ? notes[i] : about; },
 						[&](int i, const PageAside&) { picked = i; return true; }, nullptr, 0, set,
 						searching ? &skin::iconSearch : SectionIcon(section));
@@ -21221,13 +21436,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					const bool drawable = riftwii::wii::MenuLanguageDrawable(lang);
 					riftwii::wii::SetMenuLanguage(drawable ? lang : "en");
 					namesStale = true;  // fetched once, on the way out
-					titleTxt.SetText((searching ? tr("Search: {1}", {FlatCapped(query, 24)}) : SectionName(section)).c_str());
+					titleTxt.SetText(pageTitle().c_str());
 					// With no Hangul source the catalog above is English, so
 					// the player can still read how to copy the font.
 					if (error.empty() && !drawable)
 						note(tr(riftwii::wii::kKoreanNeedsFont));
 					else
 						note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
+					redoPane = twoPane;  // the section names and Exit are in the new language too
 					rebuild();
 					break;
 				}
@@ -21523,6 +21739,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					if (saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."))) {
 						riftwii::wii::ApplyMenuDisplay();
 						skin::EnsureBackgrounds();
+						redoPane = twoPane;  // the page's width changed with the shape
 					}
 					rebuild();
 					break;
@@ -21536,8 +21753,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					if (listPick >= 0 && listPick <= 4) settings.screen_size = 80 + 5 * listPick;
 					else settings.screen_size = 80 + 5 * (((at + direction) % 5 + 5) % 5);
 				}
-					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
+					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."))) {
 						riftwii::wii::ApplyMenuDisplay();
+						redoPane = twoPane;
+					}
 					rebuild();
 					break;
 				case kTheme: {
@@ -21732,6 +21951,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						break;
 					}
 					const bool saved = riftwii::wii::SaveSteamGridKey(key);
+					steamGridStale = true;
 					if (saved) ResetCoverDownloads();
 					note(saved ? tr("SteamGridDB key saved.") : tr("Could not change the SteamGridDB key. Check the SD card."));
 					rebuild();
@@ -21740,6 +21960,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kSteamGridClear: {
 					WaitForDriveScan(noteTxt);
 					const bool cleared = riftwii::wii::ClearSteamGridKey();
+					steamGridStale = true;
 					if (cleared) ResetCoverDownloads();
 					note(cleared ? tr("SteamGridDB key cleared.") : tr("Could not change the SteamGridDB key. Check the SD card."));
 					rebuild();
@@ -22127,13 +22348,29 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 			}
 		}
-		if (menu == MENU_NONE && backBtn.Clicked()) {
+		if (twoPane && redoPane && menu == MENU_NONE) {
+			pane->redo = true;
+			pane->side = side;
+			pane->row = list.Selected();
 			menu = MENU_SOURCE;
-			backToHub = true;
+		}
+		if (menu == MENU_NONE && backBtn.Clicked()) {
+			if (twoPane && side == 1) {
+				// From the rows back to the list of sections.
+				rowMemory[static_cast<int>(section)] = list.Selected();
+				side = 0;
+				shownRow = -1;
+				// This press is spent: it must not also leave Settings.
+				backBtn.button.ResetState();
+			} else {
+				menu = MENU_SOURCE;
+				backToHub = !twoPane;
+			}
 		}
 		// Leaving with another theme or font than the one on screen: one
 		// restart for both (Later leaves them for the next start).
-		if (menu == MENU_SOURCE && (settings.theme != runningTheme || settings.menu_font != runningFont)) {
+		if (menu == MENU_SOURCE && !(pane && (pane->searchAsked || pane->redo)) &&
+		    (settings.theme != runningTheme || settings.menu_font != runningFont)) {
 			const bool theme = settings.theme != runningTheme;
 			const bool font = settings.menu_font != runningFont;
 			const std::string what = theme && font ? tr("{1} and the new font", {themeName(settings.theme)})
@@ -22166,155 +22403,37 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	}
 
 	HaltGui();
+	if (pane) pane->section = static_cast<int>(section);
 	mainWindow->Remove(&w);
 	return menu;
 }
 
-// Settings: a tile for each section; A opens the section's short list.
-// `focus`: the tile lit, kept between visits.
-// -1 when the player goes back to Home, kLeaveRiftWii to leave RiftWii.
-static constexpr int kLeaveRiftWii = -3;
-static constexpr int kSearchSettings = -4;  // the hub's Search
-static int SettingsHub(int& focus, bool fromSection)
-{
-	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-	struct Section {
-		SettingsSection id;
-		const skin::Tex* icon;
-		const char* about;
-	};
-	const Section sections[] = {
-		{SettingsSection::Picture, &skin::iconPicture,
-			"Game picture: width, flicker filter, borders, video mode and aspect ratio."},
-		{SettingsSection::Games, &skin::iconPlay,
-			"Game language, saves, emulated NAND, quitting and screenshots."},
-		{SettingsSection::Controllers, &skin::iconControllers,
-			"USB controllers, button layouts and controller rumble."},
-		{SettingsSection::HomeScreen, &skin::iconHome,
-			"Home layout, game order, drives, play history and clock."},
-		{SettingsSection::Look, &skin::iconSound,
-			"Menu language, theme, font, screen size, sounds and music."},
-		{SettingsSection::Online, &skin::iconOnline,
-			"Downloads, game servers and RiftWii updates."},
-		{SettingsSection::Finding, &skin::iconDrives,
-			"Find games and network packs, or copy a game disc."},
-		{SettingsSection::More, &skin::iconHelp,
-			"Problem reports, what's new, help, the RiftWii channel and credits."},
-		// Not a section: the HOME Menu's ways out, as a tile of its own.
-		{SettingsSection::Count, &skin::iconPower,
-			riftwii::parental_rules(settings).exits == riftwii::ParentalExits::Hidden ? "Wii Menu or power off."
-			: HomeRestartsConsole() ? "Homebrew Channel, Wii Menu, restart or power off."
-				: "Homebrew Channel, Wii Menu, Priiloader or power off."},
-	};
-	// Three across, three down, inside a TV's overscan.
-	std::vector<TileSpec> tilesSpec;
-	constexpr int kLeft = 40, kTop = 88, kW = 178, kH = 78, kGap = 13;  // x 40 to 600, inside a TV's overscan
-	for (int i = 0; i < static_cast<int>(sizeof(sections) / sizeof(sections[0])); ++i) {
-		TileSpec t;
-		t.x = kLeft + (i % 3) * (kW + kGap);
-		t.y = kTop + (i / 3) * (kH + kGap);
-		t.w = kW;
-		t.h = kH;
-		t.label = sections[i].id == SettingsSection::Count ? std::string(tr("Exit")) : SectionName(sections[i].id);
-		t.icon = sections[i].icon;
-		// Nine large tiles with a name each, as the Wii Menu's: the icon
-		// larger on top and the name centred under it. Every one opens a
-		// page, so no ">" (it looked like a list's, not a menu's).
-		t.stacked = true;
-		t.labelPoints = 20;
-		tilesSpec.push_back(t);
-	}
-
-	GuiText titleTxt(tr("Settings"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
-	TitleBand titleBand;
-	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
-	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	versionTxt.SetPosition(-92, 40);
-	// Search every setting: at the band's right, as Home's is on its bar;
-	// 1 (Classic Y, GameCube Y) too.
-	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 562, 22, nullptr,
-		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f);
-	searchBtn.backAction = false;
-	GuiTiles tileGrid;
-	tileGrid.SetTiles(&tilesSpec);
-	tileGrid.Select(focus);
-	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
-		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
-	HideButton(backBtn);
-	GuiPrompts prompts;
-	prompts.Add("B", tr("Back"));
-	prompts.Add("1", tr("Search"));
-	prompts.Add("A", tr("Open"));
-	// Lines beside the same info icon as list pages, below the grid; the
-	// last is cut short of the prompts.
-	NoteCard noteCard(NoteCard::kX, 350);
-	PromptsNote noteTxt(prompts, NoteCard::kTextX, 360, NoteCard::kTextW, 3, 16, skin::kInkSoft);
-
-	HaltGui();
-	GuiWindow w(screenwidth, screenheight);
-	w.Append(&titleBand);
-	w.Append(&titleTxt);
-	w.Append(&versionTxt);
-	w.Append(&tileGrid);
-	w.Append(&searchBtn.button);
-	w.Append(&noteCard);
-	w.Append(&noteTxt);
-	w.Append(&backBtn.button);
-	w.Append(&prompts);
-	if (fromSection) transition::Hold(transition::Kind::SlideBack);
-	mainWindow->Append(&w);
-	ResumeGui();
-
-	int picked = -2;
-	int shown = -1;
-	while (picked == -2)
-	{
-		usleep(10000);
-		RestartIfOutOfMemory();
-		HaltGui();
-		ClearStaleButtons({&backBtn.button, &searchBtn.button});
-		if (searchBtn.Clicked()) picked = kSearchSettings;
-		const int lit = tileGrid.Selected();
-		if (lit != shown && lit >= 0 && lit < static_cast<int>(tilesSpec.size())) {
-			shown = lit;
-			noteTxt.SetText(tr(sections[lit].about));
-		}
-		const int clicked = tileGrid.GetClicked();
-		if (clicked >= 0 && sections[clicked].id == SettingsSection::Count) {
-			focus = clicked;
-			if (ShowHomeMenu() > 0) picked = kLeaveRiftWii;
-		} else if (clicked >= 0) {
-			focus = clicked;
-			picked = clicked;
-		}
-		if (picked == -2 && backBtn.Clicked()) picked = -1;
-		ResumeGui();
-	}
-	HaltGui();
-	if (picked >= 0) transition::Hold(transition::Kind::SlideForward);
-	mainWindow->Remove(&w);
-	return picked;
-}
-
+// Settings: the sections on the left, the lit section's options on the
+// right (MenuSettingsSection). `focus`: the section lit, kept between visits.
+// MENU_SOURCE (Home) when the player goes back, or where a row sends them.
 static int MenuSettings(FrontendState& state)
 {
 	static int focus = 0;
-	bool fromSection = false;
+	SettingsPaneState pane;
 	for (;;) {
-		const int picked = SettingsHub(focus, fromSection);
-		if (picked == kLeaveRiftWii) return MENU_EXIT;
+		pane.section = focus;
+		pane.searchAsked = false;
+		pane.redo = false;
 		bool backToHub = false;
-		if (picked == kSearchSettings) {
-			const int menu = MenuSettingsSection(state, SettingsSection::Count, backToHub);
-			if (!backToHub) return menu;
-			fromSection = true;
-			continue;
+		const int menu = MenuSettingsSection(state, static_cast<SettingsSection>(focus), backToHub, &pane);
+		focus = pane.section;
+		if (pane.redo) {
+			pane.fromSearch = false;
+			continue;  // built again, on the same section and row
 		}
-		if (picked < 0) return MENU_SOURCE;
-		const int menu = MenuSettingsSection(state, static_cast<SettingsSection>(picked), backToHub);
-		if (!backToHub) return menu;
-		fromSection = true;
+		if (!pane.searchAsked) return menu;
+		// Settings' search, then the two-pane page again.
+		backToHub = false;
+		const int found = MenuSettingsSection(state, SettingsSection::Count, backToHub);
+		if (!backToHub) return found;
+		pane.side = 0;
+		pane.row = 0;
+		pane.fromSearch = true;
 	}
 }
 

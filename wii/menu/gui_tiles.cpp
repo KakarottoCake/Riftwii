@@ -200,7 +200,7 @@ void GuiTiles::Layout(int i) {
     int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
     int size = points;
-    for (; size > 15; --size) {
+    for (; size > (s.ownSize ? 12 : s.minPoints > 0 ? s.minPoints : 15); --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
     }
@@ -229,12 +229,12 @@ void GuiTiles::EvenTextSizes() {
     int labelMin = 0;
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
-        if (s.primary || s.label.empty()) continue;
+        if (s.primary || s.ownSize || s.label.empty()) continue;
         labelMin = labelMin == 0 ? labelSize[i] : std::min(labelMin, labelSize[i]);
     }
     if (labelMin == 0) return;
     for (int i = 0; i < Count(); ++i)
-        if (!(*tiles)[i].primary) label[i]->SetFontSize(labelMin);
+        if (!(*tiles)[i].primary && !(*tiles)[i].ownSize) label[i]->SetFontSize(labelMin);
 }
 
 void GuiTiles::Draw() {
@@ -245,9 +245,10 @@ void GuiTiles::Draw() {
         dirty = false;
         for (int i = 0; i < Count(); ++i) Layout(i);
         EvenTextSizes();
+        labelMarked.assign(label.size(), 0);
     }
     pressScale = riftwii::wii::transition::PressScale(pressElapsed);
-    const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
+    const int lit = hover >= 0 ? hover : (AnyPointer() || !keysActive ? -1 : focus);
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
         float& l = lift[i];
@@ -291,6 +292,16 @@ void GuiTiles::Draw() {
             skin::Draw(*s.icon, iconX, iconY, s.dim ? alpha / 2 : alpha, iconScale);
         }
         // The lit tile's name scrolls when it does not fit; the others end in "...".
+        // The page's own tile, while the focus is elsewhere, is marked softly
+        // (its name in the accent colour and a thin bar at its side), so only
+        // the focused tile has an outline.
+        const bool marked = i == current && i != lit;
+        if (marked != (labelMarked.size() > static_cast<std::size_t>(i) && labelMarked[i])) {
+            labelMarked.resize(label.size(), 0);
+            labelMarked[i] = marked;
+            label[i]->SetColor(marked ? skin::kAccentInk : s.dim ? skin::kInkDim : s.primary ? skin::kAccentInk : skin::kInk);
+        }
+        if (marked) Menu_DrawRectangle(x + 5, y + 7, 3, h - 14, skin::kAccent, 1);
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
@@ -326,9 +337,12 @@ void GuiTiles::Update(GuiTrigger* t) {
     // only the one a press comes from moves the focus.
     if (AnyPointer()) return;
     hover = -1;
+    if (!keysActive) return;
     int dx = 0, dy = 0;
-    if (t->Right()) dx = 1;
-    else if (t->Left()) dx = -1;
+    if (t->Right()) {
+        if (sideKeys) rightPressed = true;
+        else dx = 1;
+    } else if (t->Left()) dx = sideKeys ? 0 : -1;
     else if (t->Down()) dy = 1;
     else if (t->Up()) dy = -1;
     if (dx != 0 || dy != 0) {

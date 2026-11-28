@@ -31,6 +31,12 @@ constexpr int kStepperW = kStep + kGap + kChipW + kGap + kStep;
 // c..." beside a short "Look for them". The floor keeps the usual short
 // values (On, Off, Auto) at one width, their arrows in line from row to row.
 constexpr int kStepperMinMiddle = 140;
+// A narrow list's rows (SetCompact): the option's arrows drawn smaller,
+// side by side at the row's end.
+constexpr float kSmallScale = 0.72f;
+constexpr int kSmallStep = 25;      // the small arrow's visible circle, about
+constexpr int kSmallPair = 2 * kSmallStep + 4;
+constexpr int kCompactTop = 5;     // a narrow row's name, from the card's top
 constexpr int kDragStart = 8;  // pixels the pointer moves before a press becomes a drag
 constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
@@ -174,6 +180,12 @@ GuiFlowList::Part GuiFlowList::PartAt(int row, int x, int y) const {
     // Under SetNotesUnder the arrows are on the top line; the explanation
     // under them is the row's (A there opens the choice's list).
     const bool onControlLine = !(notesUnder && !r.detail.empty()) || y < RowTop(row) + kCardGap + LineHeight(r) + 2;
+    if (compact && r.kind == FlowRow::Kind::Option && !r.dim) {
+        const int right = ControlsRight();
+        if (x >= right - kSmallStep - 2) return Part::Forward;
+        if (x >= right - kSmallPair - 2) return Part::Back;
+        return Part::Body;
+    }
     if (r.kind == FlowRow::Kind::Option && !r.dim && onControlLine) {
         // The arrows' hit areas reach a little past the buttons.
         const int right = ControlsRight();
@@ -290,6 +302,29 @@ void GuiFlowList::Draw() {
             value[i]->SetFontSize(15);
             value[i]->SetColor(r.dim ? skin::kInkDim : r.on ? skin::kAccentInk : skin::kInkSoft);
             value[i]->SetMaxWidth(kChipW - 20);
+            if (compact) {
+                // The name above its value: both have the row's width less
+                // the control at its end, and a button's verb sits on the button.
+                const int room = ControlsRight() - x0 - kPad - (r.indent ? 22 : 0);
+                const bool onButton = cards && r.button && !text.empty();
+                int end = 0;
+                value[i]->SetFontSize(14);
+                if (r.kind == FlowRow::Kind::Option && !r.dim) end = kSmallPair;
+                else if (r.kind == FlowRow::Kind::Toggle) end = kSwitchW;
+                else if (onButton) end = std::min(value[i]->GetTextWidth(), kChipW - 20) + 32;
+                // At the row's end, not under the name: an action's chevron and a fact's value.
+                else if (OpensScreen(r)) end = kOpensW;
+                else if (r.kind == FlowRow::Kind::Info && !r.value.empty()) end = std::min(value[i]->GetTextWidth(), kChipW - 20);
+                label[i]->SetFontSize(r.heading ? 18 : note ? 14 : 16);
+                // A button that would cut its name goes under it instead.
+                stackedButton[i] = onButton && label[i]->GetTextWidth() > room - end - kPad;
+                label[i]->SetMaxWidth(stackedButton[i] ? room : room - (end ? end + kPad : 0));
+                value[i]->SetFontSize(14);
+                if (!onButton && r.kind != FlowRow::Kind::Info) value[i]->SetMaxWidth(room - (end ? end + kPad : 0));
+                detail[i]->SetText(nullptr);
+                tag[i]->SetText(nullptr);
+                continue;
+            }
             // On cards a value is plain text at the row's end (endText), so
             // the name may use the room up to it, not a whole chip's: "Get >"
             // left a theme's name only "Dashb..." on a half-width list.
@@ -402,7 +437,16 @@ void GuiFlowList::Draw() {
         // dim ink, as a value under a label is drawn elsewhere.
         const int textLeft = labelX + (r.icon_column ? kIconRoom : 0);
         const int lineH = LineHeight(r);
-        if (notesUnder && !r.detail.empty()) {
+        // A narrow list: the name above its value (when the value is shown
+        // under it), or alone in the row's middle.
+        const bool valueUnder = compact && !r.value.empty() && r.kind != FlowRow::Kind::Info && !(cards && r.button);
+        const bool buttonUnder = compact && stackedButton[i] && cards && r.button && !r.value.empty();
+        const int compactPoints = r.heading ? 18 : (r.kind == FlowRow::Kind::Info && !fact) ? 14 : 16;
+        if (compact) {
+            label[i]->SetPosition(textLeft, buttonUnder ? y + kCardGap + kCompactTop - 1
+                : valueUnder ? y + kCardGap + kCompactTop : y + (rowH - compactPoints) / 2 - 2);
+            label[i]->Draw();
+        } else if (notesUnder && !r.detail.empty()) {
             // The label and the control on the top line; the explanation
             // under both, and when the change takes effect at its end.
             label[i]->SetPosition(textLeft, y + kCardGap + (lineH - labelH) / 2 - 1);
@@ -455,7 +499,21 @@ void GuiFlowList::Draw() {
             value[i]->SetAlpha(255);
         };
         if (cards && r.kind != FlowRow::Kind::Toggle) {
-            if (r.kind == FlowRow::Kind::Option && !r.dim) {
+            if (compact && valueUnder) {
+                // Under the name, in the dim ink or the accent; a live
+                // option's two small arrows at the row's end.
+                value[i]->SetPosition(textLeft, y + kCardGap + kCompactTop + 20);
+                value[i]->Draw();
+                if (r.kind == FlowRow::Kind::Option && !r.dim) {
+                    const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
+                    const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;
+                    const float midY = y + rowH / 2.0f;
+                    const skin::Tex& back = overBack ? skin::stepBackOver : skin::stepBack;
+                    const skin::Tex& fwd = overFwd ? skin::stepForwardOver : skin::stepForward;
+                    skin::Draw(back, right - kSmallPair + kSmallStep / 2.0f - back.w / 2.0f, midY - back.h / 2.0f, alpha, kSmallScale);
+                    skin::Draw(fwd, right - kSmallStep / 2.0f - fwd.w / 2.0f, midY - fwd.h / 2.0f, alpha, kSmallScale);
+                }
+            } else if (r.kind == FlowRow::Kind::Option && !r.dim) {
                 // The value between its arrows (each a button of its own),
                 // which close in on it (kStepperMinMiddle).
                 const int middle = stepperMiddle[i] != 0 ? stepperMiddle[i] : kChipW;
@@ -473,14 +531,16 @@ void GuiFlowList::Draw() {
                 // A thing to do: its verb on a button of its own, the
                 // theme's primary tile, so it does not read as a setting.
                 const int tw = std::min(value[i]->GetTextWidth(), kChipW - 20);
-                const int bw = tw + 32, bh = kChipH + 2;
-                const int bx = right - bw, by = cy - 1;
+                // Under a long name: at its left, on the value's line, clear of the name and the card's edge.
+                const int bw = tw + 32, bh = buttonUnder ? 20 : kChipH + 2;
+                const int bx = buttonUnder ? textLeft : right - bw;
+                const int by = buttonUnder ? y + kCardGap + kCompactTop + 22 : cy - 1;
                 const bool over = index == lit && !dragging;
                 skin::DrawNine(over ? skin::tile9PrimaryOver : skin::tile9Primary, bx - kCardShadow, by - kCardShadow,
                                bw + 2 * kCardShadow, bh + 2 * kCardShadow, skin::kTileCorner,
                                r.dim ? alpha / 2 : alpha);
                 value[i]->SetColor(r.dim ? skin::kInkDim : skin::kAccentInk);
-                value[i]->SetPosition(bx + (bw - tw) / 2, textY);
+                value[i]->SetPosition(bx + (bw - tw) / 2, buttonUnder ? by + (bh - 15) / 2 - 1 : textY);
                 value[i]->Draw();
             } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();
@@ -513,8 +573,12 @@ void GuiFlowList::Draw() {
                 const int swAlpha = r.dim ? alpha / 2 : alpha;
                 if (sw < 1.0f) skin::Draw(skin::switchOff, swX - 3, cy - 4, swAlpha);
                 if (sw > 0.0f) skin::Draw(skin::switchOn, swX - 3, cy - 4, static_cast<int>(swAlpha * sw));
-                const int tw = value[i]->GetTextWidth();
-                value[i]->SetPosition(swX - 12 - tw, textY);
+                if (compact) {
+                    // Under the name, as an option's value is.
+                    value[i]->SetPosition(textLeft, y + kCardGap + kCompactTop + 20);
+                } else {
+                    value[i]->SetPosition(swX - 12 - value[i]->GetTextWidth(), textY);
+                }
                 value[i]->Draw();
                 break;
             }
@@ -620,7 +684,8 @@ void GuiFlowList::Update(GuiTrigger* t) {
     if (grabChan >= 0) return;  // another Wii Remote holds the list
 
     const bool a = Pressed(t, kWpadA, PAD_BUTTON_A, WIIDRC_BUTTON_A);
-    const bool back = Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
+    // Settings' two panes: Y is Search there, so a GameCube controller steps back with L (its - on the prompts).
+    const bool back = Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, sideKeys ? PAD_TRIGGER_L : PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
     if (pointing) {
         // While pointing, the D-pad scrolls by a row.
         if (t->Down()) ScrollTo(aim + rowH);
@@ -694,7 +759,8 @@ void GuiFlowList::Update(GuiTrigger* t) {
     const FlowRow& r = (*rows)[focus];
     const bool live = r.kind != FlowRow::Kind::Info;
     // Left and Right step an option, as its arrows do.
-    const bool stepper = r.kind == FlowRow::Kind::Option && !r.dim;
+    const bool stepper = r.kind == FlowRow::Kind::Option && !r.dim && !sideKeys;
+    if (sideKeys && t->Left()) leftPressed = true;
     if (live && (a || (stepper && t->Right()))) {
         clicked = focus;
         clickStepped = !a;

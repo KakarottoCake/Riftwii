@@ -412,7 +412,6 @@ T = {
     "Resync": ("Resincronizar", "再同期", "Ressincronizar", "Risincronizza"),
     "Look for games again": ("Buscar juegos de nuevo", "ゲームをもう一度探す", "Procurar jogos de novo", "Cerca di nuovo i giochi"),
     "Rescan": ("Buscar", "再検索", "Procurar", "Cerca"),
-    "Leave RiftWii": ("Salir de RiftWii", "RiftWiiを終わる", "Sair do RiftWii", "Esci da RiftWii"),
     "Exit": ("Salir", "終わる", "Sair", "Esci"),
     "Game names follow the language when they are downloaded.": (
         "Los nombres de los juegos siguen el idioma al descargarse.",
@@ -2752,8 +2751,6 @@ KO = {
         "다시 게임을 찾아보기",
     "Rescan":
         "재검색",
-    "Leave RiftWii":
-        "RiftWii 나가기",
     "Exit":
         "나가기",
     "Game names follow the language when they are downloaded.":
@@ -4624,8 +4621,6 @@ FR = {
         "Rechercher à nouveau les jeux",
     "Rescan":
         "Réanalyser",
-    "Leave RiftWii":
-        "Quitter RiftWii",
     "Exit":
         "Quitter",
     "Game names follow the language when they are downloaded.":
@@ -9030,6 +9025,16 @@ KO.update({
 })
 FR.update({
     "Report": "Signaler",
+})
+
+T.update({
+    "{1}: {2}": ("{1}: {2}", "{1}：{2}", "{1}: {2}", "{1}: {2}"),
+})
+KO.update({
+    "{1}: {2}": "{1}: {2}",
+})
+FR.update({
+    "{1}: {2}": "{1} : {2}",
 })
 
 def check(repo):

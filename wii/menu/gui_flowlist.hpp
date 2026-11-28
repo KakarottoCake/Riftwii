@@ -66,6 +66,20 @@ public:
     // the D-pad and A, and shows its lit row without the pointer. The
     // pointer works on both. On by default.
     void SetKeysActive(bool on) { keysActive = on; }
+    // Settings' right-hand list, beside the section list: Left and Right
+    // are not steps of an option but the way between the two lists. Left
+    // is reported by TakeLeft(); Right does nothing here. A on an option
+    // still opens its choices, - (Y) and the arrows step it back.
+    void SetSideKeys(bool on) { sideKeys = on; }
+    bool TakeLeft() {
+        const bool l = leftPressed;
+        leftPressed = false;
+        return l;
+    }
+    // A narrow list (Settings at 4:3): each row's name above its value,
+    // the option's two small arrows at its right end, no second line. Set
+    // with SetRowHeight, before it shows.
+    void SetCompact(bool on) { compact = on; }
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
@@ -123,6 +137,9 @@ private:
     int clicked = -1, clickedBack = -1;
     bool clickStepped = false;
     bool notesUnder = false;
+    bool compact = false;
+    bool stackedButton[kMaxVisible + 1] = {};  // compact: the button is under a long name
+    bool sideKeys = false, leftPressed = false;
     // A held on the list: which Wii Remote, where it started, what it was on.
     int grabChan = -1, grabY = 0, grabRow = -1;
     float grabScroll = 0;

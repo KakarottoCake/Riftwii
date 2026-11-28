@@ -509,6 +509,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"icon_home", 28, 28},
         {"icon_sound", 28, 28},
         {"icon_power", 28, 28},
+        {"icon_exit", 28, 28},
         {"icon_wii", 28, 28},
         {"icon_gamecube", 28, 28},
         {"disc_case", 128, 176},

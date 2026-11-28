@@ -477,9 +477,6 @@ msgstr "ゲームをもう一度探す"
 msgid "Rescan"
 msgstr "再検索"
 
-msgid "Leave RiftWii"
-msgstr "RiftWiiを終わる"
-
 msgid "Exit"
 msgstr "終わる"
 
@@ -4481,6 +4478,9 @@ msgstr "このリンクから、このゲームの動作状況を報告できま
 
 msgid "Report"
 msgstr "報告"
+
+msgid "{1}: {2}"
+msgstr "{1}：{2}"
 
 msgid "Wii saves"
 msgstr "Wiiのセーブ"

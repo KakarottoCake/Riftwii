@@ -477,9 +477,6 @@ msgstr "Buscar juegos de nuevo"
 msgid "Rescan"
 msgstr "Buscar"
 
-msgid "Leave RiftWii"
-msgstr "Salir de RiftWii"
-
 msgid "Exit"
 msgstr "Salir"
 
@@ -4481,6 +4478,9 @@ msgstr "Ve a este enlace para informar cómo funciona este juego. El formulario 
 
 msgid "Report"
 msgstr "Informar"
+
+msgid "{1}: {2}"
+msgstr "{1}: {2}"
 
 msgid "Wii saves"
 msgstr "Partidas de Wii"

@@ -31,7 +31,7 @@ headers, generated data and assets with the code that uses them.
 | A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/menu/rift_menu.cpp` |
 | Third-party emulator add-ons | `src/data/emulatorfile.cpp`, `include/riftwii/emulatorfile.hpp` (format and arguments), `wii/storage/emulators.cpp` (discovery and saved settings), `wii/menu/rift_menu.cpp` (Home and pages), `tests/emulatorfile_tests.cpp`, `tools/dolphin/argv-emulator/`, [EMULATORS.md](EMULATORS.md) |
 | How a list or the tile grid looks or scrolls | `wii/menu/gui_flowlist.cpp`, `wii/menu/gui_gamegrid.cpp`, `wii/menu/skin.cpp` |
-| The game page's and Settings' tiles, the prompts bar | `wii/menu/gui_tiles.cpp`, `wii/menu/gui_prompts.cpp`, `wii/menu/rift_menu.cpp` (`MenuHome`, `SettingsHub`), `src/art/skinpaint.cpp` (tile frames and icons) |
+| The game page's and Settings' tiles, the prompts bar | `wii/menu/gui_tiles.cpp`, `wii/menu/gui_prompts.cpp`, `wii/menu/rift_menu.cpp` (`MenuHome`, `MenuSettings` and `MenuSettingsSection`, the two-pane Settings page), `src/art/skinpaint.cpp` (tile frames and icons) |
 | Home's shelf, carousel and 3D covers ring; their boxes and 3D cover pictures | `wii/menu/gui_shelf.cpp`, `wii/menu/boxart.cpp`, `wii/menu/cover3d.cpp`, `src/art/coverart.cpp` |
 | A game page's disc art from GameTDB | `wii/menu/discart.cpp`, `src/art/coverart.cpp` |
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |

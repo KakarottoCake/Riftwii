@@ -213,7 +213,8 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | Glossy buttons for the game page, Settings, list cards, Show chooser and prompt pills, stretched with 24-pixel corners kept: plain, lit, accent-tinted primary (Play), primary lit. Separate from the flat artwork frames. |
 | `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
-| `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
+| `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound (`icon_power` now only stands in for `icon_exit` in a theme that has no exit sign) |
+| `icon_exit` | 28x28 | Settings' Exit RiftWii button: a door with an arrow going out. A theme without one shows its `icon_power` there. |
 | `icon_wii`, `icon_gamecube` | 28x28 | Home's Show choices: Wii games, GameCube games |
 | `icon_disc` | 40x40 | Disc icon (name tiles) |
 | `icon_store` | 28x28 | The Rift Store's button on Home's bar, beside Search (drawn at half size, like Search and Layout) |
