@@ -319,6 +319,13 @@ bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUp
     // Its shape, with or without the bytes to compare: the same checks as
     // ctgp_packages_set_version (magic, record count), on a copy.
     {
+        // The copy is pack-sized: checked, so a shortfall is an error the
+        // caller rolls back from, not a stop.
+        if (!can_allocate(bytes.size())) {
+            if (no_memory_out != nullptr) *no_memory_out = true;
+            error = "there is not enough free memory to check jelly.bin's version list; try again";
+            return false;
+        }
         std::vector<std::uint8_t> shape = bytes;
         std::string shape_error;
         if (!ctgp_packages_set_version(shape, "HASH", version, shape_error)) {
