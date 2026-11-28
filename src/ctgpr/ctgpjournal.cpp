@@ -163,26 +163,52 @@ EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::u
     return crc == stored_crc ? EntryRead::Ok : EntryRead::BadSum;
 }
 
+// Whether the journal from `at` to `size`, where an entry's head does not
+// read as one, is the last append never written rather than damage: fewer
+// bytes than the smallest entry this pack can have (every entry is one
+// whole chunk, or the pack's shorter last one), so no entry was ever whole
+// there; or all zeros, as the card leaves a file it grew before the bytes
+// landed (no real head is zero: its length never is). Anything else, a
+// garbage head with a whole entry's room after it, is damage. Moves the
+// file position. False also when the card would not give the bytes.
+bool unwritten_tail(std::FILE* f, std::uint64_t at, std::uint64_t size, std::uint64_t pack_size) {
+    const std::uint64_t left = size - at;
+    const std::uint64_t tail = pack_size % kCtgpJournalChunkBytes;
+    const std::uint64_t smallest = kEntryOverhead + (tail != 0 ? tail : kCtgpJournalChunkBytes);
+    if (left < smallest) return true;
+    if (std::fseek(f, long(at), SEEK_SET) != 0) return false;
+    std::uint8_t block[512];
+    for (std::uint64_t done = 0; done < left;) {
+        const std::size_t take = std::size_t(std::min<std::uint64_t>(sizeof block, left - done));
+        if (std::fread(block, 1, take, f) != take) return false;
+        for (std::size_t i = 0; i < take; ++i)
+            if (block[i] != 0) return false;
+        done += take;
+    }
+    return true;
+}
+
 // Whether the pack's chunk under entry `e` (head as read, `length` bytes)
 // holds what the entry's checksum `stored_crc` covers: the checksum runs
 // over the head and the chunk's bytes as they were before the update. The
-// pack is read as the update would see it and, with a card reader, as the
-// card holds it: both must match. The entry's own (damaged) bytes are read
-// over, so no memory is asked for. False only when a read failed.
+// pack is read as the update would see it and as the card holds it: both
+// must match. Without a card reader (every Wii caller has one) nothing is
+// taken as unchanged: the cache alone could hide a write the card has. The
+// entry's own (damaged) bytes are read over, so no memory is asked for.
+// False only when a read failed.
 bool pack_chunk_is(const CtgpPackIo& pack, Entry& e, std::uint32_t length, std::uint32_t stored_crc,
                    bool& unchanged) {
     unchanged = false;
     if (!pack.read || e.data.size() != length) return false;
+    if (!pack.read_card) return true;  // fail closed: damage
     std::uint8_t head[12];
     put64(head, e.offset);
     put32(head + 8, length);
     const std::uint32_t head_crc = crc_update(0, head, sizeof head);
     if (!pack.read(e.offset, length, e.data.data())) return false;
     if (crc_update(head_crc, e.data.data(), length) != stored_crc) return true;
-    if (pack.read_card) {
-        if (!pack.read_card(e.offset, length, e.data.data())) return false;
-        if (crc_update(head_crc, e.data.data(), length) != stored_crc) return true;
-    }
+    if (!pack.read_card(e.offset, length, e.data.data())) return false;
+    if (crc_update(head_crc, e.data.data(), length) != stored_crc) return true;
     unchanged = true;
     return true;
 }
@@ -286,6 +312,7 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
         const std::uint64_t offset = get64(head);
         const std::uint32_t length = get32(head + 8);
         if (length == 0 || length > kCtgpJournalChunkBytes || offset > pack_size || length > pack_size - offset) {
+            if (unwritten_tail(f, at, size, pack_size)) break;  // the last append, never written
             error = "the journal is damaged";
             return CtgpJournalRecovery::Failed;
         }
@@ -333,6 +360,9 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
             // held before the update: when the pack holds exactly that now,
             // there is nothing to put back, and the replay goes on. Anything
             // else (a chunk that was changed under a damaged entry) is damage.
+            // A confirmed entry that rotted on the card over a chunk the pack
+            // still holds as it was is passed over too: putting it back would
+            // write the same bytes.
             bool unchanged = false;
             if (!pack_chunk_is(pack, e, length, stored_crc, unchanged)) {
                 error = "the journal could not be checked against the pack";
@@ -342,7 +372,7 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
                 error = "the journal is damaged";
                 return CtgpJournalRecovery::Failed;
             }
-            pos += 12 + std::uint64_t(length) + 4;
+            pos += kEntryOverhead + length;
             if (std::fseek(f, long(pos), SEEK_SET) != 0) {
                 error = "the journal could not be read";
                 return CtgpJournalRecovery::Failed;
@@ -350,6 +380,9 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
             continue;
         }
         if (read == EntryRead::Bad) {
+            // A head that doesn't read as one: the last append never
+            // written (as the scan above found), else damage.
+            if (unwritten_tail(f, pos, size, pack_size)) break;
             error = "the journal is damaged";
             return CtgpJournalRecovery::Failed;
         }
@@ -365,7 +398,7 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
             put_back.push_back({e.offset, length, crc_update(0, e.data.data(), e.data.size())});
         }
         restored++;
-        pos += 12 + std::uint64_t(length) + 4;
+        pos += kEntryOverhead + length;
     }
     return CtgpJournalRecovery::RolledBack;
 }

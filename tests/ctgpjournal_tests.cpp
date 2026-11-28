@@ -490,6 +490,45 @@ int main() {
         EXPECT_TRUE(!exists(jp));
         std::remove(jp.c_str());
     }
+    // A last append whose head never landed: the card grew the file (zeros)
+    // or kept only part of it (fewer bytes than any whole entry). Passed
+    // over as never written. A garbage head with whole entries after it is
+    // still damage.
+    for (int tail_kind = 0; tail_kind < 3; ++tail_kind) {
+        MemPack p = make_pack(size);
+        const auto orig = p.data;
+        std::uint64_t header_bytes = 0;
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            header_bytes = fs::file_size(jp);
+            do_writes(j.io());
+        }  // the writer's file is closed before the journal is rewritten
+        const auto changed = p.data;
+        auto jd = slurp(jp);
+        if (tail_kind == 0) {
+            jd.resize(jd.size() + 16 + kChunk + 100, 0);  // zeros, more than a whole entry
+        } else if (tail_kind == 1) {
+            jd.resize(jd.size() + 100, 0xEE);  // garbage, less than any whole entry
+        } else {
+            const std::size_t second = std::size_t(header_bytes) + 16 + kChunk;  // the second entry's head
+            EXPECT_TRUE(jd.size() > second + 12);
+            if (jd.size() > second + 12) std::fill(jd.begin() + second, jd.begin() + second + 12, 0xEE);
+        }
+        spit(jp, jd);
+        std::size_t n = 0;
+        const CtgpJournalRecovery r = ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err);
+        if (tail_kind < 2) {
+            EXPECT_TRUE(r == CtgpJournalRecovery::RolledBack);
+            EXPECT_TRUE(p.data == orig);
+            EXPECT_TRUE(!exists(jp));
+        } else {
+            EXPECT_TRUE(r == CtgpJournalRecovery::Failed);
+            EXPECT_TRUE(p.data == changed);
+            EXPECT_TRUE(exists(jp));
+        }
+        std::remove(jp.c_str());
+    }
     {   // damage inside an entry whose chunk was written is still refused:
         // the pack's chunk no longer matches that entry's checksum
         MemPack p = make_pack(size);
