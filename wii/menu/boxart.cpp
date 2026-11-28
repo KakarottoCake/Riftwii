@@ -348,7 +348,10 @@ cond_t g_readIdle = LWP_COND_NULL;  // signalled when a read ends
 bool g_readHold = false;    // BoxReaderHold: no new read until BoxReaderRelease
 bool g_reading = false;     // the card is being read, without the lock
 lwp_t g_reader = LWP_THREAD_NULL;
-alignas(32) u8 g_readerStack[16384];
+// Taken from MEM2 when the thread first starts (a menu that never asks for
+// one never spends it), and kept with the thread.
+constexpr std::size_t kReaderStackBytes = 16384;
+u8* g_readerStack = nullptr;
 
 void* ReaderMain(void*) {
     LWP_MutexLock(g_readLock);
@@ -406,9 +409,11 @@ bool ReaderStarted() {
         LWP_CondInit(&g_readWake);
         LWP_CondInit(&g_readIdle);
     }
+    if (g_readerStack == nullptr) g_readerStack = skin::Mem2Alloc(kReaderStackBytes);
     // Below the GUI thread (70), as the covers' loader: it reads while the
     // GUI waits for the next frame.
-    if (LWP_CreateThread(&g_reader, ReaderMain, nullptr, g_readerStack, sizeof(g_readerStack), 40) < 0) {
+    if (g_readerStack == nullptr ||
+        LWP_CreateThread(&g_reader, ReaderMain, nullptr, g_readerStack, kReaderStackBytes, 40) < 0) {
         g_reader = LWP_THREAD_NULL;
         return false;
     }

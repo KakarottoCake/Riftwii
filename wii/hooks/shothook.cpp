@@ -9,10 +9,11 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "packedblobs.hpp"
 #include "padhook.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
-#include "riftwii_shot_bin.h"
+#include "riftwii_hooks_bin.h"
 #include "shot_hook.h"
 
 namespace riftwii::wii {
@@ -31,7 +32,9 @@ constexpr std::uint32_t kNop = 0x60000000;
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
-const rt_shot_header& header() { return *reinterpret_cast<const rt_shot_header*>(riftwii_shot_bin); }
+// The blob's header, read where it lies: unpacked while planning, copied
+// into the game after.
+const rt_shot_header& header(const std::uint8_t* blob) { return *reinterpret_cast<const rt_shot_header*>(blob); }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
     volatile std::uint32_t* p = reinterpret_cast<volatile std::uint32_t*>(address);
@@ -65,9 +68,16 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
                     const std::vector<MemoryPatch>& patches, ShotHook& out, std::string& why) {
     out = ShotHook{};
     out.demo = demo;
-    const rt_shot_header& h = header();
-    if (riftwii_shot_bin_size < sizeof(rt_shot_header) || h.magic != RT_SHOT_MAGIC || h.version != RT_SHOT_VERSION ||
-        h.size > riftwii_shot_bin_size || h.context_offset + RT_SHOT_CONTEXT_BYTES > h.size) {
+    PackedBlobs blobs;
+    if (!blobs.unpack(riftwii_hooks_bin, riftwii_hooks_bin_size, kHookBlobs)) {
+        why = "the embedded screenshot blob is damaged or there is no memory to unpack it";
+        return false;
+    }
+    const std::uint8_t* image = blobs.blob(kHookShot);
+    const std::uint32_t image_bytes = blobs.size(kHookShot);
+    const rt_shot_header& h = header(image);
+    if (image_bytes < sizeof(rt_shot_header) || h.magic != RT_SHOT_MAGIC || h.version != RT_SHOT_VERSION ||
+        h.size > image_bytes || h.context_offset + RT_SHOT_CONTEXT_BYTES > h.size) {
         why = "the embedded screenshot blob is damaged";
         return false;
     }
@@ -152,7 +162,7 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     //    zeroed by the blob itself at its first call: MEM2's bottom is
     //    still this loader's until the jump.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
-    std::memcpy(reinterpret_cast<void*>(out.code_base), riftwii_shot_bin, h.size);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), image, h.size);
     rt_shot_context* ctx = reinterpret_cast<rt_shot_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_SHOT_CONTEXT_MAGIC) {
         why = "the screenshot blob's context is not where its header says";
@@ -179,7 +189,7 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
 
 bool install_shot_hook(ShotHook& hook, std::string& why) {
     if (!hook.active) return false;
-    const rt_shot_header& h = header();
+    const rt_shot_header& h = header(reinterpret_cast<const std::uint8_t*>(hook.code_base));
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;

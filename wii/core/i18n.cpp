@@ -18,12 +18,14 @@ namespace {
 
 Translations g_catalog;
 
-// wii/lang/*.po, zstd-compressed in the start-up stash as "<lang>.po.zst"
-// (Makefile.wii, wii/core/stash.hpp); only the menu's language is unpacked.
+// wii/lang/*.po in the start-up stash (Makefile.wii, wii/core/stash.hpp),
+// zstd-compressed and split by tools/split_po.py: every language's English
+// lines once, as "msgids.zst", and each language's translated lines alone,
+// as "<lang>.str.zst", in the same order. Only the menu's language is
+// unpacked, and paired up again into .po text for parse_po.
 const char* const kBuiltIn[] = {"es", "ja", "pt", "it", "fr", "ko"};
 
-std::string Unpack(const char* lang) {
-    const std::string name = std::string(lang) + ".po.zst";
+std::string UnpackItem(const std::string& name) {
     const u8* packed = nullptr;
     u32 packed_size = 0;
     if (!stash::Find(name.c_str(), packed, packed_size)) {
@@ -35,6 +37,33 @@ std::string Unpack(const char* lang) {
     std::string text(static_cast<std::size_t>(size), '\0');
     if (ZSTD_decompress(&text[0], text.size(), packed, packed_size) != text.size()) return {};
     return text;
+}
+
+std::string Unpack(const char* lang) {
+    const std::string ids = UnpackItem("msgids.zst");
+    const std::string strings = UnpackItem(std::string(lang) + ".str.zst");
+    if (ids.empty() || strings.empty()) return {};
+    std::string po;
+    po.reserve(ids.size() + strings.size() + ids.size() / 8);
+    std::size_t id_at = 0;
+    std::size_t string_at = 0;
+    while (id_at < ids.size() && string_at < strings.size()) {
+        const std::size_t id_end = ids.find('\n', id_at);
+        const std::size_t string_end = strings.find('\n', string_at);
+        if (id_end == std::string::npos || string_end == std::string::npos) break;
+        po.append(ids, id_at, id_end + 1 - id_at);
+        po.append(strings, string_at, string_end + 1 - string_at);
+        po += '\n';
+        id_at = id_end + 1;
+        string_at = string_end + 1;
+    }
+    // The build checks that both list the same number of entries; a stash
+    // from a mismatched build is not trusted for any of them.
+    if (id_at != ids.size() || string_at != strings.size()) {
+        logf("Language: %s's translations do not line up with the English ones; the menu stays in English\n", lang);
+        return {};
+    }
+    return po;
 }
 
 }  // namespace

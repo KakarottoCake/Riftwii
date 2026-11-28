@@ -25,10 +25,9 @@ map (`build_wii/riftwii.elf.map`). Since then the menu font left the DOL
 (an external `font.ttf`, 750 KiB), most of the unwinding and exception
 tables went (`-fno-exceptions`, "Linked out" below), and the GameCube loader moved into its
 plugin. For today's numbers, read the "Size report" step of CI's Wii build
-(`tools/size_report.py`) or run the same commands on a fresh build. Of the
-items still in MEM1, the largest that could move are the menu sounds (226
-KiB, below) and the controller button pictures (`src/art/inputicons_data.cpp`,
-56 KiB of uncompressed alpha masks that zstd shrinks to about 3 KiB).
+(`tools/size_report.py`) or run the same commands on a fresh build. The
+controller button pictures and the other items "Kept out of MEM1 until
+used" (below) have since left too.
 
 ## The sections
 
@@ -125,7 +124,7 @@ Japanese with RiftWii's font.
 | Item | KiB in MEM1 | Used | Choice | MEM1 saved |
 | --- | ---: | --- | --- | ---: |
 | Menu font (`wii/font/menu.ttf`) | 0 | Read from `apps/riftwii/font.ttf` once at start | **External file**, copied completely into MEM2, no font bytes in the DOL or stash. Replaces the former 310,920-byte core plus 384 KiB stream pool; see `wii/menu/fullfont.hpp`. | 750 |
-| Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
+| Six translations (`wii/lang/*.po`, zstd; since the ninth pass the English lines once and each language's translations alone, 179 KiB for six where whole files took 303) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)), and the six pad builds the `pads` plugin's (the DOL copies the one a game takes at the launch, [PLUGINS.md](PLUGINS.md#the-pads-plugin)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
@@ -180,16 +179,24 @@ the line to `0x81000014`, and `SYS_RegisterResetFunc` then followed
 session log opened). The same code linked 3 KiB lower started normally
 on a tester's Wii.
 
-So the line must never be left to chance. `Makefile.wii` links
-`wii/core/mem1tail.o` after every library, which makes Home's 128 KiB
-scan stack the last thing in `.bss`, and `tools/check_mem1_line.py` fails
-the build unless the line is at least 4 KiB inside it. A stack needs no
-starting contents and that thread starts long after `SYS_Init`. Every
-byte added before the stack moves it up, so the stack's file also holds
-the Wii Menu music thread's 32 KiB stack after it: by November 2611 the
-line was only 0x6C0 bytes into the scan stack, and moving the music stack
-there gave back about 30 KiB of room. When the check fails again, move
-another buffer that needs nothing before `main` into that file.
+So the line must never be left to chance. `Makefile.wii` used to link
+`wii/core/mem1tail.o` after every library, which made Home's 128 KiB
+scan stack the last thing in `.bss` and put the line inside it.
+
+Since the passes below, the program ends about 1.9 MiB under the line,
+and the line is in the heap. That is as safe: before `SYS_Init` copies
+the DSP code, libogc writes only two things from the heap's start
+(`__Arena1Lo`, the end of `.bss`): the command line and `argv[]`
+(`__CheckARGV`), then its 64 KiB kernel workspace (`__lwp_wkspace_init`).
+Nothing else above them is written before main's first `malloc`, which
+hands the memory out as it finds it, as it already does the start-up
+stash's dead MEM1 copy right there. So Home's scan stack now comes from
+MEM2 at the first scan. `tools/check_mem1_line.py` fails the build unless
+the line is at least 4 KiB above the end of `.bss` plus 128 KiB (64 KiB
+for the command line, which no loader comes near, and the workspace).
+Growth of about 1.8 MiB would bring the end back near the line: then a
+buffer that nothing uses before `main` must be linked last again, big
+enough to cover it (as `mem1tail.c` did; see the script's notes).
 
 ### Where the stash may load
 
@@ -263,8 +270,12 @@ main 21172fe0 the program's end went from `0x80ED37A0` to `0x80EC8280`):
 - libc's `sscanf` and `fscanf`, 28 KiB: newlib's formatted input, for a
   handful of one-line files and an IP address. Those are read by hand
   now and RiftWii calls no scanf; the first call would bring about 13
-  KiB back for `sscanf` and 13 more for `fscanf`. (`siscanf` stays:
-  libfat's `mktime` reads the time zone with it.)
+  KiB back for `sscanf` and 13 more for `fscanf`. `siscanf` went too:
+  newlib's time zone set-up read the `TZ` variable with it, which a Wii
+  never has (`wii/core/timezone.cpp`, linked with
+  `--wrap=_tzset_unlocked_r`).
+- libc's `strftime`, which brought `sniprintf`'s formatter along: the
+  five places that wrote a date use `date_text` (`src/data/datetext.cpp`).
 
 Build 2610-734 (`213eb368`), measured with devkitPPC 16.1.0, had brought
 `sscanf` back through the moved channel's cleanup-list reader. A further
@@ -316,12 +327,26 @@ for tools; those are not loaded into MEM1.
 
 ### The MEM2 copy
 
-The copy goes to `mem::kStashArea`, which is `0x90809000`, right above the
-restart snapshot (`0x90800000`–`0x90809000`). It is 32 bytes of notes plus
-927 KiB of stash, and `mem::Init` starts arena 2 above it (`0x908ED000`
-today). Checked against the other users of MEM2:
+The copy goes to `mem::StashArea()`, about `0x90CF7000`, above the
+restart snapshot (`0x90800000`–`0x90809000`), the main thread's stack
+(`0x90809000`–`0x90829000`), libbte's and libwiiuse's buffers
+and RiftWii's own, which follow the code and the read-only data back to
+back from `0x90829000` (the end moves with each build; the linker checks it
+stays at or below `0x90DFF000`, so a full 2 MiB stash with its note fits). In
+MEM1 the DOL loads the code first above `.bss`, then the read-only data,
+then the stash. It is 32 bytes of notes plus the stash (191
+KiB today), and `mem::Init` starts arena 2 above it. Checked against the other users of MEM2:
 
 - **IOS reloads** write below `0x90800000`, so they never reach it.
+- **Codes that run before the game starts** must not write there either:
+  RiftWii's stack, code and heap run from `0x90800000` up until the jump.
+  A player's cheats run first only when every code passes the strict
+  check (`gct_runs_before_start`). A code build's codes still run first,
+  as they always did, conditions and C0 included; only a write whose
+  address is known (through a base or pointer set by E0, E2, 42 or 4A)
+  landing in RiftWii's MEM2 (`gct_keeps_clear_of`), or a list that can't
+  be walked to its end, makes the whole build start with the game
+  instead. boot.log says which.
 - **The menu's MEM2 heap**, covers and textures come from arena 2, which
   starts above the stash.
 - **The plugin arena** ([PLUGINS.md](PLUGINS.md)) is taken from the top of
@@ -352,6 +377,23 @@ today). Checked against the other users of MEM2:
 The pack's memory patches keep off the copy (`boot.cpp`), as they keep off
 the restart area: a launch that fails comes back through a warm restart,
 and that restart unpacks the font again from the copy.
+
+### What stays in MEM1 under the heap
+
+The heap starts on the DOL's MEM1 copy of the code, the read-only data and
+the stash, so until the heap first writes a line, RAM there holds code
+words. A real Wii reads that RAM back whenever a dirty cache line is dropped
+without being written back, and libogc's `IOS_Read` drops every line its
+buffer touches before it reads. 2611-268 lost malloc's top-chunk header
+this way. An `ISFS_Read` whose length was not a multiple of 32 shared its
+last line with that header, and the top chunk took a code word as its size.
+malloc then handed out MEM1 past the heap's end without calling `_sbrk_r`,
+and the first heap check at start found it broken. Dolphin keeps no such
+cache, so it was clean there, with `AccurateCPUCache` too. The linker wraps
+`IOS_Read` (`wii/core/memlimits.cpp`), which reads a partial last line
+into a line of its own. Any other `DCInvalidateRange` on a heap buffer must
+cover whole lines of its own: allocate it with `memalign(32, ...)` at a
+size rounded up to 32.
 
 ### Warm restarts
 
@@ -385,6 +427,193 @@ permission note a magic and a checksum over the IOS number, the patched
 word's address (inside IOS's code) and the instruction word before and
 after, and the next start restores it only when the live word is exactly
 the one RiftWii wrote.
+
+### Kept out of MEM1 until used
+
+A pass over what `.bss` and `.rodata` kept for the menu's whole life,
+measured on the release DOL (devkitPPC 16.1.0) against `main` at
+`4ef74f54`. The program's end moved from `0x81009360` to `0x80F82DE0`
+(`.bss` 392 KiB smaller, `.rodata` 157 KiB, `.text` 30 KiB), 537 KiB
+lower:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| The MP3 player (libogc's `mp3player.o`) | 120 KiB of buffers and stack in `.bss` | RiftWii's own, `wii/menu/mp3stream.cpp`, on libmad's decoder: one MEM2 block taken at the first MP3 and kept | 125 KiB with its code |
+| The Ogg player's decoder state and stack (`vendor-libgui/source/oggplayer.c`) | 57 KiB in `.bss` | One heap block at the first `PlayOgg`, kept for the next song | 57 KiB |
+| The controller button pictures (`src/art/inputicons_data.cpp`) | 56 KiB of alpha masks | (count, value) runs, unpacked per drawing | 48 KiB |
+| The Wii Menu music's player and producer stack (`wiimenusounds.cpp`) | 43 KiB in `.bss` | In the MEM2 block its stream buffers already used, taken when the theme first plays it | 43 KiB |
+| The d2x USB check's sector (`check_d2x_usb_drive`) and the USB DVD drive's bounce buffer (`UsbRawDisc`) | 64 KiB in `.bss` | The check's for the check alone; the bounce buffer at the first read from a USB DVD drive | 64 KiB |
+| The cover loader's and box art reader's stacks | 32 KiB in `.bss` | From MEM2 when each thread first starts | 32 KiB |
+| One-off reads: the other loader's settings lines (`sharednandfind.cpp`), SYSCONF (`ReadPadPairings`), the entropy reads (`entropy.cpp`, still wiped before they are freed), a controller file's text (`hidpads.cpp`), the start-up button sampler's stack | 67 KiB in `.bss` | Taken for the read or the start-up and given back | 67 KiB |
+
+In Dolphin, on the same card (the menu with Ogg music, then with an MP3
+picked in Settings), `session.log` reads:
+
+```
+main (4ef74f54):  Memory (start): MEM1 260 KiB taken, 1672 KiB free
+                  Memory (threads started): MEM1 1484 KiB taken, 448 KiB free
+this pass:        Memory (start): MEM1 260 KiB taken, 2208 KiB free
+                  Memory (threads started): MEM1 1484 KiB taken, 984 KiB free
+```
+
+Dolphin's audio dumps of both menus have the same tone at the same level
+as `main`'s (440 Hz Ogg, 660 Hz MP3, the MP3's RMS 835.8 in both), no gap
+but the 0.12 s where the lone MP3 ends and starts again (0.115 s on
+`main`). A Mario Kart Wii launch with `gc_adapter = demo` logs the same
+lines as `main`'s (`blob 18848 bytes at 0x817e9de0`, `hooked`) and the
+game runs. Not tested on a Wii: the line in the heap (Dolphin never
+showed the DSP problem), a USB DVD drive and a d2x USB launch.
+
+Still in MEM1 and left as they are:
+
+- libogc's and libasnd's own buffers (`__conf_buffer`, `audio_buf`, 16 KiB
+  each): prebuilt, and the sound library's are read by the DSP.
+- libwiigui's GX FIFO (`gp_fifo`, 256 KiB). A smaller FIFO stalls the CPU
+  sooner instead of breaking, but the welcome dialog alone writes 97 KiB
+  into it in one frame (measured in Dolphin from the FIFO's write pointer),
+  so 128 KiB would leave little room on busier screens, and how much the
+  menu's frame time suffers needs a Wii to measure. The graphics processor
+  reads it, so it does not go to MEM2 untried either.
+- Prebuilt libraries' tables: libmad's `rq_table` (32 KiB, in `.data`),
+  Tremor's windows (`vwin*`, 30 KiB) and libogg's `crc_lookup` (8 KiB).
+  Only rebuilding those libraries would move them.
+- The Wiimmfi game list (`vendor-wwfc`, 12 KiB) and the embedded sounds
+  (Ogg already, and `button_over_pcm`, 8 KiB, which zstd brings to 5.5).
+- Floating-point `printf` (`_svfprintf_r`, `_dtoa_r`): the menu prints
+  sizes and times with `%.1f`.
+
+A second pass moved the program's end on to `0x80F6D480`, 86 KiB lower
+again:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| newlib's time zone parser and `strftime` | `siscanf`'s input engine, the multibyte reader, a 14 KiB Unicode table and `sniprintf`'s formatter | A fixed "no `TZ`" set-up (`wii/core/timezone.cpp`) and `date_text` (`src/data/datetext.cpp`) | 48 KiB |
+| The Kirby fix's four tables (`src/patching/gxkirby.inc`) | 22 KiB, every word of every region | Super Kirby Clash's US words whole; the other regions as runs that shift them, and the one word that differs | 15 KiB |
+| The three Wii Remote logger builds (`riftwii_wlog*.bin`) | 23 KiB in `.rodata` | One zstd frame (`riftwii_wlogs.bin`, 10 KiB), unpacked while a launch plans the hook | 13 KiB |
+| The two WiiRD debugger handlers (`vendor-gecko/codehandler*.bin`) | 8.4 KiB in `.rodata` | One zstd frame (`riftwii_wiird.bin`, 2.7 KiB), unpacked only when a USB Gecko answers | 5.5 KiB |
+| The list of games with no online play (`src/data/offlinegames.inc`) | 11.6 KiB, four characters a code | Three characters and a byte with a bit per region, plus the codes of other regions whole | 5 KiB |
+
+A third pass moved it on to `0x80F3F1A0`, 185 KiB lower again (in
+Dolphin, 2480 KiB of MEM1 free at the start and 1256 KiB once the menu's
+threads run):
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| Home's scan stack (`wii/menu/homescan.cpp`) | 128 KiB in `.bss`, linked last to cover the 16 MiB line | From MEM2 at the first scan, kept; the line is in the heap (above) | 128 KiB |
+| The mods' runtime and its RVZ build (`riftwii_rt*.bin`) | Two zstd frames, 24 and 35 KiB | One frame of both (`riftwii_rts.bin`, 38 KiB): they share most of their code. A launch unpacks both for its time | 21 KiB |
+| The virtual SD card, screenshot and crash hooks (`riftwii_vsd`, `_shot`, `_fault.bin`) | 17 KiB uncompressed | One zstd frame (`riftwii_hooks.bin`, 10 KiB), unpacked while each hook plans; the install reads the header back from the copied blob | 7.5 KiB |
+| The pad hook's two working copies of the USB controller catalog (`plan_pad_hook`) | 11.5 KiB of statics | Taken for the plan | 11.5 KiB |
+| Three 4 KiB read buffers: the USB drive's first block, twice (`usbcatalog.cpp`), and a title's TMD view (`reportsend.cpp`) | 12 KiB in `.bss` | Taken for the read | 12 KiB |
+| The shelf themes' backdrop textures (`gui_shelf.cpp`) | 5.5 KiB in `.bss` | From MEM2 at the first backdrop | 5.5 KiB |
+
+A fourth pass moved it on to `0x80ECCEC0`, 456 KiB lower again (in
+Dolphin, 2936 KiB of MEM1 free at the start and 1712 KiB once the menu's
+threads run), by putting what prebuilt libraries kept in MEM1 into MEM2:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| The main thread's stack (libogc's `default_stacks.o`) | 128 KiB in `.bss` | `mem::kMainStack` in MEM2: `wii/core/mainstack.cpp` defines the two weak pointers crt0 reads, so libogc's file is not linked. The exception stack stays in MEM1 (16 KiB), as exceptions begin without address translation | 128 KiB |
+| libbte's packet pools and libwiiuse's state (`memb_mem_pool_pbufs`, `ram_block`, `__wpdcb`, ...) | 329 KiB in `.bss` | `mem::kLibraryBss` in MEM2: `wii/core/mem2sections.ld`, added to libogc's linker script, places their `.bss` there in a segment the DOL leaves out, and `__wrap___CheckARGV` zeroes it at every start | 329 KiB |
+
+Both are above `kMem2Floor`, where an IOS reload never writes, and a
+launch keeps memory patches off them (`boot.cpp`). In Dolphin a Wii Remote
+connects through the stack as before, and a Mario Kart Wii launch with a
+pack installs the runtime and every hook and the game runs.
+
+A fifth pass moved it on to `0x80E0D520`, 766 KiB lower again (in
+Dolphin, 3704 KiB of MEM1 free at the start and 2480 KiB once the menu's
+threads run), by running the program's read-only data from MEM2:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| `.rodata`: strings, tables, embedded pictures, sounds and blobs | 768 KiB for the program's whole life | In `mem::kProgramArea`, after the code: linked there by `wii/core/mem2sections.ld`; `tools/dol_stash.py` makes the DOL load it just above `.bss` (the packed DOL's stub runs before libogc maps MEM2), and `__wrap___CheckARGV` copies it up before anything reads it, so its MEM1 bytes become the heap's. A marker and its size in its first two words tell a fresh start from a warm restart, which keeps the copy. libasnd's stays in MEM1 | 766 KiB |
+
+In Dolphin the menu draws as before (screenshots before and after a warm
+restart from a deliberate crash, which kept the MEM2 copy), a Wii Remote
+connects, and a Mario Kart Wii launch with a pack runs.
+
+A sixth pass moved it on to `0x80ADCCA0`, 3.2 MiB lower again (in
+Dolphin, 6972 KiB of MEM1 free at the start and 5744 KiB once the menu's
+threads run), by running the program's code from MEM2 the same way:
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| `.text`: the program's code, but libogc, the C library, libgcc, crtbegin/crtend and `restart.o` | 3.3 MiB for the program's whole life | `mem::kProgramArea` (`0x90829000`, its end the linker's, `mem::ProgramAreaEnd()`): linked there by `wii/core/mem2sections.ld`, loaded by the DOL just above `.bss` ahead of the read-only data, and copied up by `__wrap___CheckARGV` before it calls anything there (the instruction cache is cleared over the copy). libogc maps MEM2 for instructions as for data (IBAT4). Calls between the two halves are beyond a branch's reach; ld adds long-branch stubs | 3268 KiB |
+
+What stays in MEM1 and why: libogc runs before the copy (crt0's helpers)
+and under every thread, exception and interrupt; the C library and libgcc
+are called by it; `restart.o` makes the copy. crtbegin's and crtend's code
+is called from `.init`, where ld can only put a long-branch stub inline:
+the call then returns into the stub and runs the function again, forever
+(the first try hung in `__register_frame_info` this way).
+
+`tools/dol_stash.py` keeps the section holding the entry point as the DOL's
+first text section, as elf2dol lists the MEM2 code first: the packed DOL's
+stub finds crt0's command-line block (`_arg`) there, and without it another
+loader's arguments would be lost.
+
+In Dolphin the menu draws and plays its music as before (screenshots before
+and after a warm restart from a deliberate crash, which kept the MEM2
+copy), and a Mario Kart Wii launch with a pack installs the runtime and
+every hook and the game runs.
+
+A seventh pass moved it on to `0x80A57C00`, 532 KiB lower again (in
+Dolphin, 7504 KiB of MEM1 free at the start and 6276 KiB once the menu's
+threads run):
+
+| What | Before | Now | MEM1 kept |
+| --- | --- | --- | ---: |
+| libogc's, the C library's, libm's and libgcc's code | 313 KiB, kept in MEM1 wholesale | In `mem::kProgramArea` with the rest. libogc's exception entry turns translation back on before it calls a handler, so only what runs before the copy or is called from `.init` stays: `restart.o`, libogc's `cache.o`, `early_init.o`, `exception.o`, `interrupt.o`, `thread.o`, `system.o` and its assembly, `memset`, crtbegin and crtend (18 KiB). `osrestart.o` had been kept by accident too: `*restart.o` matched it | 313 KiB |
+| RiftWii's own zero-filled buffers: the disc and SD bounce buffers, the launch's TMD, the cover pool, the crash screen's fallback stack and report, and about a hundred smaller ones | 190 KiB in `.bss` | `.mem2bss`, zeroed at every start with libbte's. IOS reads and writes MEM2 as it does MEM1. Not the GX FIFO (`video.o`) or the exception stack (`mainstack.o`) | 190 KiB |
+| libogc's buffers that only the CPU or IOS touch: `conf.o`, `wiilaunch.o`, `usbmouse.o`, `network_wii.o`, `gx.o` | 27 KiB in `.bss` | `.mem2bss`. Its EXI, SD Gecko and thread buffers stay, and so do libasnd's, which the DSP reads | 27 KiB |
+
+`mem::kLibraryBss` grew from 352 to 576 KiB for them, which moves the
+read-only data, the code and the stash's copy up by 224 KiB; all of it still
+ends below `0x91000000`.
+
+An eighth pass gave back 584 KiB of MEM2 (in Dolphin, 5528 KiB of MEM2
+taken at the start, down from 6112) and 7 KiB more of MEM1. The code, the
+read-only data and the zero-filled buffers each had a fixed slot with room
+to spare (4 MiB for 3.5 MiB of code); they now sit back to back from
+`mem::kProgramArea` in that order, each section's address taken from the
+end of the one before it in `wii/core/mem2sections.ld`, and the stash's
+copy starts at the 4 KiB boundary after them (`mem::ProgramAreaEnd()`, the
+linker's `__riftwii_mem2_end`). The launch keeps patches off that one
+range. libogc's thread blocks and lock tables, its memory card, EXI and
+IPC bookkeeping, and the C library's, libsysbase's and libstdc++'s
+zero-filled data joined RiftWii's in MEM2.
+
+A ninth pass took 123 KiB off the start-up stash, which stays in MEM2 for
+the whole run (in Dolphin, 5404 KiB of MEM2 taken at the start, down from
+5528; the stash is 191 KiB, down from 314). The six `.po` files list the
+same English entries in the same order, so the stash held the English text
+six times. `tools/split_po.py` now keeps the English lines once
+(`msgids.zst`) and each language's translated lines alone
+(`<lang>.str.zst`); `wii/core/i18n.cpp` pairs the two up again into .po
+text for the same parser. The build, and CI, fail if a language stops
+listing the same entries. Using the English text as a zstd dictionary as
+well would save only 6 KiB more. The checks that this compiler's Wii
+settings already pass `-ffunction-sections`, `-fdata-sections` and
+`--gc-sections` were done too: nothing unreached is left to drop that way.
+
+A tenth pass took 88 KiB off the program's MEM2 (in Dolphin, 5404 KiB of
+MEM2 taken at the start, down from 5492; MEM1 unchanged) by taking four
+buffers from the MEM1 heap for the one call that uses them, instead of
+keeping them in `.mem2bss` for the whole run: the disc read's 32 KiB bounce
+buffer (`di.cpp`), the d2x SD card's 32 KiB one (`d2xsd.cpp`, one per
+unaligned call, so the threads that share the card never share it), the
+launch's 18.5 KiB TMD (`boot.cpp`) and the USB slot check's 4 KiB TMD view
+(`usbcatalog.cpp`). Checked in Dolphin: the menu starts as before on the
+release DOL. The disc read and the d2x card were not run (no disc in
+Dolphin's drive here, and Dolphin has no d2x).
+
+Still in MEM1 after these passes, about 350 KiB: the GX FIFO (256 KiB, see
+above), libasnd's buffers (25 KiB, read by the DSP), the exception stack
+(16 KiB, which `__wrap___CheckARGV` runs on while it clears the MEM2
+buffers), `.data` and `.sdata` (22 KiB, which a warm restart puts back from
+its snapshot), libogc's SD Gecko buffers (EXI), and 18 KiB of code. The two
+framebuffers (about 600 KiB each) also come from MEM1 when the menu starts,
+as the video interface scans them out.
 
 ### `riftwii.elf`
 

@@ -75,6 +75,11 @@ s32 LWP_JoinThread(lwp_t, void**) {
 
 namespace riftwii::wii {
 
+namespace skin {
+// The scan's stack: the test's thread mock never runs on it.
+u8* Mem2Alloc(std::size_t bytes) { return new u8[bytes]; }
+}  // namespace skin
+
 bool NetBackgroundBusy() {
     if (busy_polls_left > 0) {
         --busy_polls_left;

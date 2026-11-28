@@ -668,3 +668,32 @@ extern "C" void* __wrap__sbrk_r(struct _reent* r, ptrdiff_t incr) {
     _CPU_ISR_Restore(level);
     return p;
 }
+
+// libogc's IOS_Read drops the buffer's cache lines (dcbi) before the read,
+// without writing them back. A read whose end is not on a 32-byte line
+// drops the rest of that line too, which is often the next heap chunk's
+// header (malloc's top chunk, right after the buffer just allocated). A real
+// Wii then reads that header back from RAM, which under the heap holds the
+// DOL's copy of the MEM2 code: 2611-268's top chunk took a code word as its
+// size and malloc handed out MEM1 past the heap's end without growing it.
+// Dolphin keeps no such cache, so it never showed. Every caller is
+// ISFS_Read, which already refuses a buffer not on a line; the last partial
+// line goes through a line of its own here. ISFS reads are files, read in
+// order, so two reads return what one would.
+extern "C" s32 __real_IOS_Read(s32 fd, void* buf, s32 len);
+extern "C" s32 __wrap_IOS_Read(s32 fd, void* buf, s32 len) {
+    const u32 whole = static_cast<u32>(len) & ~31u;
+    const u32 rest = static_cast<u32>(len) & 31u;
+    if (len <= 0 || rest == 0 || (reinterpret_cast<u32>(buf) & 31u) != 0) return __real_IOS_Read(fd, buf, len);
+    if (whole != 0) {
+        const s32 got = __real_IOS_Read(fd, buf, static_cast<s32>(whole));
+        if (got != static_cast<s32>(whole)) return got;
+    }
+    // One whole cache line inside `room`, shared with nothing else.
+    u8 room[64];
+    u8* line = reinterpret_cast<u8*>((reinterpret_cast<u32>(room) + 31u) & ~31u);
+    const s32 got = __real_IOS_Read(fd, line, static_cast<s32>(rest));
+    if (got < 0) return whole != 0 ? static_cast<s32>(whole) : got;
+    std::memcpy(static_cast<u8*>(buf) + whole, line, static_cast<u32>(got));
+    return static_cast<s32>(whole) + got;
+}

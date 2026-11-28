@@ -6,6 +6,7 @@
 
 #include "riftwii/checkedalloc.hpp"
 
+#include <cstdint>
 #include <new>
 #include <string>
 #include <utility>
@@ -40,10 +41,24 @@ constexpr u32 kRestartBytes = 0x9000;
 // Two cache-aligned slots survive BSS clearing and IOS reloads.
 constexpr u32 kStartupTrace = kRestartArea + 0x8800;
 constexpr u32 kNandPermissionNote = kRestartArea + 0x8900;
-// Above the restart area: the start-up stash, copied there by crt0
-// (wii/core/stash.hpp), up to 2 MiB; the heap's MEM2 part starts after it.
-// Clear of the GameCube runtime's MEM2 (0x91200000 up) and IOS at the top.
-constexpr u32 kStashArea = kMem2Floor + kRestartBytes;
+// Above the restart area: the main thread's stack (wii/core/mainstack.cpp),
+// which crt0 switches to before it calls SYS_Init. libogc's own 128 KiB
+// for it sat in MEM1 for the program's whole life.
+constexpr u32 kMainStack = kMem2Floor + kRestartBytes;
+constexpr u32 kMainStackBytes = 0x20000;
+// Above it, back to back with no room spare, as wii/core/mem2sections.ld
+// lays them out: the program's code (but what start-up needs before the
+// copy), its read-only data, both copied there by crt0 (restart.cpp) from
+// where the DOL loads them above .bss, then the zero-filled buffers of
+// libbte, libwiiuse, some of libogc and RiftWii itself. Their size changes
+// with every build, so the end is the linker's.
+constexpr u32 kProgramArea = kMainStack + kMainStackBytes;
+extern "C" char __riftwii_mem2_end[];
+inline u32 ProgramAreaEnd() { return static_cast<u32>(reinterpret_cast<std::uintptr_t>(__riftwii_mem2_end)); }
+// Above it: the start-up stash, copied there by crt0 (wii/core/stash.hpp);
+// the heap's MEM2 part starts after it. mem2sections.ld keeps 2 MiB for it
+// below the GameCube runtime's MEM2 (0x91200000 up) and IOS at the top.
+inline u32 StashArea() { return ProgramAreaEnd(); }
 
 // The heap's pieces as [start, end) addresses, for keeping a game's memory
 // patches off them while the loader still runs. When the table of pieces

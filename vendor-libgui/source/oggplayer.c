@@ -34,6 +34,7 @@
 #include <gccore.h>
 #include <unistd.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "oggplayer.h"
 
@@ -264,19 +265,24 @@ typedef struct
 	int seek_time;
 
 	/* OGG buffer control */
-	short pcmout[2][READ_SAMPLES + MAX_PCMOUT * 2]; /* take 4k out of the data segment, not the stack */
+	short pcmout[2][READ_SAMPLES + MAX_PCMOUT * 2] __attribute__((aligned(32))); /* take 4k out of the data segment, not the stack */
 	int pcmout_pos;
 	int pcm_indx;
 
 } private_data_ogg;
 
-static private_data_ogg private_ogg;
+// RiftWii: the decoder's state (49 KiB) and its thread's stack are one heap
+// block taken at the first PlayOgg and kept for the next song, so a menu
+// that plays no Ogg music never spends them (NOTICE.md).
+static private_data_ogg *ogg_state = NULL;
+#define private_ogg (*ogg_state)
 
 // OGG thread control
 
 #define STACKSIZE		8192
+#define OGG_STATE_BYTES	((sizeof(private_data_ogg) + 31) & ~31)
 
-static u8 oggplayer_stack[STACKSIZE];
+static u8 *oggplayer_stack = NULL;
 static lwpq_t oggplayer_queue = LWP_TQUEUE_NULL;
 static lwp_t h_oggplayer = LWP_THREAD_NULL;
 static int ogg_thread_running = 0;
@@ -454,6 +460,16 @@ int PlayOgg(const void *buffer, s32 len, int time_pos, int mode)
 {
 	StopOgg();
 
+	if (ogg_state == NULL)
+	{
+		u8 *block = memalign(32, OGG_STATE_BYTES + STACKSIZE);
+		if (block == NULL)
+			return -1;
+		memset(block, 0, OGG_STATE_BYTES);
+		ogg_state = (private_data_ogg *) block;
+		oggplayer_stack = block + OGG_STATE_BYTES;
+	}
+
 	private_ogg.fd = mem_open((char *)buffer, len);
 	
 	if (private_ogg.fd < 0)
@@ -492,6 +508,8 @@ int PlayOgg(const void *buffer, s32 len, int time_pos, int mode)
 
 void PauseOgg(int pause)
 {
+	if (ogg_state == NULL)
+		return;
 	if (pause)
 	{
 		private_ogg.flag |= 128;
@@ -523,7 +541,8 @@ int StatusOgg()
 
 void SetVolumeOgg(int volume)
 {
-	private_ogg.volume = volume;
+	if (ogg_state != NULL)
+		private_ogg.volume = volume;
 	ASND_ChangeVolumeVoice(0, volume, volume);
 }
 
@@ -539,6 +558,6 @@ s32 GetTimeOgg()
 
 void SetTimeOgg(s32 time_pos)
 {
-	if (time_pos >= 0)
+	if (time_pos >= 0 && ogg_state != NULL)
 		private_ogg.seek_time = time_pos;
 }

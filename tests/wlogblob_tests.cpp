@@ -318,6 +318,7 @@ void TestInstaller() {
     init_image(riftwii_wlog_bin, riftwii_wlog_bin_size, true);
     init_image(riftwii_wlog_trace_bin, riftwii_wlog_trace_bin_size, true);
     init_image(riftwii_wlog_translate_bin, riftwii_wlog_translate_bin_size, false);
+    pack_wlog_images();
     const std::uint32_t sizes[] = {512, 480, 448};
     for (unsigned mode = 0; mode < 3; ++mode) {
         restore();

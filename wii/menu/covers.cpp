@@ -194,7 +194,10 @@ bool g_texDirty = false;  // a slot was refilled since the GUI invalidated
 unsigned g_forgets = 0;   // ForgetCover calls, so a read in flight is dropped
 unsigned g_fills = 0;     // slots read, for CoverFill
 bool g_fellBack = false;  // FetchCoverNow went back to the first set (the background's thread)
-alignas(32) u8 g_stack[16384];
+// Taken from MEM2 when the thread first starts (a menu that never asks for
+// one never spends it), and kept with the thread.
+constexpr std::size_t kStackBytes = 16384;
+u8* g_stack = nullptr;
 
 // A request not renewed for this long is dropped: the grid asks every frame.
 constexpr unsigned kRequestMs = 200;
@@ -479,8 +482,10 @@ bool Started() {
     if (g_thread != LWP_THREAD_NULL) return true;
     MakeLock();
     if (g_slots == 0) Reserve(kPoolMin);
+    if (g_stack == nullptr) g_stack = skin::Mem2Alloc(kStackBytes);
     // Below the GUI thread (70) and the menu's: it reads while they wait.
-    if (LWP_CreateThread(&g_thread, LoaderMain, nullptr, g_stack, sizeof(g_stack), 40) < 0) {
+    if (g_stack == nullptr ||
+        LWP_CreateThread(&g_thread, LoaderMain, nullptr, g_stack, kStackBytes, 40) < 0) {
         g_thread = LWP_THREAD_NULL;
         return false;
     }

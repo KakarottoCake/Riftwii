@@ -338,6 +338,12 @@ jobs:
             echo "::error::wii/lang/*.po differ from tools/lang_source.py. Run python3 tools/lang_source.py and commit the result."
             exit 1
           }
+      # The stash keeps the English lines once and each language's
+      # translations alone (tools/split_po.py), paired up line by line.
+      - name: Translations split for the start-up stash
+        run: |
+          python3 tools/split_po.py test
+          python3 tools/split_po.py ids wii/lang/*.po > /dev/null
 
   generated-tables:
     name: Generated tables

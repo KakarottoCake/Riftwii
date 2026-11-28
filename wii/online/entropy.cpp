@@ -3,6 +3,7 @@
 #include "entropy.hpp"
 
 #include <gccore.h>
+#include <malloc.h>
 #include <ogc/conf.h>
 #include <ogc/isfs.h>
 #include <ogc/lwp_watchdog.h>
@@ -10,13 +11,16 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <vector>
 
 #include "bearssl.h"
 #include "log.hpp"
 #include "nanduse.hpp"
 #include "online.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii::wii {
 
@@ -94,6 +98,14 @@ void WriteSeedFile(unsigned char next[kPoolBytes]) {
     std::memset(next, 0, kPoolBytes);
 }
 
+// Clears what a settings read held before its memory goes back to the heap.
+// Through a volatile pointer, so the stores are not dropped as dead ones
+// before free.
+void Scrub(void* data, std::size_t size) {
+    volatile unsigned char* p = static_cast<volatile unsigned char*>(data);
+    for (std::size_t i = 0; i < size; ++i) p[i] = 0;
+}
+
 // The Wii's network connections as the Wii Menu saved them (three
 // profiles: SSIDs, keys, addresses), the NAND's own file, not SYSCONF.
 // Whether it was read.
@@ -102,16 +114,18 @@ bool StirNetworkConfig() {
     if (NandOpen() < 0) return false;
     bool read = false;
     const s32 fd = ISFS_Open("/shared2/sys/net/02/config.dat", ISFS_OPEN_READ);
-    if (fd >= 0) {
-        static unsigned char config[kConfigBytes] ATTRIBUTE_ALIGN(32);
+    // Only for this read (once per start): ISFS needs 32-byte alignment.
+    unsigned char* config = fd >= 0 ? static_cast<unsigned char*>(memalign(32, kConfigBytes)) : nullptr;
+    if (config != nullptr) {
         const s32 got = ISFS_Read(fd, config, kConfigBytes);
-        ISFS_Close(fd);
         if (got > 0) {
             Stir("network config", config, static_cast<std::size_t>(got));
             read = true;
         }
-        std::memset(config, 0, sizeof(config));
+        Scrub(config, kConfigBytes);
+        std::free(config);
     }
+    if (fd >= 0) ISFS_Close(fd);
     NandClose();
     return read;
 }
@@ -129,11 +143,12 @@ unsigned StirConsoleSettings() {
     for (const char* name : kNames) {
         const s32 length = CONF_GetLength(name);
         if (length <= 0 || length > 0x2000) continue;
-        static unsigned char value[0x2000] ATTRIBUTE_ALIGN(32);
-        if (CONF_Get(name, value, static_cast<u32>(length)) < 0) continue;
-        Stir(name, value, static_cast<std::size_t>(length));
-        std::memset(value, 0, sizeof(value));
-        ++found;
+        std::vector<unsigned char> value;
+        if (!try_resize(value, static_cast<std::size_t>(length))) continue;
+        const bool got = CONF_Get(name, value.data(), static_cast<u32>(length)) >= 0;
+        if (got) Stir(name, value.data(), value.size());
+        Scrub(value.data(), value.size());
+        if (got) ++found;
     }
     return found;
 }

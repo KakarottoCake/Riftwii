@@ -3,10 +3,12 @@
 // A game's crash record (runtime/rtfault.h): which exceptions count, its
 // NAND path, and the text the menu makes of it.
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "riftwii/datetext.hpp"
 #include "riftwii/gamefault.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rtfault.h"
@@ -28,6 +30,20 @@ static void put32(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v)
 }
 
 int main() {
+    {
+        // The dates in a crash's "When:" line and the other reports: zero
+        // padded, as strftime's %Y-%m-%d %H:%M:%S gave them.
+        std::tm t = {};
+        t.tm_year = 2026 - 1900;
+        t.tm_mon = 0;
+        t.tm_mday = 5;
+        t.tm_hour = 7;
+        t.tm_min = 3;
+        t.tm_sec = 9;
+        EXPECT_EQ(riftwii::date_text(t, riftwii::DateParts::Day), std::string("2026-01-05"));
+        EXPECT_EQ(riftwii::date_text(t, riftwii::DateParts::Minutes), std::string("2026-01-05 07:03"));
+        EXPECT_EQ(riftwii::date_text(t, riftwii::DateParts::Seconds), std::string("2026-01-05 07:03:09"));
+    }
     static_assert(sizeof(rtfault_record) == RTFAULT_RECORD_BYTES, "the record is 512 bytes");
     // Crashes, and what is not one.
     EXPECT_TRUE(rtfault_is_crash(RTFAULT_DSI, 0));

@@ -671,6 +671,24 @@ static void test_drawn_input_icons() {
     EXPECT_EQ(int(dpad.at(6, 6).a), 0);      // between two arms
 }
 
+// Kenney's pictures are stored as (count, value) runs; drawn at their own
+// 64 px they come back pixel for pixel. The sum is the mask's before runs.
+static void test_kenney_input_icons() {
+    const Rgba ink{10, 20, 30, 255};
+    Canvas a(0, 0);
+    EXPECT_TRUE(paint_input_icon("wii_button_a", 64, ink, a));
+    EXPECT_EQ(a.width(), 64);
+    long sum = 0;
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 64; ++x) sum += a.at(x, y).a;
+    EXPECT_EQ(sum, 419764L);
+    EXPECT_EQ(int(a.at(0, 0).a), 0);
+    EXPECT_EQ(int(a.at(32, 10).a), 255);  // the button's rim
+    EXPECT_EQ(int(a.at(32, 32).a), 255);  // the A's crossbar
+    Canvas none(0, 0);
+    EXPECT_FALSE(paint_input_icon("no_such_picture", 32, ink, none));
+}
+
 // The channel frames are drawn nine-sliced kChannelFrameCorner in from
 // each edge (wii/menu/skin.cpp's DrawNine): the slices between the corners
 // are stretched to the tile's size, so they must hold straight edges only.
@@ -746,6 +764,7 @@ int main() {
     test_theme_images();
     test_painted_images();
     test_drawn_input_icons();
+    test_kenney_input_icons();
     test_channel_frame_slices();
     test_case_insensitivity_and_boolean_formats();
     test_long_name_cut();
