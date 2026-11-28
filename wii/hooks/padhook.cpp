@@ -323,6 +323,42 @@ bool blob_whole(int kind) {
             (offset != 0 && offset < context_end && h.context_offset < std::uint64_t(offset) + kSiteBytes))
             return false;
     }
+    // The install writes 16 bytes at each replay and each way back: two that
+    // overlap would have the second write over the first, so each must stay
+    // clear of every other (CodeRabbit on #650).
+    {
+        std::uint32_t slots[30];  // two for each of the 15 sites a build may have
+        std::size_t count = 0;
+        const auto add = [&](std::uint32_t replay, std::uint32_t resume) {
+            if (replay != 0) slots[count++] = replay;
+            if (resume != 0) slots[count++] = resume;
+        };
+        add(h.replay_read, h.continue_read);
+        add(h.replay_motor, h.continue_motor);
+        add(h.replay_submit, h.continue_submit);
+        add(h.replay_sleep, h.continue_sleep);
+        add(h.replay_suspend, h.continue_suspend);
+        add(h.replay_restart, h.continue_restart);
+        add(h.replay_si_probe, h.continue_si_probe);
+        if (!no_home(kind)) {
+            add(h.replay_kpad, h.continue_kpad);
+            add(h.replay_probe, h.continue_probe);
+            add(h.replay_menu, h.continue_menu);
+            add(h.replay_select, h.continue_select);
+            add(h.replay_unified, h.continue_unified);
+        }
+        if (standin_kind(kind)) {
+            const rt_pad_standin_header& own =
+                *reinterpret_cast<const rt_pad_standin_header*>(blob(kind) + sizeof(rt_pad_header));
+            add(own.replay_info, own.continue_info);
+            add(own.replay_wread, own.continue_wread);
+            add(own.replay_format, own.continue_format);
+        }
+        for (std::size_t i = 0; i < count; ++i)
+            for (std::size_t j = 0; j < i; ++j)
+                if (slots[i] < std::uint64_t(slots[j]) + kSiteBytes && slots[j] < std::uint64_t(slots[i]) + kSiteBytes)
+                    return false;
+    }
     if (no_home(kind)) return true;
     // The HOME Menu's five sites, each with its replay and way back: one
     // without them would have the install write at the blob's start
@@ -1990,6 +2026,24 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             hook.active = false;
             close_pad_handles(hook);  // the plan's USB handles back (CodeRabbit on #609)
             return false;
+        }
+    }
+    // WPADRead's hook goes in only with WPADSetDataFormat's (CodeRabbit on
+    // #650): with WPADRead's in, a game that reads WPAD itself is told of the
+    // stand-in again until it reads it, and only WPADSetDataFormat's hook
+    // answers the format the game then asks for on the stand-in's channel.
+    // So where WPADSetDataFormat's can't go in, WPADRead's stays out too,
+    // before either is hooked; the KPAD read's hooks don't depend on them,
+    // and WPADSetDataFormat's alone still answers a KPAD game's format.
+    if (wread_site.function != 0) {
+        std::uint32_t branch = 0;
+        const bool format_in = format_site.function != 0 &&
+                               encode_branch(format_site.function, hook.code_base + format_site.hook, branch);
+        if (!format_in) {
+            logf("GameCube adapter: WPADRead isn't hooked, as WPADSetDataFormat %s; a game that reads WPAD itself may "
+                 "not take the stand-in\n",
+                 format_site.function == 0 ? "isn't" : "is out of a branch's reach");
+            wread_site.function = 0;
         }
     }
     sync_code(hook.code_base, hook.code_bytes);
