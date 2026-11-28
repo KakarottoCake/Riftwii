@@ -1796,6 +1796,10 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     if (searched.read != 0) {
         pad.read = searched.read;
         pad.read_sites = searched.read_sites;
+        // Its PADControlMotor beside it where the search found just one (the
+        // game's own otherwise), so rumble reaches the adapter as with a
+        // plain patch's (CodeRabbit on #650).
+        if (searched.control_motor != 0) pad.control_motor = searched.control_motor;
         out.read = pad.read;
         out.read_in_patch = true;
         // Sized by the pack (AGENTS.md's rule; CodeRabbit on #650): where it

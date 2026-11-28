@@ -2,7 +2,7 @@
 
 The controller override lets another controller stand in for a Wii controller, so a Wii game that wants a Wii Remote, a Nunchuk or a Classic Controller can be played without one. The game sees the Wii controller it expects; RiftWii fills it in from the controller in your hand.
 
-**Today it works with GameCube controllers**: on the Wii U's GameCube controller adapter (or a copy that works like it) and on a Wii's own GameCube ports. Other controllers (USB gamepads, and a Classic Controller standing in for a Wii Remote) are planned to use the same setting; this page will grow with them.
+**Today it works with GameCube controllers**: on the Wii U's GameCube controller adapter (or a copy that works like it) and on a Wii's own GameCube ports. A USB controller RiftWii has a mapping for works too, as the GameCube controller it plays as. A Classic Controller standing in for a Wii Remote is planned to use the same setting; this page will grow with it.
 
 This page says what the override does, what it doesn't, and how to help test it. How each game does is in [CONTROLLER_OVERRIDE_GAMES.md](CONTROLLER_OVERRIDE_GAMES.md).
 
@@ -18,7 +18,7 @@ Open a game's page, choose **Options**, and find **Controllers act as** under Ot
 
 Each GameCube controller then plays as that Wii controller: port 1 as Wii Remote 1, port 2 as Wii Remote 2, and so on. A choice you make always wins over what a pack asks for. The setting is kept for each game.
 
-Which one to pick: the one the game itself is played with. The back of the box, or the game's **About** tile, lists the controllers it takes. If a game takes a Classic Controller, that's usually the best fit, because nothing has to be faked.
+Which one to pick: the one the game itself is played with. The back of the box, or the game's **About** tile, lists the controllers it takes. If a game takes a Classic Controller, that's usually the best fit, because nothing has to be faked. One limit: a GameCube controller has no button for the Classic Controller's ZL or −, so for a game that needs either, pick another controller the game takes, or use a pack that gives them a button.
 
 ## The buttons (GameCube controller)
 
