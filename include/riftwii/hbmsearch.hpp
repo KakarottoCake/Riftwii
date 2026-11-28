@@ -30,7 +30,7 @@ namespace riftwii {
 // walker (S = 144) without those stores.
 struct KpadRead {
     std::uint32_t address = 0;       // the function's `stwu`, 0: not exactly one
-    std::uint32_t status_bytes = 0;  // S: 132 (2007), 176 (2009), 240 (2009-2010)
+    std::uint32_t status_bytes = 0;  // S: 136 (2006), 132 (2007), 176 (2009), 240 (2009-2010)
     // Its fourth argument is the error's address (the newer KPADReadEx,
     // which copies r6 to a register of its own as it starts); the 2007
     // read takes three, and r6 means nothing to it.
@@ -51,7 +51,9 @@ std::uint32_t find_wpad_probe(const std::vector<CodeRange>& text);
 // Controller's buttons from it, not from the KPAD read (9 Nov), so the
 // stand-in fills it too where it is found; most games leave it out (none
 // of the other 14 programs on hand has it). The one function that limits
-// its count to 16 (`cmplwi r5,16`, `li rX,16`), indexes the channel's KPAD
+// its count to 16 (`cmplwi r5,16` and `li rX,16`, or later libraries'
+// count-relative `addi r0,r3,16; cmplw r5,r0`, as Donkey Kong Country
+// Returns has it), indexes the channel's KPAD
 // block (`mulli rD,r3,K`, K at least 256) and copies E-byte statuses
 // (`mulli rD,rA,E` and `li r5,E` for the copy, E from 40 to 96).
 struct KpadUnified {
@@ -76,6 +78,75 @@ struct KpadConnect {
     std::uint32_t offset = 0;   // O, the callback's place in it
 };
 KpadConnect find_kpad_connect(const std::vector<CodeRange>& text, std::uint32_t kpad_read);
+
+// WPADGetInfoAsync(chan, info, callback), which a 2006 KPAD game (Excite
+// Truck) waits on before it uses a Wii Remote: the one function that
+// indexes the channels as WPADProbe does (`slwi r0,r3,2`), answers busy
+// (`li rX,-2`), queues the status request (report 0x15, `li rX,0x15`) in a
+// 48-byte command (`mulli rX,rY,48`), and keeps its info and callback
+// arguments (`mr` from r4 and from r5) to store them into it. One in each of
+// the 29 Wii games dumped (2006 to 2010). 0 when not exactly one.
+std::uint32_t find_wpad_get_info(const std::vector<CodeRange>& text);
+
+// The later WPAD's WPADGetInfoAsync, by its blocking caller WPADGetInfo: a
+// short framed function that makes the address of WPAD's control-block
+// table `block_table` (its connect callbacks' table,
+// find_wpad_connect_later) and calls a function whose result it checks
+// for busy at once (`bl X; cmpwi r3,-2`); X is WPADGetInfoAsync (Mario
+// Strikers Charged: WPADGetInfo 0x803CD2A4 calls 0x803CD35C). The 2006
+// finder's marks also fit another function in that WPAD. 0 when not exactly
+// one.
+std::uint32_t find_wpad_get_info_later(const std::vector<CodeRange>& text, std::uint32_t block_table);
+
+// Where the 2006 WPAD (Excite Truck, Marvel Ultimate Alliance: both its
+// Oct 3 2006 build) keeps each channel's connect callback, which those games
+// wait on before they use a Wii Remote (KPAD has none of its own there):
+// WPADSetConnectCallback is the one function that takes the channel's
+// control block from a table (`lis`/`addi` for the table, `lwzx` by the
+// channel) and swaps the callback at its +2020 (`lwz` and `stw` there).
+// The block's address is the table's word at channel * 4, filled when the
+// game starts WPAD. Both 0 when not exactly one.
+struct WpadConnect2006 {
+    std::uint32_t table = 0;
+    std::uint32_t offset = 0;
+};
+WpadConnect2006 find_wpad_connect_2006(const std::vector<CodeRange>& text);
+
+// The same for the later WPAD (2007 on), for a game that reads its Wii
+// Remotes below KPAD and hears of them only through WPAD's connect callback
+// (Punch-Out!!: its own pad manager calls WPADRead for the players that
+// callback told it of). WPAD has several setters of that shape (the
+// connect, sampling and extension callbacks, side by side in the channel's
+// control block), so the connect one is told by how WPAD calls its slot:
+// through `lwz r12,O(rB)` and `bctrl` with `li r4,-1` (no controller, as
+// a Wii Remote leaves) in between, which the other two never get. The table
+// and O (+2212 in Punch-Out!!'s 2008 WPAD); both 0 when not exactly one.
+WpadConnect2006 find_wpad_connect_later(const std::vector<CodeRange>& text);
+
+// The game's WPAD extension callback (WPADSetExtensionCallback's slot),
+// which WPAD calls with the channel and the attachment's type once it has
+// read it (Super Mario Galaxy 2 notes "Nunchuk attached" only from it):
+// the word just before `connect`'s slot in the same control block (+2016
+// by the 2006 WPAD's +2020, +2208 by +2212 in 2007-2008, +2276 by +2280
+// from 2009), when exactly one setter of the same shape swaps it. Both 0
+// otherwise, or when `connect` is none.
+WpadConnect2006 find_wpad_extension(const std::vector<CodeRange>& text, const WpadConnect2006& connect);
+
+// WPADRead(chan, status), which copies a channel's newest report into the
+// game's WPADStatus: the one function that indexes the channels
+// (`slwi rX,r3,2`), copies 42 bytes (`li r5,42`, the bare Wii Remote's
+// status, for a report whose error is -2 or -7: `cmpwi` with both) and
+// stores the error into the game's status (`stb` at 41 through its second
+// argument, kept with `mr` from r4). 0 when not exactly one.
+std::uint32_t find_wpad_read(const std::vector<CodeRange>& text);
+
+// WPADSetDataFormat(chan, format): the one function that answers no
+// controller (`li rX,-1`, or `cmpwi` with -1 where it returns the probe's
+// result) and busy (`li rX,-2`), compares the format it is
+// given (kept with `mr` from r4) with the channel's (`cmplw`), and stores
+// it there (`stw` of that register at an offset of at least 0x400, the
+// control block's). 0 when not exactly one.
+std::uint32_t find_wpad_set_format(const std::vector<CodeRange>& text);
 
 // The small-data base the game's start-up code loads into r13 (`lis
 // r13,hi` then `ori` or `addi r13,r13,lo`), within its first 256 words

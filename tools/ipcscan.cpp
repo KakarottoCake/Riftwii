@@ -134,6 +134,14 @@ int main(int argc, char** argv) {
         const riftwii::KpadUnified unified = riftwii::find_kpad_unified(text);
         if (unified.address != 0)
             std::printf("  KPADGetUnifiedWpadStatus 0x%08x (status %u bytes)\n", unified.address, unified.status_bytes);
+        // The stand-in below KPAD (#587): WPAD's own connect callback, its
+        // read and its data format, for a game that reads WPAD itself.
+        const riftwii::WpadConnect2006 connect06 = riftwii::find_wpad_connect_2006(text);
+        const riftwii::WpadConnect2006 later = riftwii::find_wpad_connect_later(text);
+        std::printf("  WPAD connect callback: 2006 0x%08x +%u, later 0x%08x +%u; WPADRead 0x%08x, "
+                    "WPADSetDataFormat 0x%08x\n",
+                    connect06.table, connect06.offset, later.table, later.offset, riftwii::find_wpad_read(text),
+                    riftwii::find_wpad_set_format(text));
     }
     return failures == 0 ? 0 : 1;
 }

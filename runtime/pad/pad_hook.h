@@ -63,6 +63,10 @@
  * pad): the /dev/usb/hid list owner lies dormant, a pad link's size,
  * asking for no list (#496). */
 #define RT_PAD_FLAG_HID_DORMANT 4u
+/* No adapter and no USB pad (GameCube controllers as Classic Controllers on
+ * a Wii's own ports, #587): the driver is never asked anything, so USB is
+ * left alone; only the console's own ports count. */
+#define RT_PAD_FLAG_NO_USB 8u
 
 /* Big-endian words at the start of the blob. */
 struct rt_pad_header {
@@ -108,6 +112,23 @@ struct rt_pad_header {
     uint32_t hook_unified;     /* KPADGetUnifiedWpadStatus's (the stand-in's raw status, where the game has it) */
     uint32_t replay_unified;
     uint32_t continue_unified;
+};
+
+/* The stand-in builds' header goes on after rt_pad_header (the six other
+ * builds have none of it). */
+struct rt_pad_standin_header {
+    uint32_t hook_info;  /* WPADGetInfoAsync's (the 2006 KPAD games wait for its answer) */
+    uint32_t replay_info;
+    uint32_t continue_info;
+    /* The stand-in below KPAD, in the Wii Remote forms' builds (0 in the
+     * Classic Controller's): WPADRead's (a game that reads WPAD itself gets
+     * the stand-in's report) and WPADSetDataFormat's (answered for it). */
+    uint32_t hook_wread;
+    uint32_t replay_wread;
+    uint32_t continue_wread;
+    uint32_t hook_format;
+    uint32_t replay_format;
+    uint32_t continue_format;
 };
 
 struct rt_pad_context {
@@ -186,6 +207,12 @@ struct rt_pad_context {
      * the game was last told is connected, plus one (0: none). */
     uint32_t kpad_connect;
     uint32_t kpad_connect_info;
+    /* GameCube controllers as Classic Controllers (#587, rtgcwii.h): the
+     * state's address in MEM2, 0: off (the game's setting is off, the
+     * default, or the KPAD read or WPADProbe wasn't found). Loader-filled.
+     * Independent of home_on: a game that can't take the HOME Menu's
+     * stand-in may still take this one. */
+    uint32_t gcwii;
 };
 
 #ifdef RT_TARGET_PPC

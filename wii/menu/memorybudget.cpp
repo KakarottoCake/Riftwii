@@ -3,6 +3,7 @@
 #include "memorybudget.hpp"
 
 #include <cstddef>
+#include <string>
 
 #include "fault_hook.h"
 #include "gcadapter.hpp"
@@ -20,6 +21,7 @@
 #include "rt_hook.h"
 #include "rtfs.h"
 #include "rtgcad.h"
+#include "rtgcwii.h"
 #include "shot_hook.h"
 #include "vsd_hook.h"
 #include "zstd.h"
@@ -41,11 +43,21 @@ std::uint32_t blob_bytes(const std::uint8_t* blob) {
     return align(reinterpret_cast<const Header*>(blob)->size);
 }
 
-// The pad code's full build (the pads plugin carries the builds; the DOL
-// keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h).
-std::uint32_t pad_build_bytes() {
+// The pad code's full build, or with the game's GameCube controllers
+// setting on its stand-in's full build (the pads plugin carries the builds;
+// the DOL keeps their sizes, Makefile.runtime's riftwii_pad_sizes.h, in
+// padhook.cpp's order: the full Classic Controller, Wii Remote + Nunchuk
+// and sideways Wii Remote builds are the seventh, ninth and eleventh).
+std::uint32_t pad_build_bytes(const std::string& gc_controllers) {
     constexpr std::uint32_t kBytes[] = RIFTWII_PAD_BUILD_BYTES;
-    return align(kBytes[0]);
+    constexpr std::size_t kClassicFull = 6, kNunchukFull = 8, kSidewaysFull = 10, kPointingFull = 12;
+    static_assert(sizeof(kBytes) / sizeof(kBytes[0]) > kPointingFull, "the pad builds' sizes miss a stand-in's");
+    const std::size_t kind = gc_controllers == "classic"    ? kClassicFull
+                             : gc_controllers == "nunchuk"  ? kNunchukFull
+                             : gc_controllers == "sideways" ? kSidewaysFull
+                             : gc_controllers == "pointing" ? kPointingFull
+                                                            : 0;
+    return align(kBytes[kind]);
 }
 
 // A typical pack's redirect table and payload (a few hundred files).
@@ -112,19 +124,27 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
     const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged) ||
                          (settings.usb_input != "off" && view.hid_pads != 0);
+    // The game's GameCube controllers setting (Classic Controller, Wii
+    // Remote + Nunchuk, Sideways or Pointing Wii Remote) puts the hook in for
+    // the Wii's own GameCube ports even with no adapter or USB pads, and
+    // takes the chosen stand-in's build and its state.
+    const std::string& gc_controllers = state.model.game.gc_controllers;
+    const bool standin = gc_controllers == "classic" || gc_controllers == "nunchuk" || gc_controllers == "sideways" ||
+                         gc_controllers == "pointing";
     if (!protected_game && !whole_mem1) {
         b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")
             b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
-        if (adapter)
-            b.add(tr("GameCube adapter"), pad_build_bytes(), align(sizeof(gcad_hub)));
+        if (adapter || standin)
+            b.add(tr("GameCube adapter"), pad_build_bytes(gc_controllers),
+                  align(sizeof(gcad_hub)) + (standin ? align(sizeof(rtgcwii)) : 0));
     } else if (!protected_game && code_build && !clears_mem1_top && adapter) {
         // A code build keeps all of MEM1: the adapter's code and state both
         // go to the top of the MEM2 arena, reached through veneers in low
         // memory (wii/hooks/padhook.cpp). A game that clears MEM1's top
         // gets no adapter at all (boot.cpp), code build or not.
         b.add(tr("GameCube adapter"), 0,
-              pad_build_bytes() + align(sizeof(gcad_hub)));
+              pad_build_bytes(std::string()) + align(sizeof(gcad_hub)));
     }
     return b;
 }
