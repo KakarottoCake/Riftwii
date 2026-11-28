@@ -16,12 +16,6 @@ constexpr std::size_t kSearchChunk = 0x8000;
 // again: a one-byte pattern of zeros matched tens of millions of times and
 // the launch never ended (BUG-07). Real searches find a handful.
 constexpr std::size_t kMaxSearchMatches = 65536;
-// The game memory all of a launch's searches may read together. One search
-// reads the loaded game once, a few MiB; but nothing limited how many
-// searches a pack makes (macros repeat them), and each read it all again
-// (CAV-02, BUG-07). Real packs read well under this.
-constexpr std::uint64_t kMaxSearchBytes = std::uint64_t(1) << 30;
-
 // What the searches of one launch share: the read budget, and the chunk
 // last read, so the matches of one search come from the chunk in hand
 // rather than each reading 32 KiB again. A search only writes below where

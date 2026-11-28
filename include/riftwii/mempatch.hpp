@@ -97,6 +97,13 @@ private:
     std::vector<CodeRange> ranges_;
 };
 
+// The game memory all of a launch's searches may read together. One search
+// reads the loaded game once, a few MiB; but nothing limited how many
+// searches a pack makes (macros repeat them), and each read it all again
+// (CAV-02, BUG-07). Real packs read well under this. The pads' preview of
+// a pack's searches (padhook.cpp) keeps to it too.
+constexpr std::uint64_t kMaxSearchBytes = std::uint64_t(1) << 30;
+
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;
 

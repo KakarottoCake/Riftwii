@@ -1182,6 +1182,19 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
         }
         return false;
     };
+    // What the searches below may read, together: the patcher's own
+    // launch-wide budget (kMaxSearchBytes), so a pack of many searches that
+    // match nothing can't keep the preview going longer than the patching
+    // would. Past it the plan is incomplete, and the stand-in steps aside
+    // (CodeRabbit on #650).
+    std::uint64_t search_budget = kMaxSearchBytes;
+    const auto charge = [&search_budget](std::uint64_t from, std::uint64_t last, std::size_t n) {
+        if (from > last) return true;  // nothing of this section is searched
+        const std::uint64_t want = last - from + n;
+        if (want > search_budget) return false;
+        search_budget -= want;
+        return true;
+    };
     for (std::size_t i = 0; i < patches.size(); ++i) {
         const MemoryPatch& patch = patches[i];
         // A file patch: its guard judged like any other's, its place noted.
@@ -1220,6 +1233,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
                 std::uint64_t pos = r.address;
                 if (pos % align != 0) pos += align - pos % align;
                 const std::uint64_t last = std::uint64_t(r.address) + r.size - n;
+                if (!charge(pos, last, n)) {
+                    out.incomplete = true;
+                    return out;
+                }
                 for (; pos <= last && !found; pos += align) {
                     while (next < near.size() && near[next].second <= pos) ++next;
                     bool overlaid = false;
@@ -1289,6 +1306,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
                 std::uint64_t pos = std::max<std::uint64_t>(r.address, from);
                 if (pos % align != 0) pos += align - pos % align;
                 const std::uint64_t last = std::uint64_t(r.address) + r.size - patch.original.size();
+                if (!charge(pos, last, patch.original.size())) {
+                    out.incomplete = true;
+                    return out;
+                }
                 while (pos <= last) {
                     // Where no earlier write reaches, the game's own bytes
                     // decide (a plain compare); near one, the pattern is
@@ -1624,7 +1645,11 @@ bool pack_wraps_wii_reads(const std::vector<MemoryPatch>& patches, const PackWri
 bool search_writes_pad_read(const SearchSpans& spans, PadSymbols& found) {
     found = PadSymbols{};
     if (spans.empty()) return false;
+    // Sized by the pack (AGENTS.md's rule; CodeRabbit on #650): where it
+    // can't be held, the search can't be sure, which counts as a PADRead it
+    // can't rule out (the stand-in steps aside, as for a plan too big).
     std::vector<CodeRange> ranges;
+    if (!try_reserve(ranges, spans.size())) return true;
     for (const auto& span : spans) ranges.push_back({span.first, span.second.data(), span.second.size()});
     std::string error;
     const bool sure = find_pad_symbols(ranges, found, error);
@@ -1746,6 +1771,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     // PADRead is one a search patch adds: the game's code read as all the
     // writes leave it, plain ones too (CodeRabbit CLI, fork #16; fork #25).
     std::vector<CodeRange> written;
+    bool written_held = true;  // the lists for the SIProbe search, below
     // A PADRead found there is the one hooked for the adapter, as a plain
     // patch's would be: over none of the game's, or
     // over the game's own (a copy the pack doesn't call: CodeRabbit, fork
@@ -1756,14 +1782,11 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         pad.read_sites = searched.read_sites;
         out.read = pad.read;
         out.read_in_patch = true;
-        for (const auto& span : all_spans) written.push_back({span.first, span.second.data(), span.second.size()});
-    }
-    // The Wii's own ports are read only through a PADRead (the game's, or
-    // one a pack's patch adds, plain or search): with none and no adapter,
-    // nothing could read a GameCube controller.
-    if (pad.read == 0 && !usb) {
-        why = "this game has no GameCube controller code, and with no adapter nothing reads the Wii's own GameCube ports";
-        return false;
+        // Sized by the pack (AGENTS.md's rule; CodeRabbit on #650): where it
+        // can't be held, SIProbe isn't looked for (below).
+        written_held = try_reserve(written, all_spans.size());
+        if (written_held)
+            for (const auto& span : all_spans) written.push_back({span.first, span.second.data(), span.second.size()});
     }
     const bool program_pad = standin && !pack_reads_pad && program_from_pack && pad.read != 0;
     // (Below: a pack with more memory writes than the checks follow counts
@@ -1812,6 +1835,15 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         // doesn't start.
         logf("GameCube adapter: a pack reads the GameCube controller ports itself, which the adapter doesn't "
              "answer; the GameCube controllers' stand-in keeps the controls for this launch\n");
+    }
+    // The Wii's own ports are read only through a PADRead (the game's, or
+    // one a pack's patch adds, plain or search): with none and no adapter,
+    // nothing could read a GameCube controller. Asked after the pack's own
+    // code is decided, so a pack that reads the ports itself still has its
+    // launch note (CodeRabbit on #650).
+    if (pad.read == 0 && !usb && standin) {
+        why = "this game has no GameCube controller code, and with no adapter nothing reads the Wii's own GameCube ports";
+        return false;
     }
     // No PADRead and the stand-in off for the pack: nothing to hook, so no
     // adapter handle is taken (the caller starts the game without one).
@@ -1866,11 +1898,21 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     // is searched in the game's code as the patches will leave it, and in
     // the pack's writes outside it too (a wrapper it adds beside its
     // PADRead: CodeRabbit CLI, fork #25).
-    std::vector<CodeRange> text_and_written = text;
-    text_and_written.insert(text_and_written.end(), written.begin(), written.end());
-    out.si_probe = !written.empty()      ? find_gc_si_probe_with_patches(text_and_written, written, out.read)
-                   : from_patch            ? find_gc_si_probe_with_patches(text, patched, out.read)
-                                           : find_gc_si_probe(text, out.read);
+    // (The lists sized by the pack: where they can't be held, SIProbe isn't
+    // looked for; AGENTS.md's rule, CodeRabbit on #650.)
+    std::vector<CodeRange> text_and_written;
+    if (written_held && !written.empty())
+        written_held = try_reserve(text_and_written, text.size() + written.size());
+    if (written_held && !written.empty()) {
+        text_and_written.insert(text_and_written.end(), text.begin(), text.end());
+        text_and_written.insert(text_and_written.end(), written.begin(), written.end());
+    }
+    if (!written_held)
+        logf("GameCube adapter: the pack's writes can't be held in memory to look for SIProbe beside its PADRead\n");
+    out.si_probe = !written_held      ? 0u
+                   : !written.empty() ? find_gc_si_probe_with_patches(text_and_written, written, out.read)
+                   : from_patch       ? find_gc_si_probe_with_patches(text, patched, out.read)
+                                      : find_gc_si_probe(text, out.read);
     // Where SIProbe is missing the adapter still plays: only a game that
     // asks it before reading a port misses the adapter's ports (#510).
     if (out.si_probe != 0)
