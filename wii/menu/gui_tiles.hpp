@@ -47,6 +47,21 @@ public:
     int Selected() const { return hover >= 0 ? hover : focus; }
     // The tile A was pressed on since the last call; -1 when none.
     int GetClicked();
+    // Settings' section list sits beside another list. While keys are off
+    // the D-pad and A leave these tiles alone and none is lit by the focus
+    // (the pointer still lights and presses them). With side keys on, Right
+    // is not a move between tiles: TakeRight() reports it instead, as the
+    // way into the other list.
+    void SetKeysActive(bool on) { keysActive = on; }
+    void SetSideKeys(bool on) { sideKeys = on; }
+    bool TakeRight() {
+        const bool r = rightPressed;
+        rightPressed = false;
+        return r;
+    }
+    // The tile a page is on while the focus is elsewhere: a quieter ring,
+    // so the page's choice is still plain. -1 for none.
+    void SetCurrent(int index) { current = index; }
     // How lit the tile looks, 0 to 1, for a hidden tile's own element.
     float Lift(int index) const {
         return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
@@ -64,7 +79,8 @@ private:
     void EvenTextSizes();
 
     const std::vector<TileSpec>* tiles = nullptr;
-    int focus = 0, hover = -1, clicked = -1;
+    int focus = 0, hover = -1, clicked = -1, current = -1;
+    bool keysActive = true, sideKeys = false, rightPressed = false;
     int pressedTile = -1;
     float pressElapsed = -1.0f, pressScale = 1.0f;
     std::vector<float> lift;  // each tile's lit look, eased 0 to 1

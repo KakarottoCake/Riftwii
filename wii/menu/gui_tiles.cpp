@@ -247,11 +247,13 @@ void GuiTiles::Draw() {
         EvenTextSizes();
     }
     pressScale = riftwii::wii::transition::PressScale(pressElapsed);
-    const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
+    const int lit = hover >= 0 ? hover : (AnyPointer() || !keysActive ? -1 : focus);
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
         float& l = lift[i];
         l = std::clamp(swell[i].Advance(i == lit), 0.0f, 1.0f);
+        // The page's own tile keeps a ring while the focus is in the other list.
+        if (i == current && i != lit) l = std::max(l, 0.55f);
         if (s.hidden) continue;
         // Lit, the tile keeps its size and its ring fades in (and pulses).
         // A tile that grew stuck out past the tiles in line with it: the
@@ -326,9 +328,12 @@ void GuiTiles::Update(GuiTrigger* t) {
     // only the one a press comes from moves the focus.
     if (AnyPointer()) return;
     hover = -1;
+    if (!keysActive) return;
     int dx = 0, dy = 0;
-    if (t->Right()) dx = 1;
-    else if (t->Left()) dx = -1;
+    if (t->Right()) {
+        if (sideKeys) rightPressed = true;
+        else dx = 1;
+    } else if (t->Left()) dx = sideKeys ? 0 : -1;
     else if (t->Down()) dy = 1;
     else if (t->Up()) dy = -1;
     if (dx != 0 || dy != 0) {
