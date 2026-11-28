@@ -328,14 +328,20 @@ bool blob_whole(int kind) {
     // clear of every other, and of every hook's entry and the IPC callback
     // (their first word, where the game's branch lands), which a write over
     // would leave the game branching into replaced code (CodeRabbit on #650).
+    // A site's replay falls through into its own way back, so the way back
+    // is the 16 bytes right after it: one paired with another site's would
+    // have the game's call resume in the wrong function (CodeRabbit on #650).
     {
         std::uint32_t slots[30];    // two for each of the 15 sites a build may have
         std::uint32_t entries[16];  // each site's hook, and the IPC callback
         std::size_t count = 0, entry_count = 0;
+        bool paired = true;
         const auto add = [&](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume) {
             if (hook != 0) entries[entry_count++] = hook;
             if (replay != 0) slots[count++] = replay;
             if (resume != 0) slots[count++] = resume;
+            if ((replay != 0 || resume != 0) && (replay == 0 || resume != std::uint64_t(replay) + kSiteBytes))
+                paired = false;
         };
         add(h.hook_read, h.replay_read, h.continue_read);
         add(h.hook_motor, h.replay_motor, h.continue_motor);
@@ -359,6 +365,7 @@ bool blob_whole(int kind) {
             add(own.hook_wread, own.replay_wread, own.continue_wread);
             add(own.hook_format, own.replay_format, own.continue_format);
         }
+        if (!paired) return false;
         for (std::size_t i = 0; i < count; ++i) {
             for (std::size_t j = 0; j < i; ++j)
                 if (slots[i] < std::uint64_t(slots[j]) + kSiteBytes && slots[j] < std::uint64_t(slots[i]) + kSiteBytes)
