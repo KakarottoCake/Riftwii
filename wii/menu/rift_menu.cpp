@@ -22824,8 +22824,16 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 		}
 	}
 	// One held while its hash lists were fetched, when a power cut came
-	// before it was put back.
-	RestoreHeldCtgpUpdate();
+	// before it was put back. The rename is tried once per start: when the
+	// card refuses it, the chain stops before asking for more, and the
+	// player reads why on whichever way this function returns (after any
+	// other message).
+	struct HeldStuckNote {
+		bool stuck = false;
+		~HeldStuckNote() { if (stuck) ShowCtgpHeldStuck(); }
+	} held;
+	held.stuck = RestoreHeldCtgpUpdate() == riftwii::CtgpRestoreHeld::Failed;
+	bool& held_stuck = held.stuck;
 	riftwii::wii::CtgpUpdater updater;
 	riftwii::wii::CtgpUpdateInfo info;
 	std::string error;
@@ -22939,7 +22947,6 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool asked_for_lists = false;
 	bool ask_server_anyway = false;
 	std::uint64_t waiting_bytes = 0;  // the size of the update that failed that way
-	bool held_stuck = false;  // the held update could not be renamed back
 	// Why the lists were not got, for the words the player reads: 0 the
 	// server had nothing useful (nothing newer, the same file, or a second
 	// failure), 1 Downloads are off, 2 the server could not be asked, 3 what
@@ -22966,12 +22973,13 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 		// The held update goes back once its prerequisite went in (and was
 		// retired) or came to nothing, and installs next.
 		if (!ask_server_anyway) {
-			const riftwii::CtgpRestoreHeld held = RestoreHeldCtgpUpdate();
-			if (held == riftwii::CtgpRestoreHeld::Failed) {
-				held_stuck = true;  // told beside the summary; not tried again below
+			const riftwii::CtgpRestoreHeld restored =
+				held_stuck ? riftwii::CtgpRestoreHeld::Failed : RestoreHeldCtgpUpdate();
+			if (restored == riftwii::CtgpRestoreHeld::Failed) {
+				held_stuck = true;  // told on the way out; not tried again
 				break;
 			}
-			if (held == riftwii::CtgpRestoreHeld::Restored && !InspectCtgpUpdate(updater, info, error)) {
+			if (restored == riftwii::CtgpRestoreHeld::Restored && !InspectCtgpUpdate(updater, info, error)) {
 				// Read afresh: the step below goes by what the file is.
 				failed = error;
 				break;
@@ -23277,8 +23285,8 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 					{reached, FlatCapped(failed, 140)}),
 			tr("OK"));
 	}
-	// A warning beside the summary: what went in went in.
-	if (held_stuck) ShowCtgpHeldStuck();
+	// The held-update note (HeldStuckNote) follows the summary: what went
+	// in went in.
 	return go_on;
 }
 
