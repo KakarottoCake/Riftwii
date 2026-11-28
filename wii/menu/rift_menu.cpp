@@ -19960,6 +19960,11 @@ struct SettingsPaneState {
 	bool fromSearch = false;
 	bool searchAsked = false;
 	int section = 0;
+	// The page asks to be built again (a change of language or of the menu's
+	// shape or size moves everything): with the side and the row it was on.
+	bool redo = false;
+	int side = 0;
+	int row = 0;
 };
 
 // What each section holds, in a line: the note while its name is lit, and
@@ -19997,7 +20002,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	const bool searching = section == SettingsSection::Count;
 	const bool twoPane = !searching;
 	// 0: the list of sections has the focus, 1: its rows.
-	int side = 0;
+	int side = twoPane && pane ? pane->side : 0;
+	bool redoPane = false;  // a change that needs the page's geometry and texts again
 	std::string query;
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	// The theme and font this run of the menu shows (read at the first
@@ -21006,7 +21012,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	list.SetSideKeys(twoPane);
 	list.SetCards(true);
 	list.SetRows(&rows);
-	list.Select(0);
+	list.Select(twoPane && pane ? pane->row : 0);
 	if (twoPane) list.SetKeysActive(false);
 	const int noteLines = NoteCard::kLines;  // four lines of 13 points end at y 402 at 4:3, 15 points at y 410 at 16:9
 	GuiText noteTxt("", compact ? 13 : 15, skin::kInkSoft);
@@ -21168,6 +21174,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	std::string shownVerb;
 	bool sectionNote = false;  // two-pane: the note is the lit section's
 	int rowMemory[static_cast<int>(SettingsSection::More) + 1] = {};  // two-pane: each section's last row
+	if (twoPane && pane && static_cast<int>(section) < static_cast<int>(SettingsSection::More) + 1)
+		rowMemory[static_cast<int>(section)] = pane->row;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -21435,6 +21443,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr(riftwii::wii::kKoreanNeedsFont));
 					else
 						note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
+					redoPane = twoPane;  // the section names and Exit are in the new language too
 					rebuild();
 					break;
 				}
@@ -21730,6 +21739,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					if (saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."))) {
 						riftwii::wii::ApplyMenuDisplay();
 						skin::EnsureBackgrounds();
+						redoPane = twoPane;  // the page's width changed with the shape
 					}
 					rebuild();
 					break;
@@ -21743,8 +21753,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					if (listPick >= 0 && listPick <= 4) settings.screen_size = 80 + 5 * listPick;
 					else settings.screen_size = 80 + 5 * (((at + direction) % 5 + 5) % 5);
 				}
-					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
+					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."))) {
 						riftwii::wii::ApplyMenuDisplay();
+						redoPane = twoPane;
+					}
 					rebuild();
 					break;
 				case kTheme: {
@@ -22336,12 +22348,20 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 			}
 		}
+		if (twoPane && redoPane && menu == MENU_NONE) {
+			pane->redo = true;
+			pane->side = side;
+			pane->row = list.Selected();
+			menu = MENU_SOURCE;
+		}
 		if (menu == MENU_NONE && backBtn.Clicked()) {
 			if (twoPane && side == 1) {
 				// From the rows back to the list of sections.
 				rowMemory[static_cast<int>(section)] = list.Selected();
 				side = 0;
 				shownRow = -1;
+				// This press is spent: it must not also leave Settings.
+				backBtn.button.ResetState();
 			} else {
 				menu = MENU_SOURCE;
 				backToHub = !twoPane;
@@ -22349,7 +22369,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		}
 		// Leaving with another theme or font than the one on screen: one
 		// restart for both (Later leaves them for the next start).
-		if (menu == MENU_SOURCE && !(pane && pane->searchAsked) &&
+		if (menu == MENU_SOURCE && !(pane && (pane->searchAsked || pane->redo)) &&
 		    (settings.theme != runningTheme || settings.menu_font != runningFont)) {
 			const bool theme = settings.theme != runningTheme;
 			const bool font = settings.menu_font != runningFont;
@@ -22398,13 +22418,21 @@ static int MenuSettings(FrontendState& state)
 	for (;;) {
 		pane.section = focus;
 		pane.searchAsked = false;
+		pane.redo = false;
 		bool backToHub = false;
 		const int menu = MenuSettingsSection(state, static_cast<SettingsSection>(focus), backToHub, &pane);
 		focus = pane.section;
+		if (pane.redo) {
+			pane.fromSearch = false;
+			continue;  // built again, on the same section and row
+		}
 		if (!pane.searchAsked) return menu;
 		// Settings' search, then the two-pane page again.
+		backToHub = false;
 		const int found = MenuSettingsSection(state, SettingsSection::Count, backToHub);
 		if (!backToHub) return found;
+		pane.side = 0;
+		pane.row = 0;
 		pane.fromSearch = true;
 	}
 }
