@@ -81,7 +81,15 @@ struct PadHook {
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
     bool motor_in_patch = false;     // found beside a PADRead in the packs' memory patches (there once they're in)
-    std::uint32_t motor_off_late = 0; // rumble Off with a pack's PADControlMotor: it returns at once once they're in
+    std::uint8_t motor_patch_start[16] = {};  // that motor's first bytes, as the patches leave them
+    // Rumble Off with a pack's PADControlMotor: the pack's [0] and the game's
+    // own [1] return at once once the patches are in, each where its first
+    // bytes are still `expect` (at 0: none).
+    struct LateReturn {
+        std::uint32_t at = 0;
+        std::uint8_t expect[16] = {};
+    };
+    LateReturn motor_off_late[2];
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
     std::uint32_t si_probe = 0;      // SIProbe, 0: not found (a game that asks it which ports have a controller sees none, #510)
     std::uint32_t code_base = 0;     // the blob (MEM1)

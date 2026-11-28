@@ -1345,17 +1345,17 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, b
     // hook is not put on it then).
     if (g_extras.gc_rumble_off && allow_game_patch(GamePatchKind::Rumble, "GameCube rumble")) {
         std::uint32_t motor = gc_adapter ? pad.motor : 0;
-        // A PADControlMotor in a pack's write isn't there yet: a return
-        // written now would be written over, so it goes in once the writes
-        // are (install_game_extras), and the game's own is turned off now
-        // too, for a game that still calls it (CodeRabbit on #651).
-        if (motor != 0 && pad.motor_in_patch) {
-            pad.motor_off_late = motor;
+        // A PADControlMotor in a pack's write isn't there yet, and a pack's
+        // search may still need the game's own one as it is: neither is
+        // touched now. Each returns at once after the patches and cheats are
+        // in, where its first bytes are still the ones expected
+        // (install_game_extras; CodeRabbit on #651).
+        const bool late = motor != 0 && pad.motor_in_patch;
+        if (late) {
+            pad.motor_off_late[0].at = motor;
+            std::memcpy(pad.motor_off_late[0].expect, pad.motor_patch_start, sizeof(pad.motor_patch_start));
             pad.motor = 0;
             motor = 0;
-            logf("GameCube rumble: off (the pack's PADControlMotor at 0x%08x returns at once once its patches are "
-                 "in)\n",
-                 pad.motor_off_late);
         }
         if (motor == 0) {
             std::vector<CodeRange> text;
@@ -1367,13 +1367,24 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, b
             std::string error;
             if (find_pad_symbols(text, found, error)) motor = found.control_motor;
         }
-        if (motor != 0) {
+        if (late) {
+            // The game's own too, as it is now (a pack that writes over it
+            // leaves it to the pack's: its bytes won't match then).
+            if (motor != 0 && motor != pad.motor_off_late[0].at) {
+                pad.motor_off_late[1].at = motor;
+                std::memcpy(pad.motor_off_late[1].expect, reinterpret_cast<const void*>(motor),
+                            sizeof(pad.motor_off_late[1].expect));
+            }
+            logf("GameCube rumble: off once the patches are in (the pack's PADControlMotor at 0x%08x, the game's at "
+                 "0x%08x)\n",
+                 pad.motor_off_late[0].at, pad.motor_off_late[1].at);
+        } else if (motor != 0) {
             *reinterpret_cast<volatile std::uint32_t*>(motor) = 0x4E800020;  // blr
             DCFlushRange(reinterpret_cast<void*>(motor), 32);
             ICInvalidateRange(reinterpret_cast<void*>(motor), 32);
             pad.motor = 0;
             logf("GameCube rumble: off (PADControlMotor at 0x%08x returns at once)\n", motor);
-        } else if (pad.motor_off_late == 0) {
+        } else {
             logf("GameCube rumble: off, but this game's PADControlMotor was not found\n");
         }
     }
@@ -1635,18 +1646,22 @@ void apply_wpad_probe_test(const std::vector<MemoryRegion>& loaded, std::vector<
 // all, install_wpad_log_last).
 void install_game_extras(GameExtras& extras) {
     // Settings > GameCube rumble Off, with PADControlMotor in a pack's write
-    // (prepare_gc_pads): it returns at once now the writes are in, where the
-    // PADRead found beside it is in place too (the plan they came from held).
-    if (extras.pad.motor_off_late != 0) {
-        const std::uint32_t motor = extras.pad.motor_off_late;
-        extras.pad.motor_off_late = 0;
-        if (extras.pad.read != 0 && pad_read_in_place(extras.pad.read)) {
+    // (prepare_gc_pads): the pack's and the game's own return at once now
+    // the patches and cheats are in, each only where its first bytes are
+    // still the ones expected (a cheat or a later write that put something
+    // else there keeps it whole).
+    for (PadHook::LateReturn& entry : extras.pad.motor_off_late) {
+        const std::uint32_t motor = entry.at;
+        entry.at = 0;
+        if (motor == 0) continue;
+        if (std::memcmp(reinterpret_cast<const void*>(motor), entry.expect, sizeof(entry.expect)) == 0) {
             *reinterpret_cast<volatile std::uint32_t*>(motor) = 0x4E800020;  // blr
             DCFlushRange(reinterpret_cast<void*>(motor), 32);
             ICInvalidateRange(reinterpret_cast<void*>(motor), 32);
+            logf("GameCube rumble: PADControlMotor at 0x%08x returns at once\n", motor);
         } else {
-            logf("GameCube rumble: the pack's PADControlMotor at 0x%08x isn't where its plan put it once its patches "
-                 "are in, so it isn't turned off\n",
+            logf("GameCube rumble: what's at 0x%08x once the patches are in isn't the PADControlMotor expected "
+                 "there, so it's left as it is\n",
                  motor);
         }
     }

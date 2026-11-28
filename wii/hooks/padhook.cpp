@@ -1817,10 +1817,21 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         pad.read_sites = searched.read_sites;
         // Its PADControlMotor beside it where the search found just one (the
         // game's own otherwise), so rumble reaches the adapter as with a
-        // plain patch's (CodeRabbit on #650).
+        // plain patch's (CodeRabbit on #650). Its first bytes as the writes
+        // leave them are kept, so rumble Off can tell it's still there once
+        // the patches and cheats are in (boot.cpp; CodeRabbit on #651).
         if (searched.control_motor != 0) {
-            pad.control_motor = searched.control_motor;
-            out.motor_in_patch = true;
+            const std::uint32_t motor = searched.control_motor;
+            for (const auto& span : all_spans) {
+                const std::size_t want = sizeof(out.motor_patch_start);
+                if (motor < span.first || motor - span.first > span.second.size() ||
+                    span.second.size() - (motor - span.first) < want)
+                    continue;
+                std::memcpy(out.motor_patch_start, span.second.data() + (motor - span.first), want);
+                pad.control_motor = motor;
+                out.motor_in_patch = true;
+                break;
+            }
         }
         out.read = pad.read;
         out.read_in_patch = true;
