@@ -988,13 +988,11 @@ public:
     explicit WatchedBase(const CtgpBaseSource& inner) : inner_(inner) {}
     std::uint32_t size() const override { return inner_.size(); }
     bool read(std::uint32_t offset, std::uint8_t* out, std::size_t length) const override {
-        touched = true;
         const bool ok = inner_.read(offset, out, length);
         if (!ok) failed = true;
         return ok;
     }
     mutable bool failed = false;
-    mutable bool touched = false;  // read at all
 
 private:
     const CtgpBaseSource& inner_;
@@ -1305,10 +1303,8 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         OutOfMemoryScope rebuild_memory;
         if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, &base_short, error)) {
             bool base_failed = false;
-            bool base_read = false;
             for (const auto& base : watched) {
                 base_failed = base_failed || base->failed;
-                base_read = base_read || base->touched;
             }
             if (rebuild_memory.failed()) {
                 error = path + ": " + error;  // Temporary: rolled back, kept for another try
@@ -1319,15 +1315,13 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
                 // file in the pack or on the disc, which can be put right.
                 error = path + ": a file it is rebuilt from is shorter than the update expects "
                                "(a damaged file in the pack or on the game disc?)";
-            } else if (plain_base && base_read) {
-                // An unpacked pack file has no Yaz0 framing to catch damage:
-                // commands that fail once it has been read point at the file,
-                // which can be put right, rather than at the update. Rolled
-                // back. Commands that fail before reading it (a copy past the
-                // output, a cut-off command) are the update's own.
-                error = path + ": " + error + " (rebuilt from an unpacked file in the pack; is that file damaged?)";
             } else if (!base_failed) {
-                failure = CtgpUpdateFailure::BadUpdate;  // the commands themselves
+                // A base's bytes never decide whether a command can run: only
+                // a read that failed or a base shorter than the commands
+                // expect is the base's fault. Any other failure (a cut-off
+                // command, a copy past the output) is the commands' own,
+                // whatever was read before it.
+                failure = CtgpUpdateFailure::BadUpdate;
             }
             return false;
         }

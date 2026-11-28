@@ -13,6 +13,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <system_error>
@@ -37,16 +38,25 @@ using namespace riftwii;
 
 namespace {
 
-// Scratch files go in a folder of this run's own, so a file left by an
-// interrupted run can't make a check pass or fail.
+// Scratch files go in a folder this run created itself, so a file left by
+// an interrupted run can't make a check pass or fail, and the clean-up at
+// the end removes only what this run made. A name already taken (a leftover
+// whose PID came round again) is skipped; any other failure stops the test.
 std::string scratch_path(const char* name) {
     static const std::filesystem::path folder = [] {
         std::error_code ec;
-        auto dir = std::filesystem::temp_directory_path(ec);
-        if (ec) dir = ".";
-        dir /= "ctgpupdate_test_" + std::to_string(::getpid());
-        std::filesystem::create_directories(dir, ec);
-        return dir;
+        auto base = std::filesystem::temp_directory_path(ec);
+        if (ec) base = ".";
+        for (int attempt = 0; attempt < 1000; ++attempt) {
+            auto dir = base / ("ctgpupdate_test_" + std::to_string(::getpid()) + "_" + std::to_string(attempt));
+            ec.clear();
+            if (std::filesystem::create_directory(dir, ec)) return dir;
+            if (ec && ec != std::errc::file_exists) break;
+            // create_directory gives false with no error for an existing
+            // folder: someone else's, so try the next name.
+        }
+        std::cerr << "ctgpupdate: could not create a scratch folder" << std::endl;
+        std::exit(1);
     }();
     return (folder / name).string();
 }
@@ -1147,14 +1157,14 @@ void test_update_plain_files() {
         EXPECT_TRUE(ctgp_yaz0_decode_nintendo(target.stored.data(), target.stored.size(), unpacked, error));
     }
     {
-        // Commands that fail once an unpacked pack base has been read: the
-        // base may be damaged, so temporary (rolled back), not a bad update.
+        // A command cut off after an unpacked pack base was read fine: the
+        // base's bytes can't cut a command off, so still a bad update.
         MemoryTarget target;
         target.expected_path = "/trackNames-EN.bmg";
         const auto dia =
             make_dia(make_section_flags(8, {0x14, 1, 0x55}, "/trackNames-EN.bmg", 0x00020000u, {{"CTGPR", 0}}));
         EXPECT_TRUE(!apply(dia, target, failure));
-        EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+        EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
         EXPECT_TRUE(target.stored.empty());
     }
     {
