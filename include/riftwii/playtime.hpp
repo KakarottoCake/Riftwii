@@ -60,6 +60,8 @@ constexpr std::uint64_t kWiiEpochUnix = 946684800;
 constexpr std::uint64_t kMaxSessionSeconds = 24 * 60 * 60;
 // A record may start this much before the launch time (clock steps).
 constexpr std::int64_t kLaunchToleranceSeconds = 120;
+// ... and at most this much after it (a clock jumped forwards is no play).
+constexpr std::int64_t kLaunchWindowSeconds = 24 * 60 * 60;
 
 struct PlayLogSession {
     std::string game_id;      // the six characters at 0x68
@@ -75,6 +77,7 @@ enum class SessionVerdict {
     counted,          // `seconds` is the time to add
     other_game,       // a record of a game other than the tile launched
     before_launch,    // it started before the launch: an older play's
+    after_launch,     // it started over 24 hours after the launch: a clock jump
     counted_already,  // this start time was added before
     no_start,         // its start time is 0
     backwards,        // it ends before it starts

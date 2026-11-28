@@ -39,7 +39,7 @@ bool parse_play_marker(const std::string& text, PlayMarker& out) {
     for (std::string* s : {&key, &launch, &nand})
         if (!s->empty() && s->back() == '\r') s->pop_back();
     unsigned long long t = 0;
-    if (!valid_tile_key(key) || !number(launch, t) || t > 0x7FFFFFFFFFFFFFFFull) return false;
+    if (!valid_tile_key(key) || !number(launch, t) || t == 0 || t > 0x7FFFFFFFFFFFFFFFull) return false;
     out.key = key;
     out.launch = static_cast<std::int64_t>(t);
     out.emu_nand = nand;
@@ -106,6 +106,7 @@ SessionVerdict judge_play_session(const PlayLogSession& session, const std::stri
         const std::uint64_t start_unix = session.start / kWiiTicksPerSecond + kWiiEpochUnix;
         const std::int64_t need = launch_unix - kLaunchToleranceSeconds;
         if (need > 0 && start_unix < static_cast<std::uint64_t>(need)) return SessionVerdict::before_launch;
+        if (start_unix > static_cast<std::uint64_t>(launch_unix + kLaunchWindowSeconds)) return SessionVerdict::after_launch;
     }
     if (counted_start != 0 && session.start == counted_start) return SessionVerdict::counted_already;
     const std::uint64_t secs = (session.last - session.start) / kWiiTicksPerSecond;

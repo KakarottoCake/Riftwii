@@ -43,7 +43,8 @@ bool CheckCodeBuilds(const FrontendState& state, std::string& error);
 const PlayHistory& History();
 // Remembers the last launch even with history off. With history on, also
 // counts a start of the game (or of a profile's tile) and saves the history.
-void RecordPlay(const std::string& game_id);
+// `gamecube`: a GameCube game, which leaves no play log to collect.
+void RecordPlay(const std::string& game_id, bool gamecube = false);
 // The tile launched (the game ID, or a profile's key), kept in
 // sd:/riftwii/last_tile.txt even with the history off: a problem report
 // then shows the choices that ran (riftwii/profiles.hpp's launched_choices_key).

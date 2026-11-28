@@ -112,17 +112,15 @@ const PlayTotals& Totals() {
     if (!g_totals_loaded) {
         g_totals_loaded = true;
         std::string text;
-        if (ReadTextFile(kPlayTotalsPath, text)) g_totals.parse(text);
+        if (ReadReplacedFile(kPlayTotalsPath, text)) g_totals.parse(text);
     }
     return g_totals;
 }
-void WriteTotals() {
+// Saved whole or not at all (.part, then renamed, with a .bak a cut-off leaves).
+bool WriteTotals() {
     mkdir("sd:/riftwii", 0777);
     const std::string text = g_totals.serialize();
-    if (FILE* f = std::fopen(kPlayTotalsPath, "wb")) {
-        std::fwrite(text.data(), 1, text.size(), f);
-        std::fclose(f);
-    }
+    return ReplaceWholeFile(kPlayTotalsPath, text.data(), text.size());
 }
 void WriteHistory() {
     mkdir("sd:/riftwii", 0777);
@@ -134,10 +132,10 @@ void WriteHistory() {
 }
 }  // namespace
 
-void RecordPlay(const std::string& game_id) {
+void RecordPlay(const std::string& game_id, bool gamecube) {
     // Emulator and headless starts need the last tile too, even without counts.
     RememberLaunchedTile(game_id);
-    PlayTimeLaunch(game_id);  // the note the next start collects the play time by (#642)
+    PlayTimeLaunch(game_id, gamecube);  // the note the next start collects the play time by (#642)
     if (Settings().play_history == "off") return;  // Settings > Play history
     History();
     g_history.record(game_id, static_cast<std::int64_t>(std::time(nullptr)));
@@ -160,11 +158,15 @@ namespace {
 // is none or it cannot be read. `buffer` is 32-byte aligned for ISFS.
 std::size_t ReadPlayLog(const std::string& emulated_nand, std::uint8_t* buffer) {
     if (!emulated_nand.empty()) {
-        if (FILE* f = std::fopen((emulated_nand + kPlayLogName).c_str(), "rb")) {
-            const std::size_t got = std::fread(buffer, 1, kPlayLogBytes, f);
-            std::fclose(f);
-            return got;
+        FILE* f = std::fopen((emulated_nand + kPlayLogName).c_str(), "rb");
+        if (!f) {
+            // The game ran in that NAND: the Wii's own copy can only be an older play's.
+            logf("Play time: no play log in the emulated NAND %s\n", emulated_nand.c_str());
+            return 0;
         }
+        const std::size_t got = std::fread(buffer, 1, kPlayLogBytes, f);
+        std::fclose(f);
+        return got;
     }
     if (NandOpen() < 0) return 0;
     alignas(32) static const char kPath[] = "/title/00000001/00000002/data/play_rec.dat";
@@ -181,8 +183,12 @@ std::size_t ReadPlayLog(const std::string& emulated_nand, std::uint8_t* buffer) 
             std::remove(kTry);
             logf("Play time: stopped RiftWii last time (%s was left); the permission check is not opened\n", kTry);
         } else {
-            if (FILE* m = std::fopen(kTry, "wb")) std::fclose(m);
-            {
+            FILE* made = std::fopen(kTry, "wb");
+            if (!made) {
+                // No guard, no patch: a card that cannot be written cannot say it was stopped.
+                logf("Play time: %s could not be made, so the permission check is not opened\n", kTry);
+            } else {
+                std::fclose(made);
                 NandPermissionSession permissions("Play time");
                 fd = ISFS_Open(kPath, ISFS_OPEN_READ);
                 if (fd < 0) logf("Play time: play_rec.dat refused (%d), permission check %s\n", fd, permissions.IsOpen() ? "open" : "not open");
@@ -212,7 +218,11 @@ void CollectPlayTime() {
     if (!ReadTextFile(kPlayMarkerPath, text, 512)) return;
     std::remove(kPlayMarkerPath);
     PlayMarker launch;
-    if (Settings().play_history == "off" || !parse_play_marker(text, launch)) return;
+    if (Settings().play_history == "off") return;
+    if (!parse_play_marker(text, launch)) {
+        logf("Play time: %s could not be read, so no play time is added\n", kPlayMarkerPath);
+        return;
+    }
     const std::string& key = launch.key;
     if (!History().find(key)) return;
     if (launch.emu_nand.compare(0, 4, "usb:") == 0) {
@@ -236,6 +246,7 @@ void CollectPlayTime() {
         logf("Play time: %s's log not added (%s)\n", key.c_str(),
              verdict == SessionVerdict::other_game        ? "another game's"
              : verdict == SessionVerdict::before_launch   ? "from before the launch"
+             : verdict == SessionVerdict::after_launch    ? "over 24 hours after the launch, a clock jump"
              : verdict == SessionVerdict::counted_already ? "counted before"
              : verdict == SessionVerdict::no_start        ? "no start time"
              : verdict == SessionVerdict::backwards       ? "ends before it starts"
@@ -243,7 +254,13 @@ void CollectPlayTime() {
         return;
     }
     g_totals.add(key, seconds, session.start);
-    WriteTotals();
+    if (!WriteTotals()) {
+        logf("Play time: %s could not be written, so %llu s for %s is not kept\n", kPlayTotalsPath,
+             static_cast<unsigned long long>(seconds), key.c_str());
+        g_totals_loaded = false;  // read again from the card next time, not the unsaved sum
+        g_totals = PlayTotals{};
+        return;
+    }
     logf("Play time: %s played %llu s added\n", key.c_str(), static_cast<unsigned long long>(seconds));
 }
 
@@ -262,7 +279,7 @@ void ForgetPlays(const std::string& game_id) {
     Totals();
     if (g_totals.find(game_id)) {
         g_totals.forget(game_id);
-        WriteTotals();
+        if (!WriteTotals()) logf("Play time: %s could not be written\n", kPlayTotalsPath);
     }
 }
 

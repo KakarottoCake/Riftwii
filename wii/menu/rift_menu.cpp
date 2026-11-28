@@ -18214,7 +18214,7 @@ static int MenuHome(FrontendState& state)
 		const bool playing = g_lingerBanner != nullptr;
 		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
-		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
+		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state), SelectedGcGame(state) != nullptr);
 		riftwii::wii::TagGame(state.game_id, true);
 		if (playing) HaltGui();
 	}

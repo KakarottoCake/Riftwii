@@ -8,6 +8,7 @@
 #include <ctime>
 
 #include "loadersettings.hpp"
+#include "log.hpp"
 #include "textfile.hpp"
 #include "riftwii/playtime.hpp"
 
@@ -16,18 +17,19 @@ namespace {
 
 void write_marker(const PlayMarker& marker) {
     mkdir("sd:/riftwii", 0777);
-    if (FILE* f = std::fopen(kPlayMarkerPath, "wb")) {
-        const std::string text = serialize_play_marker(marker);
-        std::fwrite(text.data(), 1, text.size(), f);
-        std::fclose(f);
+    const std::string text = serialize_play_marker(marker);
+    if (!WriteWholeFile(kPlayMarkerPath, text.data(), text.size())) {
+        std::remove(kPlayMarkerPath);  // never a half note
+        logf("Play time: %s could not be written, so this launch's play time is not collected\n", kPlayMarkerPath);
     }
 }
 
 }  // namespace
 
-void PlayTimeLaunch(const std::string& key) {
+void PlayTimeLaunch(const std::string& key, bool gamecube) {
     std::remove(kPlayMarkerPath);
-    if (Settings().play_history == "off" || !valid_tile_key(key)) return;
+    // Not for a GameCube or emulator game: no play log of theirs to read.
+    if (Settings().play_history == "off" || gamecube || !valid_tile_key(key)) return;
     PlayMarker marker;
     marker.key = key;
     marker.launch = static_cast<std::int64_t>(std::time(nullptr));

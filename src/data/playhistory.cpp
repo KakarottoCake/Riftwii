@@ -41,10 +41,10 @@ void PlayHistory::parse(const std::string& text) {
         errno = 0;
         const unsigned long c = std::strtoul(count.c_str(), &end, 10);
         if (end == count.c_str() || *end) continue;
-        // A count past the largest is kept at it (below); a time past the largest is no time.
+        // A count past the largest is kept at it (below), and so is a time: the game stays listed.
         errno = 0;
-        const long long t = std::strtoll(last.c_str(), &end, 10);
-        if (end == last.c_str() || *end || t < 0 || errno == ERANGE) continue;
+        const long long t = std::strtoll(last.c_str(), &end, 10);  // ERANGE gives LLONG_MAX
+        if (end == last.c_str() || *end || t < 0) continue;
         PlayRecord& r = games_[id];
         r.count = static_cast<std::uint32_t>(std::min<unsigned long>(c, 0xFFFFFFFFul));
         r.last = t;

@@ -3099,6 +3099,9 @@ void TestPlayTime() {
     nostart.last = kTick;
     EXPECT_TRUE(judge_play_session(nostart, "RMCE01", 0, 0, secs) == SessionVerdict::no_start);
     EXPECT_EQ(secs, 0u);
+    // A clock jumped forwards: a record over 24 hours after the launch is no play of it.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch - kLaunchWindowSeconds - 100, secs) == SessionVerdict::after_launch);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, kLaunch - kLaunchWindowSeconds + 10, secs) == SessionVerdict::counted);
     // Limits: ends before it starts, over 24 hours; exactly 24 hours counts.
     PlayLogSession back = s;
     back.last = back.start - 1;
@@ -3144,7 +3147,8 @@ void TestPlayTime() {
     EXPECT_EQ(huge.find("SB4E01")->seconds, 0xFFFFFFFFFFFFFFFFull);
     PlayHistory over;
     over.parse("RMCE01\t1\t99999999999999999999\nSB4E01\t99999999999999999999\t5\n");
-    EXPECT_TRUE(over.find("RMCE01") == nullptr);
+    // An overflowing time is clamped, not a reason to drop the game from the history.
+    EXPECT_TRUE(over.find("RMCE01") != nullptr && over.find("RMCE01")->last > 0);
     EXPECT_EQ(over.find("SB4E01")->count, 0xFFFFFFFFu);
     // Saturates instead of wrapping.
     PlayTotals big;
@@ -3165,7 +3169,38 @@ void TestPlayTime() {
     EXPECT_FALSE(parse_play_marker("rmce01\n1800000000\n", mo));
     EXPECT_FALSE(parse_play_marker("RMCE01\nsoon\n", mo));
     EXPECT_FALSE(parse_play_marker("RMCE01\n", mo));
+    EXPECT_FALSE(parse_play_marker("RMCE01\n0\n", mo));   // no launch time
+    EXPECT_FALSE(parse_play_marker("RMCE01\n-5\n", mo));
     EXPECT_FALSE(parse_play_marker("", mo));
+
+    // The lifecycle the Wii side follows: a launch writes the note; the next start parses it once and
+    // (the file being removed) a second start finds none. A restart before the game ever ran finds only an
+    // older record: refused, and the totals do not move. Then the game runs and the next launch is credited.
+    PlayTotals totals;
+    PlayMarker note;
+    note.key = "RMCE01";
+    note.launch = kLaunch;
+    std::string file = serialize_play_marker(note);  // launch 1 written
+    PlayMarker got;
+    EXPECT_TRUE(parse_play_marker(file, got));
+    file.clear();  // consumed: removed before anything else
+    EXPECT_FALSE(parse_play_marker(file, got));  // a second start has nothing to read
+    PlayLogSession older = s;  // the record of an earlier play, long before the launch
+    older.start = (static_cast<std::uint64_t>(kLaunch) - 5000 - kWiiEpochUnix) * kTick;
+    older.last = older.start + 600 * kTick;
+    EXPECT_TRUE(judge_play_session(older, got.key, 0, got.launch, secs) == SessionVerdict::before_launch);
+    EXPECT_TRUE(totals.find("RMCE01") == nullptr);
+    note.launch = kLaunch + 7200;  // launch 2, the game then runs 3725 s
+    PlayLogSession ran = s;
+    ran.start = (static_cast<std::uint64_t>(note.launch) + 20 - kWiiEpochUnix) * kTick;
+    ran.last = ran.start + 3725 * kTick;
+    EXPECT_TRUE(parse_play_marker(serialize_play_marker(note), got));
+    EXPECT_TRUE(judge_play_session(ran, got.key, 0, got.launch, secs) == SessionVerdict::counted);
+    totals.add(got.key, secs, ran.start);
+    // The same record read again (a second note for the same launch is never written, but if it were) is counted once.
+    EXPECT_TRUE(judge_play_session(ran, got.key, totals.find("RMCE01")->session_start, got.launch, secs) ==
+                SessionVerdict::counted_already);
+    EXPECT_EQ(totals.find("RMCE01")->seconds, 3725u);
 }
 
 void TestHistory() {
