@@ -310,14 +310,17 @@ bool blob_whole(int kind) {
     // would have the install write outside the blob's code (CodeRabbit on
     // #593). A hook a blob doesn't have is 0, which passes; any other must
     // be past the header, or the install would write over it (CodeRabbit
-    // on #651).
+    // on #651), and clear of the context, which is set up before those
+    // writes (CodeRabbit on #650).
     constexpr std::uint32_t kSiteBytes = 16;
     const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(&h);
     const std::size_t first_site = offsetof(rt_pad_header, hook_read) / sizeof(std::uint32_t);
+    const std::uint64_t context_end = std::uint64_t(h.context_offset) + context_bytes(kind);
     for (std::size_t index = first_site; index < header_bytes / sizeof(std::uint32_t); ++index) {
         const std::uint32_t offset = words[index];
         if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes ||
-            (offset != 0 && offset < header_bytes))
+            (offset != 0 && offset < header_bytes) ||
+            (offset != 0 && offset < context_end && h.context_offset < std::uint64_t(offset) + kSiteBytes))
             return false;
     }
     if (no_home(kind)) return true;
@@ -346,8 +349,13 @@ bool blob_whole(int kind) {
     const auto whole_or_none = [](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume) {
         return hook == 0 ? replay == 0 && resume == 0 : replay != 0 && resume != 0;
     };
-    return whole_or_none(sh.hook_wread, sh.replay_wread, sh.continue_wread) &&
-           whole_or_none(sh.hook_format, sh.replay_format, sh.continue_format);
+    if (!whole_or_none(sh.hook_wread, sh.replay_wread, sh.continue_wread) ||
+        !whole_or_none(sh.hook_format, sh.replay_format, sh.continue_format))
+        return false;
+    // Every Wii Remote form's build has both (pad_entry.S): one with none
+    // would leave a game that reads WPAD itself without the stand-in's
+    // reports (CodeRabbit on #650).
+    return kind < kBlobNunchuk || (sh.hook_wread != 0 && sh.hook_format != 0);
 }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
