@@ -39,12 +39,8 @@ std::string ctgp_canonical_app_path(const std::string& app) {
     return parts.empty() ? out + "/" : out;
 }
 
-bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& given_app) {
+bool ctgp_is_channel_app(const std::string& given_app) {
     const std::string app = ctgp_canonical_app_path(given_app);
-    // Mario Kart Wii only: every region's disc ID starts "RMC" (RMCE, RMCP,
-    // RMCJ, RMCK...). The region letter is the fourth character, so a full ID
-    // is needed, not the bare prefix.
-    if (game_id.size() < 4 || game_id.compare(0, 3, "RMC") != 0) return false;
     // Exactly CTGP-R's channel app, compared without regard to letter case,
     // since the card's FAT file system is case-insensitive and the pack's XML
     // may spell the path either way.
@@ -56,6 +52,14 @@ bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& give
         if (a != kCtgprApp[i]) return false;
     }
     return true;
+}
+
+bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app) {
+    // Mario Kart Wii only: every region's disc ID starts "RMC" (RMCE, RMCP,
+    // RMCJ, RMCK...). The region letter is the fourth character, so a full ID
+    // is needed, not the bare prefix.
+    if (game_id.size() < 4 || game_id.compare(0, 3, "RMC") != 0) return false;
+    return ctgp_is_channel_app(app);
 }
 
 bool ctgp_sd_image_blocked(const std::string& game_id, const std::string& app, bool image_on_sd) {

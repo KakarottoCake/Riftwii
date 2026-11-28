@@ -18201,8 +18201,12 @@ static int MenuHome(FrontendState& state)
 		const bool playing = g_lingerBanner != nullptr;
 		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
-		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
-		riftwii::wii::TagGame(state.game_id, true);
+		// A disc launch is counted once a waiting CTGP-R update has let it
+		// go (after InstallCtgpUpdateIfWaiting): Back there is no play.
+		if (menu != MENU_LAUNCH) {
+			riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
+			riftwii::wii::TagGame(state.game_id, true);
+		}
 		if (playing) HaltGui();
 	}
 	return menu;
@@ -22687,6 +22691,29 @@ static bool InspectCtgpUpdate(riftwii::wii::CtgpUpdater& updater, riftwii::wii::
 	return ok;
 }
 
+// sd:/ctgpr/update.dif's probe for ctgp_hold_update / ctgp_restore_held:
+// 0 there, -1 not there, -2 the card could not say.
+static int CtgpFileProbe(const char* path, std::uint64_t* size)
+{
+	struct stat st;
+	if (stat(path, &st) != 0) return errno == ENOENT || errno == ENOTDIR ? -1 : -2;
+	*size = static_cast<std::uint64_t>(st.st_size);
+	return 0;
+}
+
+static constexpr const char* kCtgpHeldPath = "sd:/ctgpr/update.dif.held";
+
+// A waiting update held while its hash lists were fetched goes back to
+// update.dif once that is free (riftwii::ctgp_restore_held).
+static bool RestoreHeldCtgpUpdate()
+{
+	const auto rename = [](const char* from, const char* to) { return std::rename(from, to); };
+	if (!riftwii::ctgp_restore_held(riftwii::wii::kCtgpUpdatePath, kCtgpHeldPath, CtgpFileProbe, rename))
+		return false;
+	logf("CTGP-R update: the update held while the hash lists were fetched is waiting again\n");
+	return true;
+}
+
 // Removes the waiting update so CTGP-R's channel downloads it fresh. True
 // when it is gone (or was never there); false, logged, when the card kept it.
 static bool RemoveCtgpUpdateFile(const char* path)
@@ -22768,7 +22795,14 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 	const char* const update_path = riftwii::wii::kCtgpUpdatePath;
 	{
 		std::string journal_error;
-		if (!riftwii::wii::CtgpRecoverPackJournal(journal_error)) {
+		bool recovered;
+		{
+			// The power button waits while pack bytes are put back; it is
+			// let go before any message.
+			const riftwii::wii::CardWriteHold hold;
+			recovered = riftwii::wii::CtgpRecoverPackJournal(journal_error);
+		}
+		if (!recovered) {
 			ShowPopup(tr("CTGP-R update"),
 				tr("An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.",
 					{FlatCapped(journal_error, 140)}),
@@ -22776,6 +22810,9 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 			return true;
 		}
 	}
+	// One held while its hash lists were fetched, when a power cut came
+	// before it was put back.
+	RestoreHeldCtgpUpdate();
 	riftwii::wii::CtgpUpdater updater;
 	riftwii::wii::CtgpUpdateInfo info;
 	std::string error;
@@ -22912,6 +22949,13 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 				{std::to_string(chain.steps().size())});
 			break;
 		}
+		// The held update goes back once its prerequisite went in (and was
+		// retired) or came to nothing, and installs next.
+		if (!ask_server_anyway && RestoreHeldCtgpUpdate() && !InspectCtgpUpdate(updater, info, error)) {
+			// Read afresh: the step below goes by what the file is.
+			failed = error;
+			break;
+		}
 		const bool waiting = !ask_server_anyway && updateWaiting();
 		if (!ask_server_anyway && !waiting && probe_failed) {
 			failed = tr("the SD card could not be read; try again");
@@ -22963,6 +23007,16 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 				if (const u32 wait = riftwii::wii::mem::TestCtgpAcceptWaitMs()) {
 					logf("CTGP-R update: TEST: waiting %u ms after Update was chosen\n", unsigned(wait));
 					usleep(wait * 1000);
+				}
+			}
+			// The download replaces update.dif: the waiting update the lists
+			// are for is held aside until they are in, so it is never lost.
+			if (asking_for_lists) {
+				const auto rename = [](const char* from, const char* to) { return std::rename(from, to); };
+				if (!riftwii::ctgp_hold_update(update_path, kCtgpHeldPath, CtgpFileProbe, rename)) {
+					logf("CTGP-R update: the waiting update could not be held aside, so the hash lists were not downloaded\n");
+					list_reason = 3;
+					break;
 				}
 			}
 			const bool first = chain.steps().empty();
@@ -23036,8 +23090,19 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 			break;
 		}
 		if (!network_stopped) {
+			// A cover still loading is asked to stop; the screen keeps
+			// drawing while it does, as on the launch screen, and is
+			// parked again (if it was) before the popup changes.
 			riftwii::wii::NetCancelBackground();
-			riftwii::wii::NetWaitForBackground();
+			if (riftwii::wii::NetBackgroundBusy()) {
+				logf("CTGP-R update: waiting for the network's background job (update check or cover)\n");
+				const bool was_halted = guiHalt;
+				ResumeGui();
+				riftwii::wii::NetWaitForBackground();
+				if (was_halted) HaltGui();
+			} else {
+				riftwii::wii::NetWaitForBackground();
+			}
 			network_stopped = true;
 		}
 		const bool hash = info.component == "HASH";
@@ -23141,6 +23206,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 			break;
 		}
 	}
+	RestoreHeldCtgpUpdate();
 	// One summary for the whole chain. A failed step never stops the game:
 	// CTGP-R starts on what is installed.
 	const std::size_t done = chain.steps().size();
@@ -23206,6 +23272,8 @@ int MainMenu(int menu, FrontendState& state)
 	// can't (CtgpPackReady).
 	{
 		std::string journal_error;
+		// The power button waits while pack bytes are put back.
+		const riftwii::wii::CardWriteHold hold;
 		riftwii::wii::CtgpRecoverPackJournal(journal_error);
 	}
 
@@ -23310,6 +23378,11 @@ menu_loop:
 		riftwii::wii::CtgprNativeForget();
 		currentMenu = MENU_HOME;
 		goto menu_loop;
+	}
+	if (currentMenu == MENU_LAUNCH) {
+		// The play, counted only now the launch goes ahead (MenuHome).
+		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
+		riftwii::wii::TagGame(state.game_id, true);
 	}
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {

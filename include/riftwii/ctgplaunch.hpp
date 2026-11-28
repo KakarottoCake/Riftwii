@@ -130,6 +130,11 @@ bool ctgp_check_versions(const std::vector<CtgpPackage>& packages, std::string& 
 // update check) compare this form, so no spelling slips past one of them.
 std::string ctgp_canonical_app_path(const std::string& app);
 
+// Whether `app` is CTGP-R's channel app, "sd:/apps/ctgpr/boot.dol" in any
+// letter case and in the form above: every way it is started (a pack's
+// stand-in, its Homebrew tile) goes through the interrupted-update check.
+bool ctgp_is_channel_app(const std::string& app);
+
 bool ctgp_is_native_stand_in(const std::string& game_id, const std::string& app);
 
 // Whether a CTGP-R launch (its channel app or the native one) has to stop

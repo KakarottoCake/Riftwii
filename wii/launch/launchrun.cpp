@@ -17,7 +17,9 @@
 #include <strings.h>
 #include <sys/stat.h>
 
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 
 #include "boot.hpp"
 #include "padhook.hpp"
@@ -124,7 +126,18 @@ bool SetCtgpDefaults(const std::string& given_app, bool virtual_disc, std::strin
         app.find('/', folder.size()) != std::string::npos)
         return true;
     struct stat st;
-    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return true;
+    errno = 0;
+    if (stat("sd:/ctgpr", &st) != 0) {
+        // No CTGP-R folder: nothing to set up or recover. A card that can't
+        // say is not "no folder": the channel must not start on a pack an
+        // interrupted update may have left half-written.
+        if (errno == ENOENT || errno == ENOTDIR) return true;
+        logf("CTGP-R: the SD card could not say whether sd:/ctgpr is there (%s), so CTGP-R was not started\n",
+             strerror(errno));
+        error = tr("the SD card could not be read; try again");
+        return false;
+    }
+    if (!S_ISDIR(st.st_mode)) return true;
     // An update RiftWii was installing was cut off and could not be undone:
     // CTGP-R must not start on a half-written blob.bin.
     if (!CtgpPackReady(error)) return false;

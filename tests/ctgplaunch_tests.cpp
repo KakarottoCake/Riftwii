@@ -559,6 +559,11 @@ static void test_native_stand_in() {
     // above the root, or not on the card: left as given
     EXPECT_EQ(ctgp_canonical_app_path("sd:/../boot.dol"), std::string("sd:/../boot.dol"));
     EXPECT_EQ(ctgp_canonical_app_path("usb:/apps/ctgpr/boot.dol"), std::string("usb:/apps/ctgpr/boot.dol"));
+    // the channel app alone, whatever the game (its Homebrew tile)
+    EXPECT_TRUE(ctgp_is_channel_app("sd:/apps/ctgpr/boot.dol"));
+    EXPECT_TRUE(ctgp_is_channel_app("SD:/apps//CTGPR/./boot.DOL"));
+    EXPECT_TRUE(!ctgp_is_channel_app("sd:/apps/ctgpr2/boot.dol"));
+    EXPECT_TRUE(!ctgp_is_channel_app("usb:/apps/ctgpr/boot.dol"));
 }
 
 // CTGP-R with Mario Kart Wii on the SD card stops: d2x and CTGP-R would both
