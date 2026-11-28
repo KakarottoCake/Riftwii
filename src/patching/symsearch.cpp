@@ -32,16 +32,19 @@ std::uint32_t bl_target(std::uint32_t address, std::uint32_t insn) {
     return address + static_cast<std::uint32_t>(displacement);
 }
 
+// An entry of the view with no bytes behind it holds no code to read:
+// neither helper looks into one (CodeRabbit CLI, fork #23).
 bool inside(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (const CodeRange& r : text) {
-        if (address >= r.address && address < r.address + r.size) return true;
+        if (r.bytes != nullptr && address >= r.address && address < r.address + r.size) return true;
     }
     return false;
 }
 
 std::uint32_t word_at(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (const CodeRange& r : text) {
-        if (address >= r.address && address + 4 <= r.address + r.size) return be32(r.bytes + (address - r.address));
+        if (r.bytes != nullptr && address >= r.address && address + 4 <= r.address + r.size)
+            return be32(r.bytes + (address - r.address));
     }
     return 0;
 }
@@ -594,6 +597,340 @@ bool is_pad_read(const std::vector<CodeRange>& text, std::uint32_t address) {
         }
     }
     return sites >= kMinReadSites && one_memset;
+}
+
+namespace {
+
+// One of the video library's screen-dimming resets at word `i` of `r`: a
+// flag cleared by one store, and 1 returned. `li r0,0; stw r0,d(r13);
+// li r3,1; blr` (the middle two either way round), or with the flag's address made by `lis rX` before or
+// after the `li r0,0` (LEGO Star Wars III's other reset), `li r3,1` before
+// or after its store.
+// Read by address: the words may cross from one range into the next
+// touching one (a patch over part of it with the same bytes splits it in
+// code_with_patches' view; CodeRabbit on #610); a gap ends it.
+bool one_store_reset(const std::vector<CodeRange>& text, std::uint32_t at) {
+    std::uint32_t words_here[5] = {};
+    std::size_t words = 0;
+    for (; words < 5; ++words) {
+        const std::uint32_t a = at + static_cast<std::uint32_t>(words * 4);
+        bool found = false;
+        for (const CodeRange& t : text) {
+            if (t.bytes != nullptr && a >= t.address && a - t.address + 4 <= t.size && ((a - t.address) & 3u) == 0) {
+                words_here[words] = be32(t.bytes + (a - t.address));
+                found = true;
+                break;
+            }
+        }
+        if (!found) break;
+    }
+    const auto w = [&](std::size_t k) { return words_here[k]; };
+    if (words < 4) return false;
+    // The store and the return value in either order, as idle_reset_flag takes them.
+    if (w(0) == kLiR0Zero && w(3) == kBlr &&
+        ((is_stw_r0_sda(w(1)) && w(2) == kLiR3One) || (w(1) == kLiR3One && is_stw_r0_sda(w(2)))))
+        return true;
+    if (words < 5) return false;
+    const auto lis_then_store = [&](std::uint32_t lis, std::uint32_t store) {
+        const std::uint32_t rx = (lis >> 21) & 31u;
+        return (lis & 0xFC1F0000u) == 0x3C000000u && (store >> 26) == 36u && ((store >> 21) & 31u) == 0u &&
+               ((store >> 16) & 31u) == rx && rx != 0u;
+    };
+    if (w(0) == kLiR0Zero && lis_then_store(w(1), w(2)) && w(3) == kLiR3One && w(4) == kBlr) return true;
+    if (lis_then_store(w(0), w(2)) && w(1) == kLiR0Zero && w(3) == kLiR3One && w(4) == kBlr) return true;
+    // `li r3,1` before the store (CodeRabbit on #609), when the flag's
+    // address isn't in r3 (the return value would overwrite it): `li r0,0`
+    // and `lis rX` in either order, then `li r3,1`, the store and the return.
+    const bool not_r3 = ((w(0) >> 21) & 31u) != 3u && ((w(1) >> 21) & 31u) != 3u;
+    return w(2) == kLiR3One && w(4) == kBlr && not_r3 &&
+           ((w(0) == kLiR0Zero && lis_then_store(w(1), w(3))) || (w(1) == kLiR0Zero && lis_then_store(w(0), w(3))));
+}
+
+}  // namespace
+
+std::uint32_t find_wii_remote_idle_reset(const std::vector<CodeRange>& text, std::uint32_t wpad_probe) {
+    if (wpad_probe == 0) return 0;
+    // Every bl within kWpadReach of WPADProbe (the Wii Remote library's own
+    // code) whose target is a one-store reset: the library calls the Wii
+    // Remotes' one on each report (LEGO Star Wars III: 0x8080B700 from
+    // 0x807C1578 and 0x807C35F8, WPADProbe at 0x807C3A10; Kamen Rider:
+    // Dragon Knight: 0x8026C520 from 0x8026F988 and 0x80271864, WPADProbe
+    // at 0x80271CB0).
+    constexpr std::uint32_t kWpadReach = 0x10000;
+    const auto within_reach = [&](std::uint32_t at) {
+        return at + kWpadReach >= wpad_probe && at <= wpad_probe + kWpadReach;
+    };
+    std::vector<std::uint32_t> candidates;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;  // a range with no bytes behind it (CodeRabbit on #616)
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            if (!within_reach(at)) continue;
+            const std::uint32_t w = be32(r.bytes + i * 4);
+            if (!is_bl(w)) continue;
+            const std::uint32_t target = bl_target(at, w);
+            if (!one_store_reset(text, target)) continue;
+            // Their number comes from the game's code: the checked push
+            // (AGENTS.md); with no room, none is guessed (CodeRabbit on #651).
+            if (std::find(candidates.begin(), candidates.end(), target) == candidates.end() &&
+                !try_push_back(candidates, target))
+                return 0;
+        }
+    }
+    // The one that is the Wii Remote library's own: called from inside it
+    // (near WPADProbe) at least twice, and from nowhere else, as in every
+    // one of 32 dumped games that have it (two calls each, both there). A
+    // game helper of the same shape that the window happens to reach is
+    // called from the game's own code too (CodeRabbit on #609). The window
+    // often reaches a second reset that is called once: the console's own
+    // Reset button's (lis form; Metroid: Other M, Punch-Out!!) or the 2006
+    // KPAD's for a moved pointer (WarioWare: Smooth Moves, Rayman Raving
+    // Rabbids). Either clears a flag the same dimming check reads, but it
+    // isn't the library's, so it's left out rather than ending the search.
+    // One such reset, or none (two: not guessed).
+    std::uint32_t found = 0;
+    for (const std::uint32_t candidate : candidates) {
+        unsigned near = 0;
+        bool called_from_outside = false;
+        for (const CodeRange& r : text) {
+            if (r.bytes == nullptr) continue;
+            const std::size_t words = r.size / 4;
+            for (std::size_t i = 0; i < words && !called_from_outside; ++i) {
+                const std::uint32_t w = be32(r.bytes + i * 4);
+                if (!is_bl(w)) continue;
+                const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+                if (bl_target(at, w) != candidate) continue;
+                if (within_reach(at))
+                    ++near;
+                else
+                    called_from_outside = true;
+            }
+        }
+        if (called_from_outside || near < 2) continue;
+        if (found != 0) return 0;
+        found = candidate;
+    }
+    return found;
+}
+
+namespace {
+
+// KPAD's camera setter at `address` (riftwii/symsearch.hpp), storing
+// `value`: its block's base, stride and the switch's offset, or false. Its
+// words are read by address, so a setter the packs' patches split across
+// touching entries of the code's view is still read whole; a word in no
+// entry is no setter (CodeRabbit, fork #23).
+bool kpad_dpd_setter(const std::vector<CodeRange>& text, std::uint32_t address, std::uint32_t value, KpadDpd& out) {
+    for (std::uint32_t k = 0; k < 7; ++k)
+        if (!inside(text, address + 4 * k)) return false;
+    const auto w = [&](std::uint32_t k) { return word_at(text, address + 4 * k); };
+    if ((w(0) & 0xFFFF0000u) != 0x1C030000u || (w(1) & 0xFFFF0000u) != 0x3C600000u || w(2) != (0x38800000u | value) ||
+        (w(3) & 0xFFFF0000u) != 0x38630000u || w(4) != 0x7C630214u || (w(5) & 0xFFFF0000u) != 0x98830000u ||
+        w(6) != kBlr)
+        return false;
+    const std::int32_t stride = static_cast<std::int16_t>(w(0) & 0xFFFFu);
+    if (stride <= 0) return false;
+    out.enable = address;
+    out.base = ((w(1) & 0xFFFFu) << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(w(3) & 0xFFFFu));
+    out.stride = static_cast<std::uint32_t>(stride);
+    // Signed, as stb takes it (every KPAD dumped has it positive).
+    out.offset = static_cast<std::uint32_t>(static_cast<std::int16_t>(w(5) & 0xFFFFu));
+    return true;
+}
+
+}  // namespace
+
+KpadDpd find_kpad_enable_dpd(const std::vector<CodeRange>& text) {
+    KpadDpd found;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        if (r.bytes == nullptr) continue;
+        for (std::size_t i = 0; i < words; ++i) {
+            // Its first word, `mulli r0,r3,stride`, from this entry: only
+            // such a word is read across the view (a game's code and its
+            // packs' patches can be thousands of entries; CodeRabbit).
+            if ((be32(r.bytes + i * 4) & 0xFFFF0000u) != 0x1C030000u) continue;
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            KpadDpd on;
+            if (!kpad_dpd_setter(text, at, 1u, on)) continue;
+            // KPADDisableDPD just before it, on the same switch (padding
+            // between them allowed: seven to nine words back).
+            bool twin = false;
+            for (std::uint32_t back = 7; back <= 9 && !twin; ++back) {
+                KpadDpd off;
+                twin = at >= 4 * back && kpad_dpd_setter(text, at - 4 * back, 0u, off) && off.base == on.base &&
+                       off.stride == on.stride && off.offset == on.offset;
+            }
+            if (!twin) continue;
+            if (found.enable != 0) return KpadDpd{};  // two: not guessed
+            found = on;
+        }
+    }
+    return found;
+}
+
+namespace {
+
+// WPADIsDpdEnabled: a framed function of at most 24 words that indexes a
+// table by the channel (`slwi rX,r3,2`, `lwzx rB,rT,rX` with rT from
+// `lis`/`addi`) and returns the block's word at +2104 (+1912 in late 2006):
+// loaded into r3, or into a register then copied to r3. 0 unless exactly one.
+std::uint32_t find_wpad_is_dpd_enabled(const std::vector<CodeRange>& text) {
+    constexpr std::size_t kMaxWords = 24;
+    std::uint32_t found = 0;
+    unsigned matches = 0;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t start = 0; start < words; ++start) {
+            if ((be32(r.bytes + 4 * start) & 0xFFFF0000u) != 0x94210000u) continue;  // stwu r1
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(4 * start);
+            std::uint32_t high[32] = {}, address[32] = {};
+            bool indexed[32] = {};
+            int block = -1, camera = -1;
+            bool returns = false;
+            bool r3_camera = false;  // r3 holds the camera word now
+            // Its words by address, so one a pack's patch splits across
+            // touching entries of the view is read whole; a gap ends it
+            // (CodeRabbit, fork #23).
+            for (std::uint32_t k = 1; k <= kMaxWords; ++k) {
+                if (!inside(text, at + 4 * k)) break;
+                const std::uint32_t insn = word_at(text, at + 4 * k);
+                const std::uint32_t op = insn >> 26, d = (insn >> 21) & 31u, a = (insn >> 16) & 31u;
+                if (insn == 0x4E800020u) {  // blr: it returns the camera word only if r3 still holds it
+                    returns = r3_camera;
+                    break;
+                }
+                if ((insn & 0xFFFF0000u) == 0x94210000u) break;  // the next function
+                if (op == 15 && a == 0) high[d] = (insn & 0xFFFFu) << 16;
+                if (op == 14 && a != 0 && high[a] != 0) address[d] = high[a] + static_cast<std::uint32_t>(static_cast<std::int16_t>(insn & 0xFFFFu));
+                if ((insn & 0xFC00FFFFu) == 0x5400103Au && ((insn >> 21) & 31u) == 3) indexed[a] = true;  // slwi rA,r3,2
+                const bool lwzx = op == 31 && ((insn >> 1) & 0x3FFu) == 23;
+                if (lwzx && address[a] != 0 && indexed[(insn >> 11) & 31u]) block = static_cast<int>(d);
+                const std::uint32_t disp = insn & 0xFFFFu;
+                const bool camera_load =
+                    op == 32 && block >= 0 && static_cast<int>(a) == block && (disp == 2104 || disp == 1912);
+                if (camera_load) camera = static_cast<int>(d);
+                const bool mr = op == 31 && ((insn >> 1) & 0x3FFu) == 444 && d == ((insn >> 11) & 31u);
+                // r3 as the return value: the camera word loaded into it or
+                // copied into it; any other write to r3 replaces it.
+                const bool to_r3 = (camera_load && d == 3) || (mr && a == 3 && camera >= 0 && static_cast<int>(d) == camera);
+                const bool d_form_r3 = (op == 7 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+                                        (op >= 40 && op <= 43)) && d == 3;
+                const bool a_form_r3 = ((op >= 20 && op <= 29 && op != 22) || op == 31) && a == 3;
+                if (to_r3) {
+                    r3_camera = true;
+                } else if (d_form_r3 || a_form_r3 || (op == 31 && d == 3 && !mr)) {
+                    r3_camera = false;
+                }
+            }
+            if (!returns) continue;
+            found = at;
+            ++matches;
+        }
+    }
+    return matches == 1 ? found : 0;
+}
+
+}  // namespace
+
+KpadDpd find_kpad_dpd_switch(const std::vector<CodeRange>& text) {
+    constexpr unsigned kReadWithin = 8;  // words from the switch's read to the call
+    constexpr std::uint32_t kMinOffset = 0x400, kMaxOffset = 0x1000, kMaxStride = 0x4000;
+    const std::uint32_t is_dpd = find_wpad_is_dpd_enabled(text);
+    KpadDpd found;
+    if (is_dpd == 0) return found;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t call = 0; call < words; ++call) {
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(4 * call);
+            const std::uint32_t insn = be32(r.bytes + 4 * call);
+            if (!is_bl(insn) || bl_target(at, insn) != is_dpd) continue;
+            // The calling function: back to its `stwu r1` (function_start:
+            // a bounded look back, no `blr` between, every word in the
+            // view); a call found outside a framed function isn't the read.
+            // Its words are read by address, so a function a pack's patch
+            // splits across touching entries of the view is read whole
+            // (CodeRabbit, fork #23).
+            const std::uint32_t function = function_start(text, at);
+            if (function == 0 || function >= at) continue;
+            const std::size_t before_call = (at - function) / 4;
+            // Its channel blocks: base (lis/addi, or a copy by `addi rD,rA,0`) plus a `mulli` of the channel.
+            std::uint32_t high[32] = {}, address[32] = {}, stride_of[32] = {};
+            std::uint32_t block_base[32] = {}, block_stride[32] = {};
+            KpadDpd here;
+            bool two_reads = false;
+            for (std::size_t k = 0; k < before_call; ++k) {
+                const std::uint32_t w = word_at(text, function + static_cast<std::uint32_t>(4 * k));
+                const std::uint32_t op = w >> 26, d = (w >> 21) & 31u, a = (w >> 16) & 31u, b = (w >> 11) & 31u;
+                const std::int32_t imm = static_cast<std::int16_t>(w & 0xFFFFu);
+                // A register written here no longer holds a channel block,
+                // unless the cases below say it does: an `addi rD,rA,0` copy
+                // or an `mr` keeps it, any other change (`addi rD,rA,4`, a
+                // load into it) loses it.
+                // The block a load reads through, as it was before this word.
+                const std::uint32_t read_base = block_base[a], read_stride = block_stride[a];
+                const bool mr = op == 31 && ((w >> 1) & 0x3FFu) == 444 && d == b;  // or rA,rS,rS
+                const bool writes_d = op == 7 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+                                      op == 40 || op == 41 || op == 42 || op == 43 || (op == 31 && !mr);
+                const std::uint32_t copied = block_base[op == 14 && imm == 0 ? a : 0];
+                const std::uint32_t copied_stride = block_stride[op == 14 && imm == 0 ? a : 0];
+                // What the sources held, before this word's destination
+                // loses what it held (a source may be the destination).
+                const std::uint32_t high_a = high[a], address_a = address[a], address_b = address[b];
+                const std::uint32_t stride_a = stride_of[a], stride_b = stride_of[b];
+                if (mr) {
+                    block_base[a] = block_base[d];
+                    block_stride[a] = block_stride[d];
+                    high[a] = high[d];
+                    address[a] = address[d];
+                    stride_of[a] = stride_of[d];
+                } else if (writes_d) {
+                    block_base[d] = block_stride[d] = 0;
+                    high[d] = address[d] = stride_of[d] = 0;  // `li r6,0` after a `mulli r6`: no stride any more
+                    if (op == 14 && imm == 0 && copied != 0) {
+                        block_base[d] = copied;
+                        block_stride[d] = copied_stride;
+                    }
+                }
+                if (op == 15 && a == 0) {
+                    high[d] = (w & 0xFFFFu) << 16;
+                } else if (op == 14 && a != 0 && (high_a != 0 || address_a != 0)) {
+                    address[d] = (address_a != 0 ? address_a : high_a) + static_cast<std::uint32_t>(imm);
+                } else if (op == 7 && imm > 0 && static_cast<std::uint32_t>(imm) <= kMaxStride) {
+                    stride_of[d] = static_cast<std::uint32_t>(imm);  // mulli rD,rA,stride
+                } else if (op == 31 && ((w >> 1) & 0x1FFu) == 266) {  // add rD,rA,rB
+                    const std::uint32_t base = address_a != 0 ? address_a : address_b;
+                    const std::uint32_t stride = stride_a != 0 ? stride_a : stride_b;
+                    if (base != 0 && stride != 0) {
+                        block_base[d] = base;
+                        block_stride[d] = stride;
+                    }
+                }
+                // The switch, read from the block within the last words before the call.
+                if (op == 34 && before_call - k <= kReadWithin && read_base != 0 && static_cast<std::uint32_t>(imm) >= kMinOffset &&
+                    static_cast<std::uint32_t>(imm) < kMaxOffset) {
+                    // Two different bytes read before the one call: which is
+                    // the switch can't be told.
+                    if (here.enable != 0 && (here.base != read_base || here.stride != read_stride ||
+                                             here.offset != static_cast<std::uint32_t>(imm)))
+                        two_reads = true;
+                    here.enable = function;
+                    here.base = read_base;
+                    here.stride = read_stride;
+                    here.offset = static_cast<std::uint32_t>(imm);
+                }
+            }
+            if (two_reads) return KpadDpd{};
+            if (here.enable == 0) continue;
+            if (found.enable != 0 && (found.base != here.base || found.stride != here.stride || found.offset != here.offset))
+                return KpadDpd{};  // two different switches: not guessed
+            if (found.enable == 0) found = here;
+        }
+    }
+    return found;
 }
 
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
@@ -1352,5 +1689,148 @@ std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std:
     return 0;
 }
 
+namespace {
+
+// Whether `insn` writes general register `reg`. The D-form arithmetic and
+// integer loads write rD (lmw: rD through r31); the logical immediates and
+// rotates write rA; every update form (integer and floating-point loads and
+// stores) writes its base, rA. Among the opcode-31 forms, the logical and
+// shift ones write rA; the stores, the floating-point loads and stores, the
+// compares, traps, cache, sync and move-to ones write no general register
+// (beyond an update form's base); the rest (arithmetic, indexed integer
+// loads, mfspr and the like) write rD.
+bool writes_gpr(std::uint32_t insn, std::uint32_t reg) {
+    const std::uint32_t op = insn >> 26, rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u;
+    const bool update = op == 33 || op == 35 || op == 37 || op == 39 || op == 41 || op == 43 || op == 45 ||
+                        op == 49 || op == 51 || op == 53 || op == 55;  // lwzu..sthu, lfsu..stfdu
+    if (update && ra == reg) return true;
+    if (op == 46) return reg >= rd;  // lmw
+    if (op == 7 || op == 8 || op == 12 || op == 13 || op == 14 || op == 15 || (op >= 32 && op <= 35) ||
+        (op >= 40 && op <= 43)) {
+        return rd == reg;  // mulli..addis, the integer loads
+    }
+    if (op == 20 || op == 21 || op == 23 || (op >= 24 && op <= 29)) return ra == reg;  // rlwimi..andis.
+    if (op != 31) return false;
+    switch ((insn >> 1) & 0x3FFu) {
+        case 28: case 60: case 124: case 284: case 316: case 412: case 444: case 476:  // and..nand
+        case 24: case 536: case 792: case 824: case 26: case 922: case 954:            // shifts, cntlzw, extsh/b
+            return ra == reg;
+        case 183: case 247: case 439:            // stwux, stbux, sthux: their base
+        case 567: case 631: case 695: case 759:  // lfsux, lfdux, stfsux, stfdux: their base
+            return ra == reg;
+        case 55: case 119: case 311: case 375:  // lwzux, lbzux, lhzux, lhaux: rD and their base
+            return rd == reg || ra == reg;
+        case 597: {  // lswi: as many registers as its byte count needs, from rD, wrapping past r31
+            const std::uint32_t bytes = ((insn >> 11) & 31u) != 0 ? (insn >> 11) & 31u : 32u;
+            return ((reg - rd) & 31u) < (bytes + 3u) / 4u;
+        }
+        case 533:  // lswx: its count is known only when it runs
+            return true;
+        case 150: case 151: case 215: case 407: case 662: case 918:  // the other integer stores
+        case 661: case 725: case 438:                                // stswx, stswi, ecowx
+        case 535: case 599: case 663: case 727: case 983:            // lfsx, lfdx, stfsx, stfdx, stfiwx
+        case 0: case 32: case 4: case 512:                           // cmp, cmpl, tw, mcrxr
+        case 144: case 146: case 210: case 242: case 467:            // mtcrf, mtmsr, mtsr, mtsrin, mtspr
+        case 54: case 86: case 246: case 278: case 470: case 982: case 1014:  // dcbst, dcbf, dcbtst, dcbt, dcbi, icbi, dcbz
+        case 306: case 566: case 598: case 854:                               // tlbie, tlbsync, sync, eieio
+            return false;
+        default:
+            return rd == reg;
+    }
+}
+
+// Whether `insn` is an update form whose base is `reg` and that leaves it
+// the address it used (the base plus an offset, as an add does), with no
+// load into it: lwzu..sthu, lfsu..stfdu and their indexed forms.
+bool base_update(std::uint32_t insn, std::uint32_t reg) {
+    const std::uint32_t op = insn >> 26, rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u;
+    if (ra != reg) return false;
+    if (op == 33 || op == 35 || op == 41 || op == 43) return rd != reg;  // lwzu, lbzu, lhzu, lhau
+    if (op == 37 || op == 39 || op == 45 || op == 49 || op == 51 || op == 53 || op == 55) return true;
+    if (op != 31) return false;
+    switch ((insn >> 1) & 0x3FFu) {
+        case 55: case 119: case 311: case 375:  // lwzux, lbzux, lhzux, lhaux
+            return rd != reg;
+        case 183: case 247: case 439: case 567: case 631: case 695: case 759:  // stwux..sthux, lfsux..stfdux
+            return true;
+        default:
+            return false;
+    }
+}
+
+}  // namespace
+
+bool reads_gc_ports(const std::uint8_t* bytes, std::size_t size) {
+    constexpr unsigned kWithin = 8;  // words from the `lis` to its use
+    constexpr std::uint32_t kSiFirst = 0x6400, kSiEnd = 0x6500;
+    const std::size_t words = size / 4;
+    for (std::size_t i = 0; i < words; ++i) {
+        const std::uint32_t lis = be32(bytes + i * 4);
+        const std::uint32_t high = lis & 0xFFFFu;
+        if ((lis >> 26) != 15 || ((lis >> 16) & 31u) != 0 || (high != 0xCD00u && high != 0xCC00u)) continue;
+        const std::uint32_t reg = (lis >> 21) & 31u;
+        // What constant `addi rX,rX,n` and the update forms have added to
+        // the base since the `lis` (`addi r6,r6,-0x6400` then `0x6404(r6)`
+        // reaches 0xCD000004, not the serial interface).
+        std::int32_t added = 0;
+        for (std::size_t k = i + 1; k < words && k <= i + kWithin; ++k) {
+            const std::uint32_t insn = be32(bytes + k * 4);
+            const std::uint32_t op = insn >> 26;
+            // A return (`blr`, `bctr`) ends the `lis`'s function: the next
+            // one's `lwz r8,0x6404(r6)` is its own (its callers may pass any
+            // address in r6). A plain `b` forward within the window is
+            // followed (`b +8` over a word still reaches a use with r6 kept:
+            // CodeRabbit CLI, fork #16); any other `b` leaves the function.
+            if (insn == 0x4E800020u || insn == 0x4E800420u) break;
+            if (op == 18 && (insn & 3u) == 0) {
+                std::int32_t offset = static_cast<std::int32_t>(insn & 0x03FFFFFCu);
+                if (offset & 0x02000000) offset -= 0x04000000;
+                const std::size_t ahead = offset > 0 ? static_cast<std::size_t>(offset / 4) : 0;
+                if (ahead == 0 || k + ahead >= words || k + ahead > i + kWithin) break;
+                k += ahead - 1;  // the loop's ++k lands on the target
+                continue;
+            }
+            // Any other branch ends the run: an absolute `ba`, and a call
+            // (`bl`, `bla`, `bcl`, `blrl`, `bctrl`), whose function may set
+            // rX to anything before a use after it (CodeRabbit, fork #25); a
+            // fresh `lis` after the call is still looked at on its own.
+            // (Not `bcl 20,31,$+4`, which only takes the address of the
+            // next word into the link register, position-independent code's
+            // way: CodeRabbit CLI, fork #25.)
+            if (insn == 0x429F0005u) continue;
+            if (op == 18) break;
+            if ((op == 16 || op == 19) && (insn & 1u) != 0) break;
+            const std::uint32_t low = insn & 0xFFFFu;
+            const std::uint32_t rd = (insn >> 21) & 31u, ra = (insn >> 16) & 31u, rb = (insn >> 11) & 31u;
+            // ori rA,rS,low takes rX as its source (rS); addi and the loads
+            // and stores (update forms too) as their base (rA), where a base
+            // of r0 is the number 0, not r0 (`li r3,0x6430`).
+            const std::uint32_t source = op == 24 ? rd : ra;
+            const bool uses = op == 14 || op == 24 || (op >= 32 && op <= 45);  // addi, ori, lwz..sthu
+            if (uses && source == reg && (op == 24 || source != 0)) {
+                const std::int32_t at = op == 24 ? static_cast<std::int32_t>(low) | added
+                                                 : static_cast<std::int16_t>(low) + added;
+                if (at >= static_cast<std::int32_t>(kSiFirst) && at < static_cast<std::int32_t>(kSiEnd)) return true;
+            }
+            const bool update_d = op == 33 || op == 35 || op == 37 || op == 39 || op == 41 || op == 43 || op == 45 ||
+                                  op == 49 || op == 51 || op == 53 || op == 55;  // lwzu..sthu, lfsu..stfdu
+            if (update_d && base_update(insn, reg)) added += static_cast<std::int16_t>(low);
+            if (op == 14 && rd == reg && ra == reg && reg != 0) added += static_cast<std::int16_t>(low);
+            // rX written by anything else (`lis r6,0x8000`, `mr r6,r3`,
+            // `li r6,0`, a load into it): no longer the hardware's base, so a
+            // use after it reads plain memory. Adding to it keeps it a base
+            // (`add r6,r6,r5`, `addi r6,r6,12`: a port's offset), and so
+            // does `ori rX,rX,0` (`nop` is `ori r0,r0,0`).
+            const std::uint32_t xo = (insn >> 1) & 0x3FFu;
+            // So does an update form's base (`lbzu r8,0(r6)`, `lfsu f0,4(r6)`:
+            // the base plus an offset). `addi r0,0,n` is `li r0,n`.
+            const bool keeps = (op == 31 && xo == 266 && rd == reg && (ra == reg || rb == reg)) ||
+                               (op == 14 && rd == reg && ra == reg && reg != 0) ||
+                               (op == 24 && rd == reg && ra == reg && low == 0) || base_update(insn, reg);
+            if (writes_gpr(insn, reg) && !keeps) break;
+        }
+    }
+    return false;
+}
 
 }  // namespace riftwii

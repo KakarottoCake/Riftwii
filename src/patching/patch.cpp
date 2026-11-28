@@ -1329,7 +1329,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
     Ctx ctx{tmp, 1, {}, false, {}};
     if (trimmed) Warn(ctx, "ignoring what follows the last '>'");
     if (!duplicate_attr.empty()) Warn(ctx, duplicate_attr);
-    static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", nullptr};
+    static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", "riftwii-gc-controllers", nullptr};
     if (!EnterElement(r, ctx, 1, root_allowed, "wiidisc", error)) return false;
     if (!AttrPresent(r, "version")) {
         error = "wiidisc missing version";
@@ -1352,6 +1352,15 @@ bool parse_package(const std::string& input, Package& output, std::string& error
         }
     }
     if (!ReadBool(r, "shiftfiles", "wiidisc", tmp.shift_files, ctx, error)) return false;
+    // The stand-in form the pack asks for; an unknown one is ignored, not
+    // fatal (a newer form this RiftWii doesn't have).
+    if (AttrPresent(r, "riftwii-gc-controllers")) {
+        const std::string form = AttrValue(r, "riftwii-gc-controllers");
+        if (form == "classic" || form == "nunchuk" || form == "sideways" || form == "pointing")
+            tmp.gc_controllers = form;
+        else
+            Warn(ctx, "wiidisc: ignoring riftwii-gc-controllers '" + form + "' (not a stand-in form this RiftWii has)");
+    }
     bool seenId = false;
     bool seenOptions = false;
     for (auto c : r.children()) {

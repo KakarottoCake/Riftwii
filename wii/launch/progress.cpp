@@ -88,6 +88,78 @@ void Redraw() {
     DCFlushRange(g_xfb + g_y * g_stride, (kBarTop + kBarHeight) * g_stride * 4);
 }
 
+// The console font's code (code page 437) for a Latin-1 letter, 0 for
+// none. Letters it lacks (Portuguese ã and õ, most capitals with an
+// accent) are drawn as their plain letter: still readable.
+u8 Cp437(unsigned code) {
+    switch (code) {
+    case 0xC7: return 0x80;  // Ç
+    case 0xFC: return 0x81;  // ü
+    case 0xE9: return 0x82;  // é
+    case 0xE2: return 0x83;  // â
+    case 0xE4: return 0x84;  // ä
+    case 0xE0: return 0x85;  // à
+    case 0xE5: return 0x86;  // å
+    case 0xE7: return 0x87;  // ç
+    case 0xEA: return 0x88;  // ê
+    case 0xEB: return 0x89;  // ë
+    case 0xE8: return 0x8A;  // è
+    case 0xEF: return 0x8B;  // ï
+    case 0xEE: return 0x8C;  // î
+    case 0xEC: return 0x8D;  // ì
+    case 0xC4: return 0x8E;  // Ä
+    case 0xC9: return 0x90;  // É
+    case 0xF4: return 0x93;  // ô
+    case 0xF6: return 0x94;  // ö
+    case 0xF2: return 0x95;  // ò
+    case 0xFB: return 0x96;  // û
+    case 0xF9: return 0x97;  // ù
+    case 0xD6: return 0x99;  // Ö
+    case 0xDC: return 0x9A;  // Ü
+    case 0xE1: return 0xA0;  // á
+    case 0xED: return 0xA1;  // í
+    case 0xF3: return 0xA2;  // ó
+    case 0xFA: return 0xA3;  // ú
+    case 0xF1: return 0xA4;  // ñ
+    case 0xD1: return 0xA5;  // Ñ
+    case 0xBF: return 0xA8;  // ¿
+    case 0xA1: return 0xAD;  // ¡
+    case 0xAB: return 0xAE;  // «
+    case 0xBB: return 0xAF;  // »
+    case 0xE3: return 'a';   // ã
+    case 0xF5: return 'o';   // õ
+    case 0xC0: case 0xC1: case 0xC2: case 0xC3: return 'A';
+    case 0xC8: case 0xCA: case 0xCB: return 'E';
+    case 0xCC: case 0xCD: case 0xCE: case 0xCF: return 'I';
+    case 0xD2: case 0xD3: case 0xD4: case 0xD5: return 'O';
+    case 0xD9: case 0xDA: case 0xDB: return 'U';
+    default: return 0;
+    }
+}
+
+// UTF-8 `text` as the console font's codes into `out` (`size` bytes, cut
+// to fit, always terminated). False when it has a letter the font can't
+// draw (Japanese, Korean) or isn't UTF-8: the caller draws another text.
+bool ToConsoleFont(const char* text, char* out, std::size_t size) {
+    std::size_t n = 0;
+    for (const u8* p = reinterpret_cast<const u8*>(text); *p != 0;) {
+        unsigned code = 0;
+        if (*p < 0x80) {
+            code = *p++;
+        } else if ((*p & 0xE0) == 0xC0 && (p[1] & 0xC0) == 0x80) {
+            code = ((p[0] & 0x1Fu) << 6) | (p[1] & 0x3Fu);
+            p += 2;
+        } else {
+            return false;  // three bytes or more: beyond Latin-1
+        }
+        const u8 glyph = code < 0x80 ? static_cast<u8>(code) : Cp437(code);
+        if (glyph == 0) return false;
+        if (n + 1 < size) out[n++] = static_cast<char>(glyph);
+    }
+    out[n] = '\0';
+    return true;
+}
+
 // With the game's box on the card instead of the log: a button pressed
 // on any pad shows the log. Looked at every 50 ms at most, as the bar's
 // calls come in (in a read loop, thousands of times). The Wii's own
@@ -140,6 +212,21 @@ void ProgressStage(const char* stage, int percent) {
     ShowLogOnButton();
     // Test screenshots, only while the card is certainly up.
     if (g_xfb && g_percent <= 60) GuiScriptLaunchShot(g_percent, g_xfb, g_stride * 2, g_screen_height);
+}
+
+void ProgressNote(const char* note, const char* english) {
+    if (!g_xfb || !ConsoleDeferred()) return;
+    // The row above the label, inside the card's white under the box
+    // (the box ends well above it, wii/menu/rift_menu.cpp ShowLaunchFrame).
+    constexpr int kNoteGap = 4;
+    const int y = g_y - kLabelHeight - kNoteGap;
+    char line[96];
+    const std::size_t room = static_cast<std::size_t>(g_width / 8) + 1;  // with the terminator
+    const std::size_t size = room < sizeof(line) ? room : sizeof(line);
+    if (!ToConsoleFont(note, line, size)) ToConsoleFont(english, line, size);
+    Fill(g_x, y, g_width, kLabelHeight, kPaper);
+    Text(g_x, y, line);
+    DCFlushRange(g_xfb + y * g_stride, kLabelHeight * g_stride * 4);
 }
 
 void ProgressWithin(unsigned long long done, unsigned long long total, int from, int to) {

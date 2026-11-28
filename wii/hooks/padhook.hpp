@@ -10,6 +10,7 @@
 #include "riftwii/dol.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
+#include "riftwii/symsearch.hpp"
 #include "rtpadcal.h"
 
 // The GameCube controller adapter for Wii U in games that support the
@@ -79,6 +80,16 @@ struct PadHook {
     bool read_in_patch = false;      // found in the packs' memory patches (checked again once they're in)
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
+    bool motor_in_patch = false;     // found beside a PADRead in the packs' memory patches (there once they're in)
+    std::uint8_t motor_patch_start[16] = {};  // that motor's first bytes, as the patches leave them
+    // Rumble Off with a pack's PADControlMotor: the pack's [0] and the game's
+    // own [1] return at once once the patches are in, each where its first
+    // bytes are still `expect` (at 0: none).
+    struct LateReturn {
+        std::uint32_t at = 0;
+        std::uint8_t expect[16] = {};
+    };
+    LateReturn motor_off_late[2];
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
     std::uint32_t si_probe = 0;      // SIProbe, 0: not found (a game that asks it which ports have a controller sees none, #510)
     std::uint32_t code_base = 0;     // the blob (MEM1)
@@ -126,6 +137,50 @@ struct PadHook {
     // after the driver's state in MEM2; nullptr: none stored, none placed.
     const rtpadcal_table* calibration = nullptr;
     std::uint32_t calibration_base = 0;     // where the table went, 0: none
+    // GameCube controllers as Classic Controllers (#587): the game's own
+    // setting (off by default). Its state goes after the calibrations in
+    // MEM2, only with the HOME Menu's blob, whose KPAD read and WPADProbe
+    // hooks it shares (runtime/rtgcwii.h).
+    bool standin = false;
+    // Which form (#587): a Classic Controller, or with this a Wii Remote +
+    // Nunchuk (the pad builds with RT_PAD_FORM_NUNCHUK).
+    bool standin_nunchuk = false;
+    // ...or a sideways Wii Remote (RT_PAD_FORM_SIDEWAYS).
+    bool standin_sideways = false;
+    // "Connected only" (#587): a pack does the controls, so the stand-in
+    // tells the game a Wii Remote is there and answers its questions, but
+    // gives no input of its own. For a pack that reads the GameCube ports
+    // itself, once RiftWii routes the adapter into it (not yet: until then
+    // the stand-in keeps the controls, find_pad_functions).
+    bool standin_inputless = false;
+    // ...or a pointing Wii Remote (RT_PAD_FORM_POINTING).
+    bool standin_pointing = false;
+    // WPADGetInfoAsync, for a 2006 KPAD game with the stand-in (it waits on
+    // the info's answer before it uses a Wii Remote), 0: not hooked.
+    std::uint32_t wpad_info = 0;
+    // rtgcwii.info_answers: RTGCWII_INFO_ANSWER (a 2006 KPAD game's
+    // WPADGetInfoAsync answered), RTGCWII_INFO_BUSY (a later game's: busy),
+    // RTGCWII_INFO_BLOCKING (wpad_info is a blocking WPADGetInfo with the
+    // request built in: busy before it runs).
+    std::uint32_t info_answers = 0;
+    // WPAD's own connect callbacks (find_wpad_connect_2006, or for a later
+    // WPAD with no KPAD-level callback found, find_wpad_connect_later), 0: none.
+    std::uint32_t wpad_connect_table = 0, wpad_connect_offset = 0;
+    bool wpad_connect_later = false;  // the later WPAD's (its sleeps don't read the pads)
+    // The game's WPAD extension callbacks (find_wpad_extension, beside the
+    // connect callback's slot), told the stand-in's attachment, 0: none.
+    std::uint32_t wpad_ext_table = 0, wpad_ext_offset = 0;
+    // The stand-in below KPAD, in the Wii Remote forms: WPADRead and
+    // WPADSetDataFormat, for a game that reads WPAD itself (Punch-Out!!),
+    // 0: not hooked.
+    std::uint32_t wpad_read = 0, wpad_set_format = 0;
+    std::uint32_t gcwii_base = 0;           // where the state went, 0: none
+    // For it with no adapter (a Wii's own ports): the hook goes in, USB
+    // untouched (RT_PAD_FLAG_NO_USB).
+    bool no_usb = false;
+    // Settings > Leaving a game, HOME only: its hooks were found for it,
+    // but the HOME Menu's stand-in stays off (the combo leaves nothing).
+    bool home_combo_off = false;
     // The HOME Menu; any of the four required (kpad_read, wpad_probe,
     // hbm_calc, hbm_select) 0: off.
     std::uint32_t kpad_read = 0;          // the KPAD read (KPADReadEx in newer SDKs)
@@ -135,6 +190,7 @@ struct PadHook {
     std::uint32_t hbm_calc = 0;           // HBMCalc
     std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, which tells the Operations Guide from Close (required)
     std::uint32_t kpad_unified = 0;       // KPADGetUnifiedWpadStatus (optional: Mario Kart Wii reads a Classic there)
+    KpadDpd kpad_dpd;                     // KPAD's camera switch (optional: the Wii Remote + Nunchuk form's pointer shows while it's on)
     std::uint32_t kpad_unified_bytes = 0; // its statuses' size
     std::uint32_t kpad_connect = 0;       // the game's connect callbacks in KPAD's block (optional, GoldenEye 007): channel 0's
     std::uint32_t kpad_connect_stride = 0;  // and the block's size per channel
@@ -185,9 +241,22 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 // loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
 // (libogc's USB is shut down for it). A PADRead in a pack's plain
 // <memory> patches (`patches`, not applied yet) is found too, and wins
-// over the game's own. False (with a reason) turns the adapter off.
-bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches, PadHook& out,
-                        std::string& why);
+// over the game's own. `program_from_pack`: a pack replaced the game's
+// main.dol with its own (its code is then in `dol`, not in `patches`).
+// `standin`: the game's GameCube controllers
+// setting is on, as Classic Controllers or as a Wii Remote + Nunchuk (its
+// KPAD hooks are looked for even with Leaving a game on HOME only);
+// `nunchuk`, `sideways` and `pointing` its form, as a Wii Remote +
+// Nunchuk, a sideways or a pointing Wii Remote (PadHook::standin_nunchuk,
+// standin_sideways, standin_pointing; only a Wii Remote form takes a 2006
+// KPAD game, whose KPAD knows no Classic Controller); `usb` false: no adapter is wanted and /dev/usb/hid is never
+// opened (the Wii's own ports only). False (with a reason) turns the
+// adapter off.
+// `loaded`: the regions the <memory> patches search, in the order they
+// search them (empty: the DOL's sections).
+bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches,
+                        const std::vector<MemoryRegion>& loaded, bool program_from_pack, bool standin, bool nunchuk,
+                        bool sideways, bool pointing, bool usb, PadHook& out, std::string& why);
 
 // Before the <memory> patches, on the game as loaded: what their plain
 // writes will leave (PatchedCode), for a PADRead search. Without memory

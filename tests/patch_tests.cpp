@@ -771,8 +771,33 @@ static void test_dolphin_compat() {
     EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x180001000\" value=\"12\"/></patch></wiidisc>");
 }
 
+// RiftWii's riftwii-gc-controllers on <wiidisc>: the stand-in form a pack
+// asks for; an unknown form is a warning, not a failure, and is dropped.
+static void test_gc_controllers_attribute() {
+    riftwii::Package pkg;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\" riftwii-gc-controllers=\"classic\"><patch id=\"p\"/></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.gc_controllers, std::string("classic"));
+    EXPECT_TRUE(pkg.warnings.empty());
+    riftwii::Package pointing;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\" riftwii-gc-controllers=\"pointing\"><patch id=\"p\"/></wiidisc>", pointing, err));
+    EXPECT_EQ(pointing.gc_controllers, std::string("pointing"));
+    EXPECT_TRUE(pointing.warnings.empty());
+    riftwii::Package unknown;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\" riftwii-gc-controllers=\"bongos\"><patch id=\"p\"/></wiidisc>", unknown, err));
+    EXPECT_TRUE(unknown.gc_controllers.empty());
+    EXPECT_EQ(unknown.warnings.size(), std::size_t(1));
+    riftwii::Package none;
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"/></wiidisc>", none, err));
+    EXPECT_TRUE(none.gc_controllers.empty());
+}
+
 int main() {
     test_successful();
+    test_gc_controllers_attribute();
     test_dolphin_compat();
     test_network();
     test_hex_overflow();

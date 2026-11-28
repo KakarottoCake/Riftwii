@@ -134,4 +134,17 @@ int rtleave_sleep_leaves(uint32_t running, uint32_t main_thread, uint32_t pad_th
  * own wait is not where the way back was asked for. */
 int rtleave_self_suspend(uint32_t thread, uint32_t running, uint32_t pad_thread);
 
+/* Whether the way back, asked for at `asked` (low bit set) by a read on
+ * `pad_thread`, leaves from the game's next KPAD read on `running`: a game
+ * whose main thread never sleeps (Excite Truck waits for each frame in a
+ * loop, so no sleep ever leaves) leaves from the thread that read the pads
+ * once `fallback` ticks have passed, as a sleep there would; only from a
+ * call made with interrupts on (`interrupts_on`), never from an interrupt
+ * handler's. */
+static inline int rtleave_read_leaves(uint32_t running, uint32_t pad_thread, uint32_t asked, uint32_t now,
+                                      uint32_t fallback, int interrupts_on) {
+    if (!interrupts_on || asked == 0 || pad_thread == 0 || running != pad_thread) return 0;
+    return now - (asked & ~1u) >= fallback;
+}
+
 #endif
