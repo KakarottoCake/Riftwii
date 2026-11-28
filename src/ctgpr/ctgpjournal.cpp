@@ -135,14 +135,16 @@ struct Entry {
     std::vector<std::uint8_t> data;
 };
 
-enum class EntryRead { Ok, Torn, Bad, ReadError };
+enum class EntryRead { Ok, Torn, Bad, BadSum, ReadError };
 
 // Reads the entry at `pos` of a journal `size` bytes long. Torn: the file
 // ends inside the entry (a cut-off last append). Bad: the entry's bytes are
 // all there but do not check out. ReadError: the card did not give bytes the
-// file has.
+// file has. BadSum: a Bad entry whose head reads as one (offset and length
+// within the pack) and whose bytes are all there, but whose checksum, given
+// in `stored_crc`, does not match them.
 EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::uint64_t pack_size, Entry& e,
-                     std::uint32_t& length) {
+                     std::uint32_t& length, std::uint32_t& stored_crc) {
     std::uint8_t head[12];
     if (size - pos < sizeof head) return EntryRead::Torn;
     if (std::fread(head, 1, sizeof head, f) != sizeof head) return EntryRead::ReadError;
@@ -157,16 +159,43 @@ EntryRead read_entry(std::FILE* f, std::uint64_t pos, std::uint64_t size, std::u
         return EntryRead::ReadError;
     std::uint32_t crc = crc_update(0, head, sizeof head);
     crc = crc_update(crc, e.data.data(), e.data.size());
-    return crc == get32(tail) ? EntryRead::Ok : EntryRead::Bad;
+    stored_crc = get32(tail);
+    return crc == stored_crc ? EntryRead::Ok : EntryRead::BadSum;
+}
+
+// Whether the pack's chunk under entry `e` (head as read, `length` bytes)
+// holds what the entry's checksum `stored_crc` covers: the checksum runs
+// over the head and the chunk's bytes as they were before the update. The
+// pack is read as the update would see it and, with a card reader, as the
+// card holds it: both must match. The entry's own (damaged) bytes are read
+// over, so no memory is asked for. False only when a read failed.
+bool pack_chunk_is(const CtgpPackIo& pack, Entry& e, std::uint32_t length, std::uint32_t stored_crc,
+                   bool& unchanged) {
+    unchanged = false;
+    if (!pack.read || e.data.size() != length) return false;
+    std::uint8_t head[12];
+    put64(head, e.offset);
+    put32(head + 8, length);
+    const std::uint32_t head_crc = crc_update(0, head, sizeof head);
+    if (!pack.read(e.offset, length, e.data.data())) return false;
+    if (crc_update(head_crc, e.data.data(), length) != stored_crc) return true;
+    if (pack.read_card) {
+        if (!pack.read_card(e.offset, length, e.data.data())) return false;
+        if (crc_update(head_crc, e.data.data(), length) != stored_crc) return true;
+    }
+    unchanged = true;
+    return true;
 }
 
 // Writes the entries of the open journal back to the pack, in file order.
 // Each entry is synced to the card before its chunk of the pack is changed,
 // so only the last append can be cut off, and its chunk was never written:
 // a file that ends inside an entry is that, and the replay stops there. An
-// entry whose bytes are all there but don't check out, or a read error,
-// means the journal itself is damaged: the replay fails and the journal is
-// kept.
+// entry whose bytes are all there but don't check out is passed over only
+// when the pack still holds, by that entry's checksum, the chunk as it was
+// (an append that failed and was never cut back); otherwise it, or a read
+// error, means the journal itself is damaged: the replay fails and the
+// journal is kept.
 // `limit`: only the journal's first `limit` bytes count (a rollback in the
 // same session passes what was confirmed on the card: an entry past it never
 // let its chunk be written, whatever the card holds of it).
@@ -182,6 +211,12 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
     const long end = std::ftell(f);
     if (end < 0 || std::fseek(f, 0, SEEK_SET) != 0) {
         error = "the journal could not be read";
+        return CtgpJournalRecovery::Failed;
+    }
+    // A same-session rollback needs every confirmed byte: a journal the card
+    // now holds shorter than that would undo only some of the chunks written.
+    if (limit != UINT64_MAX && std::uint64_t(end) < limit) {
+        error = "the journal on the card is shorter than what was written to it";
         return CtgpJournalRecovery::Failed;
     }
     const std::uint64_t size = std::min<std::uint64_t>(std::uint64_t(end), limit);
@@ -283,12 +318,37 @@ CtgpJournalRecovery play_back(std::FILE* f, const CtgpPackIo& pack, std::uint64_
     Entry e;
     while (pos < size) {
         std::uint32_t length = 0;
-        const EntryRead read = read_entry(f, pos, size, pack_size, e, length);
+        std::uint32_t stored_crc = 0;
+        const EntryRead read = read_entry(f, pos, size, pack_size, e, length, stored_crc);
         if (read == EntryRead::ReadError) {
             error = "the journal could not be read";
             return CtgpJournalRecovery::Failed;
         }
         if (read == EntryRead::Torn) break;  // the cut-off last append
+        if (read == EntryRead::BadSum) {
+            // An entry whose append failed (the card gave other bytes back)
+            // never let its chunk be written, but it can stay whole on the
+            // card when the power goes before it is cut back, or the cut and
+            // the rollback both fail. Its checksum still says what the chunk
+            // held before the update: when the pack holds exactly that now,
+            // there is nothing to put back, and the replay goes on. Anything
+            // else (a chunk that was changed under a damaged entry) is damage.
+            bool unchanged = false;
+            if (!pack_chunk_is(pack, e, length, stored_crc, unchanged)) {
+                error = "the journal could not be checked against the pack";
+                return CtgpJournalRecovery::Failed;
+            }
+            if (!unchanged) {
+                error = "the journal is damaged";
+                return CtgpJournalRecovery::Failed;
+            }
+            pos += 12 + std::uint64_t(length) + 4;
+            if (std::fseek(f, long(pos), SEEK_SET) != 0) {
+                error = "the journal could not be read";
+                return CtgpJournalRecovery::Failed;
+            }
+            continue;
+        }
         if (read == EntryRead::Bad) {
             error = "the journal is damaged";
             return CtgpJournalRecovery::Failed;

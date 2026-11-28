@@ -257,6 +257,23 @@ int main() {
         EXPECT_TRUE(p.data == orig);
         EXPECT_TRUE(!exists(jp));
     }
+    {   // a same-session rollback of a journal the card now holds shorter than
+        // what was confirmed fails, writes nothing back and keeps the journal
+        MemPack p = make_pack(size);
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+            const auto changed = p.data;
+            // Every append is flushed, so the file holds all it confirmed;
+            // the card then "loses" its last byte.
+            fs::resize_file(jp, fs::file_size(jp) - 1);
+            EXPECT_TRUE(!j.rollback(p.sync(), err));
+            EXPECT_TRUE(p.data == changed);
+            EXPECT_TRUE(exists(jp));
+        }  // the writer's file is closed before the journal goes
+        fs::remove(jp);
+    }
     {   // torn last entry, and recovery twice from a copy of the journal
         MemPack p = make_pack(size);
         auto orig = p.data;
@@ -357,11 +374,13 @@ int main() {
         bad.read = [&reads_fail, good_read](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
             return !reads_fail && good_read(o, n, out);
         };
-        CtgpPackJournal m;
-        EXPECT_TRUE(m.begin(jp, bad, size, err));
-        reads_fail = true;
-        EXPECT_TRUE(!m.io().write(0, a.data(), 64));
-        EXPECT_TRUE(p.data == orig);
+        {
+            CtgpPackJournal m;
+            EXPECT_TRUE(m.begin(jp, bad, size, err));
+            reads_fail = true;
+            EXPECT_TRUE(!m.io().write(0, a.data(), 64));
+            EXPECT_TRUE(p.data == orig);
+        }  // the writer's file is closed before the journal goes
         std::remove(jp.c_str());
     }
 
@@ -430,6 +449,67 @@ int main() {
         EXPECT_TRUE(!exists(jp));
         EXPECT_TRUE(!k.io().write(0, a.data(), kChunk));
         EXPECT_TRUE(p.cache == orig);
+    }
+    // A failed append left whole on the card: the power went before it was
+    // cut back, or the cut and the rollback both failed. Its chunk was never
+    // written, so the start-up replay passes over it (its checksum matches
+    // the pack's chunk as it is) instead of calling the journal damaged.
+    for (const bool rollback_fails : {false, true}) {
+        CachedPack p = make_cached(size, 0);
+        const auto orig = p.cache;
+        CardFile card;
+        std::vector<std::uint8_t> uncut;  // the file as it was before the cut
+        CtgpPackIo io = p.io();
+        const auto card_reader = card.reader();
+        io.read_card_file = [&](const std::string& path, std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            uncut = slurp(path);
+            return card_reader(path, o, n, out);
+        };
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, io, size, err));
+            auto a = filled(kChunk, 0xA1);
+            EXPECT_TRUE(j.io().write(0, a.data(), kChunk));
+            card.losing = true;
+            card.lose_from = fs::file_size(jp);
+            auto b = filled(1024, 0xB2);
+            EXPECT_TRUE(!j.io().write(2 * kChunk, b.data(), 1024));
+            EXPECT_TRUE(std::equal(orig.begin() + 2 * kChunk, orig.begin() + 3 * kChunk,
+                                   p.cache.begin() + 2 * kChunk));
+            if (rollback_fails) EXPECT_TRUE(!j.rollback([] { return false; }, err));
+        }  // the writer's file is closed before the journal is rewritten
+        card.losing = false;
+        // What the card kept of the failed entry: whole, one byte changed.
+        EXPECT_TRUE(uncut.size() > 8);
+        if (uncut.size() <= 8) break;
+        uncut[uncut.size() - 8] ^= 0x01;
+        spit(jp, uncut);
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::RolledBack);
+        EXPECT_TRUE(p.cache == orig && p.card == orig);
+        EXPECT_TRUE(!exists(jp));
+        std::remove(jp.c_str());
+    }
+    {   // damage inside an entry whose chunk was written is still refused:
+        // the pack's chunk no longer matches that entry's checksum
+        MemPack p = make_pack(size);
+        std::uint64_t header_bytes = 0;
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            header_bytes = fs::file_size(jp);
+            do_writes(j.io());
+        }  // the writer's file is closed before the journal is rewritten
+        const auto changed = p.data;
+        auto jd = slurp(jp);
+        EXPECT_TRUE(jd.size() > header_bytes + 12 + 5);
+        if (jd.size() > header_bytes + 12 + 5) jd[header_bytes + 12 + 5] ^= 0x01;  // the first entry's data
+        spit(jp, jd);
+        std::size_t n = 0;
+        EXPECT_TRUE(ctgp_journal_recover(jp, p.io(), size, p.sync(), n, err) == CtgpJournalRecovery::Failed);
+        EXPECT_TRUE(p.data == changed);
+        EXPECT_TRUE(exists(jp));
+        std::remove(jp.c_str());
     }
     {   // the pack's sync says yes but the card lost a block: commit keeps the
         // journal; a rollback whose own writes are lost keeps it too; the
@@ -558,9 +638,11 @@ int main() {
         EXPECT_TRUE(exists(jp));
         std::remove(jp.c_str());
 
-        CtgpPackJournal j;
-        EXPECT_TRUE(j.begin(jp, p.io(), size, err));
-        do_writes(j.io());
+        {
+            CtgpPackJournal j;
+            EXPECT_TRUE(j.begin(jp, p.io(), size, err));
+            do_writes(j.io());
+        }  // the writer's file is closed before the journal is rewritten
         auto jd = slurp(jp);
         jd[30] ^= 0x01;  // inside the identity
         spit(jp, jd);
