@@ -308,13 +308,17 @@ bool blob_whole(int kind) {
     // back the install writes 16 bytes at, the IPC callback) must name a
     // word inside the blob with room for those 16 bytes: a damaged one
     // would have the install write outside the blob's code (CodeRabbit on
-    // #593). A hook a blob doesn't have is 0, which passes.
+    // #593). A hook a blob doesn't have is 0, which passes; any other must
+    // be past the header, or the install would write over it (CodeRabbit
+    // on #651).
     constexpr std::uint32_t kSiteBytes = 16;
     const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(&h);
     const std::size_t first_site = offsetof(rt_pad_header, hook_read) / sizeof(std::uint32_t);
     for (std::size_t index = first_site; index < header_bytes / sizeof(std::uint32_t); ++index) {
         const std::uint32_t offset = words[index];
-        if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes) return false;
+        if (offset % sizeof(std::uint32_t) != 0 || offset > h.size || h.size - offset < kSiteBytes ||
+            (offset != 0 && offset < header_bytes))
+            return false;
     }
     if (no_home(kind)) return true;
     // The HOME Menu's five sites, each with its replay and way back: one
