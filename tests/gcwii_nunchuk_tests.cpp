@@ -351,9 +351,13 @@ void TestWpadStatus() {
     EXPECT_EQ(static_cast<std::int8_t>(out[49]), 0);
     EXPECT_EQ(out[RTGCWII_WPAD_FS_BYTES], 0xEE);
     for (int i = 8; i < 40; ++i) EXPECT_EQ(out[i], 0);  // camera off
-    w.format[0] = 5;  // ...and the camera
-    rtgcwii_wpad_status(&w, 0, out, 1, 0);
+    // ...and the camera: the whole 50-byte report, into fresh output, so
+    // format 4's bytes can't stand in for it (CodeRabbit on #650).
+    w.format[0] = 5;
+    std::memset(out, 0, sizeof(out));
+    EXPECT_EQ(rtgcwii_wpad_status(&w, 0, out, 1, 0), RTGCWII_WPAD_FS_BYTES);
     EXPECT_EQ(static_cast<std::int16_t>((out[12] << 8) | out[13]), static_cast<int>(RTGCWII_DOT_SIZE));
+    EXPECT_EQ(static_cast<std::int8_t>(out[48]), RTGCWII_FS_STICK_FULL);
 }
 
 // KPAD's raw samples for the stand-in (rtgcwii_unified), newest first, a
@@ -388,7 +392,10 @@ void TestUnified() {
     // A game that never asked for a data format (Donkey Kong Country
     // Returns): the Nunchuk's part is there all the same, shaking with the
     // Wii Remote, never zeros.
+    // (Into fresh output: the format-3 call's samples can't pass for these;
+    // CodeRabbit on #650.)
     w.format[0] = 0;
+    std::memset(out, 0, sizeof(out));
     EXPECT_EQ(rtgcwii_unified(&w, 0, out, kBytes, kCount, 1100, 5, 0), kCount);
     for (std::uint32_t i = 0; i < kCount; ++i) {
         const std::uint8_t* e = out + i * kBytes;

@@ -293,7 +293,11 @@ void TestWpadStatus() {
         rtgcwii_sideways(&w3, 0, &f);
         p3.plug(0, kGcX);
         rtgcwii_pads(&w3, p3.s, 17);
-        rtgcwii_wpad_status(&w3, 0, out, 17, 0);
+        // The raw read itself works and gives the press (CodeRabbit on #650).
+        std::uint8_t raw[RTGCWII_WPAD_CORE_BYTES];
+        std::memset(raw, 0, sizeof(raw));
+        EXPECT_EQ(rtgcwii_wpad_status(&w3, 0, raw, 17, 0), RTGCWII_WPAD_CORE_BYTES);
+        EXPECT_TRUE((((raw[0] << 8) | raw[1]) & kWrA) != 0);
         rtgcwii_pads(&w3, p3.s, 33);
         rtgcwii_sideways(&w3, 0, &f);
         EXPECT_EQ(f.trig, kWrA);
@@ -316,6 +320,7 @@ void TestRetell() {
     rtgcwii_retell(&w, 10);  // off
     rtgcwii_retell(&w, 100000);
     EXPECT_EQ(w.slot.told, 1u);
+    EXPECT_EQ(w.slot.retell, 0u);  // nothing queued while it's off (CodeRabbit on #650)
     w.slot.retell_ticks = 100;
     rtgcwii_retell(&w, 200);  // notes when
     rtgcwii_retell(&w, 299);
