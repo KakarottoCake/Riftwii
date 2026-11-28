@@ -104,7 +104,10 @@ public:
     // `present` false. False, `present` false, for anything else that stops
     // the lookup: a read error, a damaged folder (outside the disk, a chain
     // that runs off it), a part of the wrong kind, or a path naming a folder.
-    bool stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error);
+    // `clusters` (may be null) gets the length of the file's cluster chain,
+    // which can be more than its size needs; a replace reuses all of them.
+    bool stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error,
+                   std::uint32_t* clusters = nullptr);
 
     // Free clusters, as the FAT says before any pending write is flushed.
     std::uint32_t free_clusters() const;

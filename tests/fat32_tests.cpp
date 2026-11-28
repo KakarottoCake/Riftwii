@@ -923,6 +923,12 @@ static void test_forget_folder_of() {
     EXPECT_TRUE(v.lookup(path, f, err));
     EXPECT_EQ(f.entry.size, cb + 3);
     EXPECT_EQ(f.fragments.size(), std::size_t(2));
+    // A backslash, which lookup() takes too, finds the same folder.
+    cat(nested, short_entry("MORE    BIN", 0x20, 0, 0));
+    EXPECT_TRUE(fx.img.write_dir({60}, nested));
+    EXPECT_TRUE(!v.lookup("/riivolution/nested dir/more.bin", f, err));  // cached listing
+    v.forget_folder_of("/riivolution/nested dir\\deep.bin");  // a mixed path: its folder, not riivolution
+    EXPECT_TRUE(v.lookup("/riivolution/nested dir/more.bin", f, err));
     // A path whose folder isn't there drops everything, and lookups still work.
     v.forget_folder_of("/no such folder/x.bin");
     EXPECT_TRUE(v.lookup("/short.txt", f, err));

@@ -234,6 +234,24 @@ int main() {
         EXPECT_TRUE(!sunk);
     }
 
+    // Another chain that runs into A.BIN's cluster (6 -> 3): the cluster is
+    // shared, so nothing is written over or freed.
+    {
+        auto plain = make_plain(kEnd);
+        set_fat(plain, 6, 3);
+        auto image = encrypt(plain);
+        const auto before = image;
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        const auto data = pattern(2 * kTestCluster);
+        EXPECT_TRUE(!w.replace_file("/A.BIN", data.data(), data.size(), err));
+        EXPECT_TRUE(err.find("shared") != std::string::npos);
+        w.close();
+        EXPECT_TRUE(writes == 0);
+        EXPECT_TRUE(image == before);
+    }
+
     // A growth the disk can't hold leaves no cluster marked used: with one
     // free cluster, growing A.BIN by two fails, and a later replace that
     // fits (which writes the FAT) still leaves that cluster free.

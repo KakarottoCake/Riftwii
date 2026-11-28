@@ -527,6 +527,38 @@ struct CtgpPackWriter::Impl {
         return true;
     }
 
+    // Whether another chain in the file table runs into `chain`: some
+    // cluster outside it links to one of its clusters. Writing over such a
+    // cluster would change the other file too. One pass over the table, in
+    // memory, with one bit per cluster (32 KiB for a quarter of a million
+    // clusters), asked for first. Another directory entry whose first
+    // cluster lies inside `chain` has no link to show it; finding that needs
+    // every folder of the pack read and decrypted, which is not done.
+    bool chain_shared(const std::vector<std::uint32_t>& chain, bool& shared, std::string& error) const {
+        shared = false;
+        const std::uint32_t limit = std::uint32_t(std::min<std::size_t>(max_cluster, fat.size()));
+        std::vector<std::uint8_t> mine;
+        if (!try_assign(mine, std::size_t(limit) / 8 + 1, std::uint8_t(0))) {
+            error = "there is not enough memory to check the package disk's file table";
+            return false;
+        }
+        for (std::uint32_t c : chain) {
+            if (c < limit) mine[c / 8] = std::uint8_t(mine[c / 8] | (1u << (c % 8)));
+        }
+        const auto in_chain = [&mine, limit](std::uint32_t c) {
+            return c < limit && (mine[c / 8] & (1u << (c % 8))) != 0;
+        };
+        for (std::uint32_t c = 2; c < limit; ++c) {
+            if (in_chain(c)) continue;
+            const std::uint32_t next = fat[c];
+            if (next >= 2 && next < limit && in_chain(next)) {
+                shared = true;
+                return true;
+            }
+        }
+        return true;
+    }
+
     // How many free clusters there are, up to `count`.
     std::uint32_t free_up_to(std::uint32_t count) const {
         std::uint32_t free = 0;
@@ -784,6 +816,16 @@ bool CtgpPackWriter::replace_file(const std::string& path, std::size_t size, con
         error = "the package disk's chain for " + path + " is damaged";
         return false;
     }
+    // A cluster another file's chain also runs into is not this file's to
+    // write over or free.
+    bool shared = false;
+    if (!d.chain_shared(chain, shared, error)) {
+        return false;
+    }
+    if (shared) {
+        error = "the package disk's chain for " + path + " is shared with another file";
+        return false;
+    }
     const std::uint64_t capacity = std::uint64_t(chain.size()) * d.cluster_bytes();
     if (size > capacity) {
         const std::uint64_t missing = size - capacity;
@@ -941,10 +983,12 @@ bool CtgpPackWriter::read_file(const std::string& path, const Sink& sink, std::u
     return true;
 }
 
-bool CtgpPackWriter::stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error) {
+bool CtgpPackWriter::stat_file(const std::string& path, bool& present, std::uint32_t& size, std::string& error,
+                               std::uint32_t* clusters) {
     error.clear();
     present = false;
     size = 0;
+    if (clusters != nullptr) *clusters = 0;
     if (impl_ == nullptr || impl_->image == nullptr) {
         error = "the package disk is not open";
         return false;
@@ -960,13 +1004,19 @@ bool CtgpPackWriter::stat_file(const std::string& path, bool& present, std::uint
         error = path + " is a folder";
         return false;
     }
+    if (clusters != nullptr) {
+        std::vector<std::uint32_t> chain;
+        if (!impl_->walk_chain(entry.cluster, chain, error)) return false;
+        *clusters = std::uint32_t(chain.size());
+    }
     present = true;
     size = entry.size;
     return true;
 }
 
 std::uint32_t CtgpPackWriter::cluster_bytes() const {
-    return impl_ == nullptr ? 0 : std::uint32_t(impl_->cluster_bytes());
+    // 0 once closed: ctgp_hash_update_fits takes 0 as "not open".
+    return impl_ == nullptr || impl_->image == nullptr ? 0 : std::uint32_t(impl_->cluster_bytes());
 }
 
 std::uint32_t CtgpPackWriter::free_clusters() const {

@@ -669,7 +669,9 @@ void Fat32Volume::forget_cached() const {
 
 void Fat32Volume::forget_folder_of(const std::string& path) const {
     fat_cache_.clear();
-    const std::size_t slash = path.find_last_of('/');
+    // Either separator, as lookup() takes both: "/ctgpr\\journal.bin" is in
+    // ctgpr, not in the root.
+    const std::size_t slash = path.find_last_of("/\\");
     std::uint32_t folder = 0;
     std::string error;
     if (slash == std::string::npos || !resolve_directory(path.substr(0, slash), folder, error)) {

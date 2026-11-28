@@ -5,7 +5,12 @@
 // untouched (fat32_write_in_place). The lists are made-up ones signed with a
 // throwaway test key (as in ctgphash_tests); CTGP-R's key is never used to
 // sign anything.
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
 #include <unistd.h>
+#endif
 
 #include <array>
 #include <chrono>
@@ -366,6 +371,11 @@ void test_build() {
     EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
     EXPECT_TRUE(!ctgp_hash_update_build(read, d.size(), dia, lists, failure, e, &key));
     EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+    // The ending in any case.
+    d = hash_dia(good, "/test.HsH");
+    EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
+    EXPECT_TRUE(ctgp_hash_update_build(read, d.size(), dia, lists, failure, e, &key));
+    EXPECT_TRUE(lists.size() == 1 && lists[0].package == "TEST");
     // Not a hash list's name, or another package's name than the list's own.
     d = hash_dia(good, "/test.bin");
     EXPECT_TRUE(ctgp_dia_parse(d.data(), d.size(), dia, e));
@@ -717,6 +727,35 @@ void test_shrink_pays_for_growth() {
     EXPECT_TRUE(w.read_file(shrink.disk_path, back, e) && back == shrink.bytes);
     EXPECT_TRUE(w.read_file(grow.disk_path, back, e) && back == grow.bytes);
     w.close();
+
+    // A list whose chain holds more clusters than its size needs: the
+    // replace reuses them all, so growing into them needs no free cluster.
+    {
+        fatimg::Image roomy(512, 8, 0, 32);
+        roomy.write_dir({2}, root);
+        roomy.write_dir({3}, fatimg::short_entry("HASH       ", 0x10, 5, 0));
+        roomy.write_dir({5}, fatimg::short_entry("BIG     HSH", 0x20, 6, 100));
+        roomy.write_data({4}, packages_bin(0x01031374u));
+        roomy.write_data({6, 7}, fatimg::Bytes(100, 0x11));
+        std::vector<std::uint32_t> rest;
+        for (std::uint32_t c = 8; c < 2 + 32; ++c) rest.push_back(c);
+        roomy.chain(rest);
+        fatimg::Bytes roomy_plain = roomy.bytes;
+        roomy_plain.resize((roomy_plain.size() + kChunk - 1) / kChunk * kChunk, 0);
+        MemoryJelly spare{encrypt(roomy_plain, kMemoryKey)};
+        CtgpPackWriter r;
+        EXPECT_TRUE(r.open(spare.io(), spare.image.size(), kMemoryKey, kIv, e));
+        EXPECT_TRUE(r.free_clusters() == 0);
+        CtgpHashUpdateList fill;
+        fill.package = "BIG";
+        fill.disk_path = "/PACKAGES/HASH/BIG.HSH";
+        fill.bytes.assign(2 * cb - 10, 0x55);
+        const bool roomy_fits = ctgp_hash_update_fits(r, {fill}, e, &needs_growth);
+        if (!roomy_fits) std::cerr << "roomy chain: " << e << std::endl;
+        EXPECT_TRUE(roomy_fits && !needs_growth);
+        EXPECT_TRUE(ctgp_hash_update_write(r, {fill}, 0x01031375u, e));
+        r.close();
+    }
 }
 
 // The read-back compares the whole PACKAGES.BIN with what was written, and
@@ -736,6 +775,12 @@ void test_verify_packages() {
         other[16 + 11] ^= 1;  // the RMC record's version
         EXPECT_TRUE(!ctgp_hash_update_verify(w, {new_list()}, 0x01031374u, e, &key, &other));
         EXPECT_TRUE(e.find("version list") != std::string::npos);
+        // A damaged magic is refused even with nothing to compare against.
+        auto damaged = same;
+        damaged[0] = 'X';
+        EXPECT_TRUE(w.replace_file("/PACKAGES.BIN", damaged.data(), damaged.size(), e));
+        EXPECT_TRUE(!ctgp_hash_update_verify(w, {new_list()}, 0x01031374u, e, &key));
+        EXPECT_TRUE(e.find("damaged") != std::string::npos);
         w.close();
     }
     {

@@ -6,6 +6,7 @@
 #include "riftwii/ctgphash.hpp"
 #include "riftwii/ctgpjournal.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 namespace riftwii {
@@ -27,8 +28,11 @@ bool collect(void* user, const std::uint8_t* data, std::size_t length) {
 bool package_of(const std::string& path, std::string& package) {
     if (path.size() < 6 || path[0] != '/') return false;
     const std::size_t dot = path.size() - 4;
-    const std::string ending = path.substr(dot);
-    if (ending != ".hsh" && ending != ".HSH") return false;
+    std::string ending = path.substr(dot);
+    for (char& c : ending) {
+        if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+    }
+    if (ending != ".hsh") return false;
     const std::string stem = path.substr(1, dot - 1);
     if (stem.empty() || stem.size() > 8) return false;
     package.clear();
@@ -131,9 +135,14 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
         }
         CtgpDif dif;
         bool unsupported = false;
-        if (!ctgp_dif_parse(section.data(), section.size(), dif, &unsupported, error)) {
-            failure = unsupported ? CtgpUpdateFailure::Unsupported : CtgpUpdateFailure::BadUpdate;
-            return false;
+        {
+            OutOfMemoryScope parse_memory;  // out of memory: Temporary, not a bad section
+            if (!ctgp_dif_parse(section.data(), section.size(), dif, &unsupported, error)) {
+                failure = parse_memory.failed() ? CtgpUpdateFailure::Temporary
+                          : unsupported         ? CtgpUpdateFailure::Unsupported
+                                                : CtgpUpdateFailure::BadUpdate;
+                return false;
+            }
         }
         CtgpHashUpdateList list;
         list.section_path = ctgp_dif_path(section.data(), section.size(), dif.path_table);
@@ -163,7 +172,12 @@ bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, cons
             return false;
         }
         std::string apply_error;
+        OutOfMemoryScope rebuild_memory;
         if (!ctgp_dif_apply(section.data(), section.size(), dif, {}, collect, &list.bytes, apply_error)) {
+            if (rebuild_memory.failed()) {
+                error = list.section_path + ": " + apply_error;
+                return false;  // still Temporary
+            }
             failure = CtgpUpdateFailure::BadUpdate;
             error = list.section_path + ": " + apply_error;
             return false;
@@ -207,9 +221,10 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
     std::uint64_t balance = jelly.free_clusters();
     for (const CtgpHashUpdateList& list : lists) {
         std::uint32_t old_size = 0;
+        std::uint32_t old_clusters = 0;
         bool present = false;
         std::string read_error;
-        if (!jelly.stat_file(list.disk_path, present, old_size, read_error)) {
+        if (!jelly.stat_file(list.disk_path, present, old_size, read_error, &old_clusters)) {
             // The card or the disk, not the update: it may go in next time.
             error = "jelly.bin's " + list.disk_path + " could not be looked up: " + read_error;
             return false;
@@ -226,7 +241,9 @@ bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpda
             error = "jelly.bin's " + list.disk_path + " could not be read: " + read_error;
             return false;
         }
-        const std::uint64_t now = clusters_for(old_size, cluster);
+        // What the old chain holds, not what its size needs: the replace
+        // reuses every cluster of it.
+        const std::uint64_t now = std::max<std::uint64_t>(old_clusters, clusters_for(old_size, cluster));
         const std::uint64_t then = clusters_for(list.bytes.size(), cluster);
         if (then > now && then - now > balance) {
             error = "the new " + list.disk_path + " needs " + std::to_string(then - now) +
@@ -298,6 +315,16 @@ bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUp
     if (expected_packages != nullptr && bytes != *expected_packages) {
         error = "jelly.bin's version list reads back different from what was written";
         return false;
+    }
+    // Its shape, with or without the bytes to compare: the same checks as
+    // ctgp_packages_set_version (magic, record count), on a copy.
+    {
+        std::vector<std::uint8_t> shape = bytes;
+        std::string shape_error;
+        if (!ctgp_packages_set_version(shape, "HASH", version, shape_error)) {
+            error = "jelly.bin's version list reads back damaged: " + shape_error;
+            return false;
+        }
     }
     const std::uint32_t count = bytes.size() >= 16 ? be32(bytes.data() + 12) : 0;
     for (std::uint32_t i = 0; i < count && 16 + i * 16 + 16 <= bytes.size(); ++i) {
