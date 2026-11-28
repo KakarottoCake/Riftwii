@@ -325,39 +325,48 @@ bool blob_whole(int kind) {
     }
     // The install writes 16 bytes at each replay and each way back: two that
     // overlap would have the second write over the first, so each must stay
-    // clear of every other (CodeRabbit on #650).
+    // clear of every other, and of every hook's entry and the IPC callback
+    // (their first word, where the game's branch lands), which a write over
+    // would leave the game branching into replaced code (CodeRabbit on #650).
     {
-        std::uint32_t slots[30];  // two for each of the 15 sites a build may have
-        std::size_t count = 0;
-        const auto add = [&](std::uint32_t replay, std::uint32_t resume) {
+        std::uint32_t slots[30];    // two for each of the 15 sites a build may have
+        std::uint32_t entries[16];  // each site's hook, and the IPC callback
+        std::size_t count = 0, entry_count = 0;
+        const auto add = [&](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume) {
+            if (hook != 0) entries[entry_count++] = hook;
             if (replay != 0) slots[count++] = replay;
             if (resume != 0) slots[count++] = resume;
         };
-        add(h.replay_read, h.continue_read);
-        add(h.replay_motor, h.continue_motor);
-        add(h.replay_submit, h.continue_submit);
-        add(h.replay_sleep, h.continue_sleep);
-        add(h.replay_suspend, h.continue_suspend);
-        add(h.replay_restart, h.continue_restart);
-        add(h.replay_si_probe, h.continue_si_probe);
+        add(h.hook_read, h.replay_read, h.continue_read);
+        add(h.hook_motor, h.replay_motor, h.continue_motor);
+        add(h.complete, 0, 0);
+        add(h.hook_submit, h.replay_submit, h.continue_submit);
+        add(h.hook_sleep, h.replay_sleep, h.continue_sleep);
+        add(h.hook_suspend, h.replay_suspend, h.continue_suspend);
+        add(h.hook_restart, h.replay_restart, h.continue_restart);
+        add(h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
         if (!no_home(kind)) {
-            add(h.replay_kpad, h.continue_kpad);
-            add(h.replay_probe, h.continue_probe);
-            add(h.replay_menu, h.continue_menu);
-            add(h.replay_select, h.continue_select);
-            add(h.replay_unified, h.continue_unified);
+            add(h.hook_kpad, h.replay_kpad, h.continue_kpad);
+            add(h.hook_probe, h.replay_probe, h.continue_probe);
+            add(h.hook_menu, h.replay_menu, h.continue_menu);
+            add(h.hook_select, h.replay_select, h.continue_select);
+            add(h.hook_unified, h.replay_unified, h.continue_unified);
         }
         if (standin_kind(kind)) {
             const rt_pad_standin_header& own =
                 *reinterpret_cast<const rt_pad_standin_header*>(blob(kind) + sizeof(rt_pad_header));
-            add(own.replay_info, own.continue_info);
-            add(own.replay_wread, own.continue_wread);
-            add(own.replay_format, own.continue_format);
+            add(own.hook_info, own.replay_info, own.continue_info);
+            add(own.hook_wread, own.replay_wread, own.continue_wread);
+            add(own.hook_format, own.replay_format, own.continue_format);
         }
-        for (std::size_t i = 0; i < count; ++i)
+        for (std::size_t i = 0; i < count; ++i) {
             for (std::size_t j = 0; j < i; ++j)
                 if (slots[i] < std::uint64_t(slots[j]) + kSiteBytes && slots[j] < std::uint64_t(slots[i]) + kSiteBytes)
                     return false;
+            for (std::size_t e = 0; e < entry_count; ++e)
+                if (entries[e] < std::uint64_t(slots[i]) + kSiteBytes && slots[i] < std::uint64_t(entries[e]) + 4)
+                    return false;
+        }
     }
     if (no_home(kind)) return true;
     // The HOME Menu's five sites, each with its replay and way back: one
