@@ -1580,6 +1580,11 @@ T = {
         "パックが独自の操作を使うため、「コントローラーの役割」はオフです。",
         "Um pacote traz seus controles: 'Os controles agem como' ignorado.",
         "Un pacchetto ha i suoi comandi: 'I controller fanno da' ignorato."),
+    "A pack couldn't be checked: 'Controllers act as' is off.": (
+        "Paquete sin comprobar: se ignora 'Los mandos actúan como'.",
+        "パックを確認できないため、「コントローラーの役割」はオフです。",
+        "Pacote não verificado: 'Os controles agem como' ignorado.",
+        "Pacchetto non verificabile: 'I controller fanno da' ignorato."),
     "Sideways": ("De lado", "横持ち", "De lado", "Di lato"),
     "Pointing": ("Apuntando", "ポインター", "Apontando", "Puntamento"),
     "Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.": (
@@ -3499,6 +3504,8 @@ KO = {
         "클래식",
     "A pack brings its own controls: 'Controllers act as' is off.":
         "팩이 자체 조작을 사용하므로 '컨트롤러 역할'은 꺼집니다.",
+    "A pack couldn't be checked: 'Controllers act as' is off.":
+        "팩을 확인할 수 없어 '컨트롤러 역할'은 꺼집니다.",
     "Sideways":
         "가로",
     "Pointing":
@@ -5401,6 +5408,8 @@ FR = {
         "Classique",
     "A pack brings its own controls: 'Controllers act as' is off.":
         "Un pack a ses contrôles : 'Les manettes jouent comme' ignoré.",
+    "A pack couldn't be checked: 'Controllers act as' is off.":
+        "Pack non vérifiable : 'Les manettes jouent comme' ignoré.",
     "Sideways":
         "À l'horizontale",
     "Pointing":

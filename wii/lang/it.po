@@ -1551,6 +1551,9 @@ msgstr "Tradizionale"
 msgid "A pack brings its own controls: 'Controllers act as' is off."
 msgstr "Un pacchetto ha i suoi comandi: 'I controller fanno da' ignorato."
 
+msgid "A pack couldn't be checked: 'Controllers act as' is off."
+msgstr "Pacchetto non verificabile: 'I controller fanno da' ignorato."
+
 msgid "Sideways"
 msgstr "Di lato"
 

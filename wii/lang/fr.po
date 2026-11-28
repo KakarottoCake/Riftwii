@@ -1551,6 +1551,9 @@ msgstr "Classique"
 msgid "A pack brings its own controls: 'Controllers act as' is off."
 msgstr "Un pack a ses contrôles : 'Les manettes jouent comme' ignoré."
 
+msgid "A pack couldn't be checked: 'Controllers act as' is off."
+msgstr "Pack non vérifiable : 'Les manettes jouent comme' ignoré."
+
 msgid "Sideways"
 msgstr "À l'horizontale"
 

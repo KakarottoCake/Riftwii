@@ -1146,7 +1146,11 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
         out.incomplete = true;
         return out;
     }
-    out.program = image;
+    // (A copy sized by the disc's loads: AGENTS.md's rule; CodeRabbit on #650.)
+    if (!try_assign_range(out.program, image.begin(), image.end())) {
+        out.incomplete = true;
+        return out;
+    }
     const auto byte_at = [&](std::uint32_t address, std::uint8_t& value) {
         const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
         if (address < 0x80000000u || address >= ram_end) return false;
@@ -1734,14 +1738,20 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     // decides where its next one may be (CodeRabbit on #650). A launch with
     // no such list (a channel's, which has no packs) takes the DOL's
     // sections, its code and data.
+    // (Sized by the disc's loads: asked for through checkedalloc, and a list
+    // that can't be held is a plan the checks can't vouch for, so the
+    // stand-in steps aside; AGENTS.md's rule, CodeRabbit on #650.)
     std::vector<CodeRange> image;
-    for (std::size_t i = 0; standin && i < loaded.size(); ++i)
+    const bool image_held = !standin || try_reserve(image, loaded.empty() ? std::size_t(kDolSections) : loaded.size());
+    for (std::size_t i = 0; standin && image_held && i < loaded.size(); ++i)
         image.push_back({loaded[i].address, reinterpret_cast<const std::uint8_t*>(loaded[i].address), loaded[i].length});
-    for (std::size_t i = 0; standin && loaded.empty() && i < kDolSections; ++i) {
+    for (std::size_t i = 0; standin && image_held && loaded.empty() && i < kDolSections; ++i) {
         const DolSection& s = dol.sections[i];
         if (s.used()) image.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
-    const PackWrites plan = standin ? plan_pack_writes(patches, image) : PackWrites{};
+    PackWrites plan;
+    if (standin && image_held) plan = plan_pack_writes(patches, image);
+    else if (standin) plan.incomplete = true;
     // The Wii Remotes' dimming reset found above, as all the pack's writes
     // leave it: the view it was found in has the plain patches only, so a
     // search patch's write over it (or a file patch's, whose bytes aren't
@@ -1806,27 +1816,37 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
                                                  wpad_read_hooked, program_from_pack);
     const bool pack_ports =
         standin && !pack_reads_pad && !program_pad && !too_many && !pack_wraps && pack_reads_gc_ports(all_spans);
-    // With no adapter (the Wii's own ports), a pack that reads the ports
-    // itself has its GameCube controllers already, so the stand-in steps
-    // aside then too; with the adapter it keeps the controls, below
-    // (CodeRabbit on #650).
+    // With no USB controller wanted (the Wii's own ports only), a pack that
+    // reads the ports itself has its GameCube controllers already, so the
+    // stand-in steps aside then too (CodeRabbit on #650). With the adapter
+    // or a mapped USB pad (an Xbox 360 one too), or the setting On (one may
+    // be plugged in during the game), it keeps the controls, below: the pack
+    // reads only the Wii's ports, so the stand-in is their only way in.
     const bool pack_ports_own = pack_ports && (program_from_pack || !usb);
     if (pack_reads_pad || program_pad || too_many || pack_wraps || pack_ports_own) {
         // (Its own code wins over the game's setting and over a pack's
         // riftwii-gc-controllers request alike: one input, never both.)
-        logf("GameCube adapter: a pack brings its own controller code (%s), so the GameCube controllers' stand-in "
-             "stays off for this launch\n",
-             pack_reads_pad ? "its PADRead is in its memory patches"
-             : program_pad  ? "the program file it brings has a PADRead"
-             : too_many     ? "its memory patches write more than the checks follow"
-             : pack_wraps   ? "it hooks or reroutes the game's Wii controller reads"
-             : program_from_pack ? "it reads the GameCube ports, in the program file it brings"
-                                 : "it reads the Wii's own GameCube ports itself");
+        if (too_many)
+            logf("GameCube adapter: a pack's memory patches write more than the checks follow, so they can't vouch "
+                 "that it brings no controller code; the GameCube controllers' stand-in stays off for this launch\n");
+        else
+            logf("GameCube adapter: a pack brings its own controller code (%s), so the GameCube controllers' "
+                 "stand-in stays off for this launch\n",
+                 pack_reads_pad ? "its PADRead is in its memory patches"
+                 : program_pad  ? "the program file it brings has a PADRead"
+                 : pack_wraps   ? "it hooks or reroutes the game's Wii controller reads"
+                 : program_from_pack ? "it reads the GameCube ports, in the program file it brings"
+                                     : "it reads the Wii's own GameCube ports itself");
         // The menu can't know this before the game's code is in memory:
-        // said on the launch screen too.
+        // said on the launch screen too, apart for a pack the checks can't
+        // follow, which may bring none (CodeRabbit on #650).
         // (Written out twice: tools/lang_source.py finds tr's literals.)
-        ProgressNote(tr("A pack brings its own controls: 'Controllers act as' is off."),
-                     "A pack brings its own controls: 'Controllers act as' is off.");
+        if (too_many)
+            ProgressNote(tr("A pack couldn't be checked: 'Controllers act as' is off."),
+                         "A pack couldn't be checked: 'Controllers act as' is off.");
+        else
+            ProgressNote(tr("A pack brings its own controls: 'Controllers act as' is off."),
+                         "A pack brings its own controls: 'Controllers act as' is off.");
         standin = false;
         out.standin = out.standin_nunchuk = out.standin_sideways = out.standin_pointing = false;
     } else if (pack_ports) {
@@ -1839,8 +1859,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         // quatric's Excite Truck patch also takes its input inside KPAD's
         // handling of a Wii Remote's reports, which a connection alone
         // doesn't start.
-        logf("GameCube adapter: a pack reads the GameCube controller ports itself, which the adapter doesn't "
-             "answer; the GameCube controllers' stand-in keeps the controls for this launch\n");
+        logf("GameCube adapter: a pack reads the GameCube controller ports itself, which the adapter and USB pads "
+             "don't answer; the GameCube controllers' stand-in keeps the controls for this launch\n");
     }
     // The Wii's own ports are read only through a PADRead (the game's, or
     // one a pack's patch adds, plain or search): with none and no adapter,

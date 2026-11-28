@@ -1551,6 +1551,9 @@ msgstr "Clásico"
 msgid "A pack brings its own controls: 'Controllers act as' is off."
 msgstr "Un paquete trae sus controles: se ignora 'Los mandos actúan como'."
 
+msgid "A pack couldn't be checked: 'Controllers act as' is off."
+msgstr "Paquete sin comprobar: se ignora 'Los mandos actúan como'."
+
 msgid "Sideways"
 msgstr "De lado"
 

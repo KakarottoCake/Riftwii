@@ -1551,6 +1551,9 @@ msgstr "클래식"
 msgid "A pack brings its own controls: 'Controllers act as' is off."
 msgstr "팩이 자체 조작을 사용하므로 '컨트롤러 역할'은 꺼집니다."
 
+msgid "A pack couldn't be checked: 'Controllers act as' is off."
+msgstr "팩을 확인할 수 없어 '컨트롤러 역할'은 꺼집니다."
+
 msgid "Sideways"
 msgstr "가로"
 
