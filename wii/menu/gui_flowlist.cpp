@@ -36,6 +36,7 @@ constexpr int kStepperMinMiddle = 140;
 constexpr float kSmallScale = 0.72f;
 constexpr int kSmallStep = 25;      // the small arrow's visible circle, about
 constexpr int kSmallPair = 2 * kSmallStep + 4;
+constexpr int kCompactTop = 5;     // a narrow row's name, from the card's top
 constexpr int kDragStart = 8;  // pixels the pointer moves before a press becomes a drag
 constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
@@ -308,10 +309,12 @@ void GuiFlowList::Draw() {
                 const bool onButton = cards && r.button && !text.empty();
                 int end = 0;
                 if (r.kind == FlowRow::Kind::Option && !r.dim) end = kSmallPair;
-                else if (r.kind == FlowRow::Kind::Toggle) end = kSwitchW + 64;
+                else if (r.kind == FlowRow::Kind::Toggle) end = kSwitchW;
                 else if (onButton) end = std::min(value[i]->GetTextWidth(), kChipW - 20) + 32;
                 label[i]->SetFontSize(r.heading ? 18 : note ? 14 : 16);
-                label[i]->SetMaxWidth(room - (end ? end + kPad : 0));
+                // A button that would cut its name goes under it instead.
+                stackedButton[i] = onButton && label[i]->GetTextWidth() > room - end - kPad;
+                label[i]->SetMaxWidth(stackedButton[i] ? room : room - (end ? end + kPad : 0));
                 value[i]->SetFontSize(14);
                 if (!onButton && r.kind != FlowRow::Kind::Info) value[i]->SetMaxWidth(room - (end ? end + kPad : 0));
                 detail[i]->SetText(nullptr);
@@ -432,11 +435,12 @@ void GuiFlowList::Draw() {
         const int lineH = LineHeight(r);
         // A narrow list: the name above its value (when the value is shown
         // under it), or alone in the row's middle.
-        const bool valueUnder = compact && !r.value.empty() && r.kind != FlowRow::Kind::Info &&
-                                r.kind != FlowRow::Kind::Toggle && !(cards && r.button);
+        const bool valueUnder = compact && !r.value.empty() && r.kind != FlowRow::Kind::Info && !(cards && r.button);
+        const bool buttonUnder = compact && stackedButton[i] && cards && r.button && !r.value.empty();
         const int compactPoints = r.heading ? 18 : (r.kind == FlowRow::Kind::Info && !fact) ? 14 : 16;
         if (compact) {
-            label[i]->SetPosition(textLeft, valueUnder ? y + kCardGap + 3 : y + (rowH - compactPoints) / 2 - 2);
+            label[i]->SetPosition(textLeft, buttonUnder ? y + kCardGap + 3
+                : valueUnder ? y + kCardGap + kCompactTop : y + (rowH - compactPoints) / 2 - 2);
             label[i]->Draw();
         } else if (notesUnder && !r.detail.empty()) {
             // The label and the control on the top line; the explanation
@@ -494,7 +498,7 @@ void GuiFlowList::Draw() {
             if (compact && valueUnder) {
                 // Under the name, in the dim ink or the accent; a live
                 // option's two small arrows at the row's end.
-                value[i]->SetPosition(textLeft, y + kCardGap + 3 + 19);
+                value[i]->SetPosition(textLeft, y + kCardGap + kCompactTop + 20);
                 value[i]->Draw();
                 if (r.kind == FlowRow::Kind::Option && !r.dim) {
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
@@ -523,14 +527,14 @@ void GuiFlowList::Draw() {
                 // A thing to do: its verb on a button of its own, the
                 // theme's primary tile, so it does not read as a setting.
                 const int tw = std::min(value[i]->GetTextWidth(), kChipW - 20);
-                const int bw = tw + 32, bh = kChipH + 2;
-                const int bx = right - bw, by = cy - 1;
+                const int bw = tw + 32, bh = buttonUnder ? 24 : kChipH + 2;
+                const int bx = right - bw, by = buttonUnder ? y + rowH - kCardGap - 2 - bh : cy - 1;
                 const bool over = index == lit && !dragging;
                 skin::DrawNine(over ? skin::tile9PrimaryOver : skin::tile9Primary, bx - kCardShadow, by - kCardShadow,
                                bw + 2 * kCardShadow, bh + 2 * kCardShadow, skin::kTileCorner,
                                r.dim ? alpha / 2 : alpha);
                 value[i]->SetColor(r.dim ? skin::kInkDim : skin::kAccentInk);
-                value[i]->SetPosition(bx + (bw - tw) / 2, textY);
+                value[i]->SetPosition(bx + (bw - tw) / 2, buttonUnder ? by + (bh - 15) / 2 - 2 : textY);
                 value[i]->Draw();
             } else if (!r.value.empty() || OpensScreen(r)) {
                 endText();
@@ -563,8 +567,12 @@ void GuiFlowList::Draw() {
                 const int swAlpha = r.dim ? alpha / 2 : alpha;
                 if (sw < 1.0f) skin::Draw(skin::switchOff, swX - 3, cy - 4, swAlpha);
                 if (sw > 0.0f) skin::Draw(skin::switchOn, swX - 3, cy - 4, static_cast<int>(swAlpha * sw));
-                const int tw = value[i]->GetTextWidth();
-                value[i]->SetPosition(swX - 12 - tw, textY);
+                if (compact) {
+                    // Under the name, as an option's value is.
+                    value[i]->SetPosition(textLeft, y + kCardGap + kCompactTop + 20);
+                } else {
+                    value[i]->SetPosition(swX - 12 - value[i]->GetTextWidth(), textY);
+                }
                 value[i]->Draw();
                 break;
             }

@@ -899,6 +899,17 @@ struct Painter {
         c.line(14, 3.5f, 14, 13, 2.6f, glyph);
         return c;
     }
+    // An exit sign: a doorway open on its right and an arrow going out.
+    Canvas Exit() const {
+        Canvas c(28, 28);
+        c.line(13, 4.5f, 5, 4.5f, 2.4f, glyph);
+        c.line(5, 4.5f, 5, 23.5f, 2.4f, glyph);
+        c.line(5, 23.5f, 13, 23.5f, 2.4f, glyph);
+        c.line(11, 14, 24, 14, 2.4f, glyph);
+        c.line(19, 9, 24, 14, 2.4f, glyph);
+        c.line(19, 19, 24, 14, 2.4f, glyph);
+        return c;
+    }
     Canvas Note() const {
         Canvas c(28, 28);
         c.circle(10, 20.5f, 3.6f, glyph);
@@ -1416,6 +1427,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_home", [](const Painter& q) { return q.House(); }},
         {"icon_sound", [](const Painter& q) { return q.Note(); }},
         {"icon_power", [](const Painter& q) { return q.Power(); }},
+        {"icon_exit", [](const Painter& q) { return q.Exit(); }},
         {"icon_wii", [](const Painter& q) { return q.WiiRemote(); }},
         {"icon_gamecube", [](const Painter& q) { return q.GameCubePad(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},

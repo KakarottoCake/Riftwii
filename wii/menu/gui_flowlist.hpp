@@ -138,6 +138,7 @@ private:
     bool clickStepped = false;
     bool notesUnder = false;
     bool compact = false;
+    bool stackedButton[kMaxVisible + 1] = {};  // compact: the button is under a long name
     bool sideKeys = false, leftPressed = false;
     // A held on the list: which Wii Remote, where it started, what it was on.
     int grabChan = -1, grabY = 0, grabRow = -1;

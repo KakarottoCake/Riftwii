@@ -59,8 +59,8 @@ public:
         rightPressed = false;
         return r;
     }
-    // The tile a page is on while the focus is elsewhere: a quieter ring,
-    // so the page's choice is still plain. -1 for none.
+    // The tile a page is on while the focus is elsewhere: its name in the
+    // accent colour and a thin bar at its side, no ring. -1 for none.
     void SetCurrent(int index) { current = index; }
     // How lit the tile looks, 0 to 1, for a hidden tile's own element.
     float Lift(int index) const {
@@ -88,6 +88,7 @@ private:
     std::vector<GuiText*> label;
     std::vector<GuiText*> value;
     std::vector<int> labelSize;  // the size Layout picked for each tile's name
+    std::vector<char> labelMarked;   // names drawn in the accent colour (SetCurrent)
     std::vector<char> chevronShown;  // opensPage, unless the name needed its room
     bool dirty = true;
     GuiSound* soundOver;

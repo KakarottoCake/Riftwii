@@ -20787,8 +20787,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		actions.push_back(kCredits);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
-		exitRow.label = "Leave RiftWii";
-		exitRow.value = "Exit";
+		exitRow.label = tr("Leave RiftWii");
+		exitRow.value = tr("Exit");
 		rows.push_back(exitRow);
 		actions.push_back(kExit);
 
@@ -20944,7 +20944,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	const int rowsW = twoPane ? page.right - rowsX : 560;
 	const bool compact = twoPane && rowsW < 470;
 	const int noteX = twoPane ? rowsX : NoteCard::kX;
-	const int noteW = twoPane ? rowsW - 40 : NoteCard::kTextW;
+	// The note ends where the rows' cards do (the scroll column, 42 wide,
+	// is left clear), and is three lines at 4:3.
+	const int noteW = twoPane ? rowsW - 42 - 36 : NoteCard::kTextW;
 
 	std::vector<TileSpec> sectionTiles;
 	GuiTiles sectionList;
@@ -20968,8 +20970,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		exitTile.y = kListTop + 8 * kTilePitch + 8;
 		exitTile.w = leftW;
 		exitTile.h = kTileH;
-		exitTile.label = tr("Exit");
-		exitTile.icon = &skin::iconPower;
+		exitTile.label = tr("Exit RiftWii");
+		exitTile.icon = skin::iconExit.data ? &skin::iconExit : &skin::iconPower;
 		exitTile.labelPoints = 18;
 		sectionTiles.push_back(exitTile);
 		sectionList.SetTiles(&sectionTiles);
@@ -20979,16 +20981,16 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		// Search every setting: at the band's right, as Home's is on its
 		// bar; 1 (Classic Y, GameCube Y) too.
 		searchOwned.reset(new SkinButton(skin::roundBtn, skin::roundBtnOver, 2, page.right - 38, 22, nullptr,
-			WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f));
+			WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_X, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f));  // X: Y steps a row back on a GameCube controller
 		searchOwned->backAction = false;
 		searchButton = searchOwned.get();
 	}
 	NoteCard noteCard(noteX);
 	// The explanation under each row (the full width) at 16:9 and in a
 	// search: four rows of 58 end where the note starts (y 316). Narrow
-	// rows are one line shorter, five of 46.
-	GuiFlowList list(rowsX, 84, rowsW, compact ? 5 : 4);
-	list.SetRowHeight(compact ? 46 : 58);
+	// rows are 54 tall, four of them.
+	GuiFlowList list(rowsX, 84, rowsW, 4);
+	list.SetRowHeight(compact ? 54 : 58);
 	list.SetNotesUnder(!compact);
 	list.SetCompact(compact);
 	list.SetSideKeys(twoPane);
@@ -20996,7 +20998,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	list.SetRows(&rows);
 	list.Select(0);
 	if (twoPane) list.SetKeysActive(false);
-	const int noteLines = NoteCard::kLines;
+	const int noteLines = compact ? 3 : NoteCard::kLines;
 	GuiText noteTxt("", compact ? 14 : 15, skin::kInkSoft);
 	Place(noteTxt, noteX + 36, NoteCard::kTextY);
 	noteTxt.SetWrap(true, noteW, noteLines);

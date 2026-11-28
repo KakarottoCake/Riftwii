@@ -245,6 +245,7 @@ void GuiTiles::Draw() {
         dirty = false;
         for (int i = 0; i < Count(); ++i) Layout(i);
         EvenTextSizes();
+        labelMarked.assign(label.size(), 0);
     }
     pressScale = riftwii::wii::transition::PressScale(pressElapsed);
     const int lit = hover >= 0 ? hover : (AnyPointer() || !keysActive ? -1 : focus);
@@ -252,8 +253,6 @@ void GuiTiles::Draw() {
         const TileSpec& s = (*tiles)[i];
         float& l = lift[i];
         l = std::clamp(swell[i].Advance(i == lit), 0.0f, 1.0f);
-        // The page's own tile keeps a ring while the focus is in the other list.
-        if (i == current && i != lit) l = std::max(l, 0.55f);
         if (s.hidden) continue;
         // Lit, the tile keeps its size and its ring fades in (and pulses).
         // A tile that grew stuck out past the tiles in line with it: the
@@ -293,6 +292,16 @@ void GuiTiles::Draw() {
             skin::Draw(*s.icon, iconX, iconY, s.dim ? alpha / 2 : alpha, iconScale);
         }
         // The lit tile's name scrolls when it does not fit; the others end in "...".
+        // The page's own tile, while the focus is elsewhere, is marked softly
+        // (its name in the accent colour and a thin bar at its side), so only
+        // the focused tile has an outline.
+        const bool marked = i == current && i != lit;
+        if (marked != (labelMarked.size() > static_cast<std::size_t>(i) && labelMarked[i])) {
+            labelMarked.resize(label.size(), 0);
+            labelMarked[i] = marked;
+            label[i]->SetColor(marked ? skin::kAccentInk : s.dim ? skin::kInkDim : s.primary ? skin::kAccentInk : skin::kInk);
+        }
+        if (marked) Menu_DrawRectangle(x + 5, y + 7, 3, h - 14, skin::kAccent, 1);
         label[i]->SetScroll(i == lit ? SCROLL::HORIZONTAL : SCROLL::NONE);
         label[i]->Draw();
         if (!s.value.empty()) value[i]->Draw();
