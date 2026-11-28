@@ -1151,9 +1151,22 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
         out.incomplete = true;
         return out;
     }
+    // Each byte read where an earlier write may reach looks through every
+    // earlier write, which the search budget below doesn't count (it counts
+    // the places searched): those looks have a budget of their own, a few
+    // tenths of a second's work. Past it the plan is incomplete, and the
+    // stand-in steps aside (CodeRabbit on #651).
+    constexpr std::uint64_t kMaxWriteLooks = std::uint64_t(1) << 24;
+    std::uint64_t write_looks = 0;
+    bool overworked = false;
     const auto byte_at = [&](std::uint32_t address, std::uint8_t& value) {
         const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
         if (address < 0x80000000u || address >= ram_end) return false;
+        write_looks += out.writes.size();
+        if (write_looks > kMaxWriteLooks) {
+            overworked = true;
+            return false;
+        }
         // libogc's exception stubs at 0x80001000-0x800012ff are cleared
         // before the patches go in (boot.cpp), so a guard there reads 0.
         value = address - 0x80001000u < 0x300u ? 0 : *reinterpret_cast<const volatile std::uint8_t*>(address);
@@ -1200,6 +1213,11 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
         return true;
     };
     for (std::size_t i = 0; i < patches.size(); ++i) {
+        // (A search cut short by the looks' budget may have missed a match.)
+        if (overworked) {
+            out.incomplete = true;
+            return out;
+        }
         const MemoryPatch& patch = patches[i];
         // A file patch: its guard judged like any other's, its place noted.
         // A file-backed search can't be planned (its bytes aren't read yet
@@ -1362,6 +1380,7 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             return out;
         }
     }
+    out.incomplete = out.incomplete || overworked;
     return out;
 }
 
@@ -1799,7 +1818,10 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
         // Its PADControlMotor beside it where the search found just one (the
         // game's own otherwise), so rumble reaches the adapter as with a
         // plain patch's (CodeRabbit on #650).
-        if (searched.control_motor != 0) pad.control_motor = searched.control_motor;
+        if (searched.control_motor != 0) {
+            pad.control_motor = searched.control_motor;
+            out.motor_in_patch = true;
+        }
         out.read = pad.read;
         out.read_in_patch = true;
         // Sized by the pack (AGENTS.md's rule; CodeRabbit on #650): where it

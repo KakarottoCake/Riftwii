@@ -80,6 +80,8 @@ struct PadHook {
     bool read_in_patch = false;      // found in the packs' memory patches (checked again once they're in)
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
+    bool motor_in_patch = false;     // found beside a PADRead in the packs' memory patches (there once they're in)
+    std::uint32_t motor_off_late = 0; // rumble Off with a pack's PADControlMotor: it returns at once once they're in
     std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
     std::uint32_t si_probe = 0;      // SIProbe, 0: not found (a game that asks it which ports have a controller sees none, #510)
     std::uint32_t code_base = 0;     // the blob (MEM1)
