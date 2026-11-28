@@ -11288,15 +11288,14 @@ FR.update({
 # CTGP-R updates (review of #561): a held update the card would not rename
 # back.
 T.update({
-    'a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif': ('no se pudo devolver una actualización en espera; cambia el nombre de update.dif.held a update.dif en la carpeta ctgpr de la tarjeta SD', '待機中の更新を元に戻せませんでした。SDカードのctgprフォルダにあるupdate.dif.heldの名前をupdate.difに変更してください', 'não foi possível repor uma atualização em espera; mude o nome de update.dif.held para update.dif na pasta ctgpr do cartão SD', "non è stato possibile ripristinare un aggiornamento in attesa; rinomina update.dif.held in update.dif nella cartella ctgpr della scheda SD"),
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': ('No se pudo devolver una actualización de CTGP-R en espera. Cambia el nombre de update.dif.held a update.dif en la carpeta ctgpr de la tarjeta SD y se instalará la próxima vez.', '待機中のCTGP-Rの更新を元に戻せませんでした。SDカードのctgprフォルダにあるupdate.dif.heldの名前をupdate.difに変更すると、次回インストールされます。', 'Não foi possível repor uma atualização do CTGP-R em espera. Mude o nome de update.dif.held para update.dif na pasta ctgpr do cartão SD e ela será instalada da próxima vez.', "Non è stato possibile ripristinare un aggiornamento di CTGP-R in attesa. Rinomina update.dif.held in update.dif nella cartella ctgpr della scheda SD e verrà installato la prossima volta."),
 })
 KO.update({
-    'a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif': '대기 중인 업데이트를 되돌릴 수 없었습니다. SD 카드의 ctgpr 폴더에서 update.dif.held의 이름을 update.dif로 바꾸세요',
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': '대기 중인 CTGP-R 업데이트를 되돌릴 수 없었습니다. SD 카드의 ctgpr 폴더에서 update.dif.held의 이름을 update.dif로 바꾸면 다음에 설치됩니다.',
 })
 FR.update({
-    'a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif': "une mise à jour en attente n'a pas pu être remise en place ; renommez update.dif.held en update.dif dans le dossier ctgpr de la carte SD",
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': "Une mise à jour de CTGP-R en attente n'a pas pu être remise en place. Renommez update.dif.held en update.dif dans le dossier ctgpr de la carte SD, et elle s'installera la prochaine fois.",
 })
-
 
 if __name__ == "__main__":
     main()

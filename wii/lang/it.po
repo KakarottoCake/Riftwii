@@ -5709,5 +5709,5 @@ msgstr "non è stato possibile leggere la scheda SD; riprova"
 msgid "the update server could not be asked for the next one ({1})"
 msgstr "non è stato possibile chiedere al server degli aggiornamenti il successivo ({1})"
 
-msgid "a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif"
-msgstr "non è stato possibile ripristinare un aggiornamento in attesa; rinomina update.dif.held in update.dif nella cartella ctgpr della scheda SD"
+msgid "A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time."
+msgstr "Non è stato possibile ripristinare un aggiornamento di CTGP-R in attesa. Rinomina update.dif.held in update.dif nella cartella ctgpr della scheda SD e verrà installato la prossima volta."

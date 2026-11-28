@@ -22718,10 +22718,13 @@ static riftwii::CtgpRestoreHeld RestoreHeldCtgpUpdate()
 	return result;
 }
 
-// What the player reads when the held update could not be put back.
-static std::string CtgpHeldStuckText()
+// What the player reads when the held update could not be put back: a
+// note of its own, beside whatever the chain did.
+static void ShowCtgpHeldStuck()
 {
-	return tr("a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif");
+	ShowPopup(tr("CTGP-R update"),
+		tr("A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time."),
+		tr("OK"));
 }
 
 // Removes the waiting update so CTGP-R's channel downloads it fresh. True
@@ -22936,6 +22939,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 	bool asked_for_lists = false;
 	bool ask_server_anyway = false;
 	std::uint64_t waiting_bytes = 0;  // the size of the update that failed that way
+	bool held_stuck = false;  // the held update could not be renamed back
 	// Why the lists were not got, for the words the player reads: 0 the
 	// server had nothing useful (nothing newer, the same file, or a second
 	// failure), 1 Downloads are off, 2 the server could not be asked, 3 what
@@ -22964,7 +22968,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 		if (!ask_server_anyway) {
 			const riftwii::CtgpRestoreHeld held = RestoreHeldCtgpUpdate();
 			if (held == riftwii::CtgpRestoreHeld::Failed) {
-				failed = CtgpHeldStuckText();
+				held_stuck = true;  // told beside the summary; not tried again below
 				break;
 			}
 			if (held == riftwii::CtgpRestoreHeld::Restored && !InspectCtgpUpdate(updater, info, error)) {
@@ -23223,7 +23227,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 			break;
 		}
 	}
-	if (RestoreHeldCtgpUpdate() == riftwii::CtgpRestoreHeld::Failed && failed.empty()) failed = CtgpHeldStuckText();
+	if (!held_stuck) held_stuck = RestoreHeldCtgpUpdate() == riftwii::CtgpRestoreHeld::Failed;
 	// One summary for the whole chain. A failed step never stops the game:
 	// CTGP-R starts on what is installed.
 	const std::size_t done = chain.steps().size();
@@ -23234,6 +23238,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 	// starts CTGP-R's channel: the player has to switch. CTGP-R's own channel
 	// is the launch otherwise (wii/launch/launchrun.cpp), and does start it.
 	const bool native_launch_on = riftwii::wii::CtgprNativeStandIn(state) && riftwii::wii::CtgprNativeOptedIn();
+	bool go_on = true;
 	if (!list_trouble.empty() && !channel_rest) {
 		// Only what is known: the update can't be checked against the lists
 		// on the card, why the server wasn't a way out, and that CTGP-R's
@@ -23255,7 +23260,7 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 				{FlatCapped(list_trouble, 140)}) + " " + cause + " " +
 			tr("CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."));
 	} else if (channel_rest) {
-		if (!ShowCtgpChannelInstalls(native_launch_on, done, reached, channel_form, update_kept)) return false;
+		go_on = ShowCtgpChannelInstalls(native_launch_on, done, reached, channel_form, update_kept);
 	} else if (done == 0 && !failed.empty()) {
 		if (!told) ShowCtgpUpdateFailed(failed);
 	} else if (done > 0 && failed.empty()) {
@@ -23272,7 +23277,9 @@ static bool InstallCtgpUpdateIfWaiting(FrontendState& state)
 					{reached, FlatCapped(failed, 140)}),
 			tr("OK"));
 	}
-	return true;
+	// A warning beside the summary: what went in went in.
+	if (held_stuck) ShowCtgpHeldStuck();
+	return go_on;
 }
 
 int MainMenu(int menu, FrontendState& state)
@@ -23399,13 +23406,14 @@ menu_loop:
 	if (currentMenu == MENU_LAUNCH) {
 		// The play, counted only now the launch goes ahead (MenuHome). A
 		// banner still on screen plays on meanwhile, as in MenuHome: TagGame
-		// may wait for a cover download to finish. Halted again after, before
-		// the launch frame changes any widget.
-		const bool playing = g_lingerBanner != nullptr;
-		if (playing) ResumeGui();
+		// may wait for a cover download to finish. Only a halted GUI is
+		// resumed (ResumeGui releases the cover loader), and only that one is
+		// halted again after, before the launch frame changes any widget.
+		const bool resume = g_lingerBanner != nullptr && guiHalt;
+		if (resume) ResumeGui();
 		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
 		riftwii::wii::TagGame(state.game_id, true);
-		if (playing) HaltGui();
+		if (resume) HaltGui();
 	}
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {

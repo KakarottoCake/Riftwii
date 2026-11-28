@@ -5709,5 +5709,5 @@ msgstr "SD 카드를 읽을 수 없었습니다. 다시 시도하세요"
 msgid "the update server could not be asked for the next one ({1})"
 msgstr "다음 업데이트를 업데이트 서버에 요청할 수 없었습니다 ({1})"
 
-msgid "a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif"
-msgstr "대기 중인 업데이트를 되돌릴 수 없었습니다. SD 카드의 ctgpr 폴더에서 update.dif.held의 이름을 update.dif로 바꾸세요"
+msgid "A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time."
+msgstr "대기 중인 CTGP-R 업데이트를 되돌릴 수 없었습니다. SD 카드의 ctgpr 폴더에서 update.dif.held의 이름을 update.dif로 바꾸면 다음에 설치됩니다."
