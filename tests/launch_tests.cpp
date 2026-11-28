@@ -386,6 +386,8 @@ static void test_saves() {
     model.game.aspect = "16:9";
     model.game.rumble = "off";
     model.game.speaker = "off";
+    EXPECT_TRUE(model.save().find("gccontrollers") == std::string::npos);  // off, the default, isn't written
+    model.game.gc_controllers = "classic";
     model.game.region_strings = "on";
     EXPECT_TRUE(model.save().find("gcdiscreads") == std::string::npos);
     model.game.gc_disc_reads = "drive";
@@ -397,9 +399,23 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.aspect, std::string("16:9"));
     EXPECT_EQ(prefs.game.rumble, std::string("off"));
     EXPECT_EQ(prefs.game.speaker, std::string("off"));
+    EXPECT_EQ(prefs.game.gc_controllers, std::string("classic"));
     EXPECT_EQ(prefs.game.region_strings, std::string("on"));
     EXPECT_EQ(prefs.game.gc_disc_reads, std::string("drive"));
     EXPECT_EQ(prefs.game.gc_card, std::string("shared"));
+    // The Wii Remote + Nunchuk form saves and comes back the same; an
+    // unknown form reads as off.
+    model.game.gc_controllers = "nunchuk";
+    prefs.restore(model.save());
+    EXPECT_EQ(prefs.game.gc_controllers, std::string("nunchuk"));
+    model.game.gc_controllers = "sideways";
+    prefs.restore(model.save());
+    EXPECT_EQ(prefs.game.gc_controllers, std::string("sideways"));
+    model.game.gc_controllers = "pointing";
+    prefs.restore(model.save());
+    EXPECT_EQ(prefs.game.gc_controllers, std::string("pointing"));
+    prefs.restore("*riftwii*\tgccontrollers\tbogus\n");
+    EXPECT_EQ(prefs.game.gc_controllers, std::string("off"));
     prefs.restore("*riftwii*\tgccard\tbogus\n");
     EXPECT_EQ(prefs.game.gc_card, std::string("global"));
     // The real card in slot B, and an explicit "own", survive a save;

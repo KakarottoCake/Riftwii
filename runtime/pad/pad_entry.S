@@ -229,8 +229,9 @@ pad_hook_si_probe:
 #ifndef RT_PAD_NO_HOME
 /* s32 KPADReadEx(chan, status[], count, &error) (the 2007 read takes
  * three): the original first, then pad_on_kpad(ctx, chan, status, its
- * result, error) puts the stand-in's status in and returns the count.
- * Frame: 8 chan, 12 status, 16 error. */
+ * result, error) puts the stand-in's status in and returns the count; in
+ * the stand-in builds also the count the caller asked for, so a read with
+ * room for none gets none. Frame: 8 chan, 12 status, 16 error, 20 count. */
     .globl pad_hook_kpad
 pad_hook_kpad:
     stwu 1, -0x20(1)
@@ -239,11 +240,17 @@ pad_hook_kpad:
     stw 3, 0x08(1)
     stw 4, 0x0C(1)
     stw 6, 0x10(1)
+#ifdef RT_PAD_STANDIN
+    stw 5, 0x14(1)
+#endif
     bl pad_replay_kpad
     mr 6, 3
     lwz 4, 0x08(1)
     lwz 5, 0x0C(1)
     lwz 7, 0x10(1)
+#ifdef RT_PAD_STANDIN
+    lwz 8, 0x14(1)
+#endif
     bl 7f
 7:  mflr 3
     addi 3, 3, pad_context_data - 7b
