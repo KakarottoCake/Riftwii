@@ -526,7 +526,11 @@ USB drive: choose another Saves option on its page.
   visits.
 - **Favourite** (under the box) puts the game in Home's Favourites view.
 - **Options** opens the game's own settings, a list of rows; the tile
-  says how many differ from Settings:
+  says how many differ from Settings. The rows look and work as on
+  Settings' pages: a short line under each, *Next game* on the ones read
+  when the game starts, A on a choice for its list of values, and
+  **Show advanced settings** at the end for the cIOS, the region fixes
+  and the loading speed (one you changed is shown either way):
 - **Picture width**, **Deflicker** and **Black borders** change how the
   game draws its picture, like USB Loader GX's video settings:
   - *Picture width*: 720 fills the TV from side to side; many games
@@ -653,8 +657,27 @@ showing what it is set to now. *Picture* and *Games* are the defaults for
 every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
 sounds, music), *Online*, *Drives* (finding games), *Help* (reports,
 tutorial, the channel, reset, credits) and *Exit*. Each opens a short
-list; the note under it explains the row you are on, and B goes back to
-the tiles.
+list; B goes back to the tiles.
+
+Each row shows what it is set to now, with a line under it that says
+what it does in plain words; the note under the list explains the row you
+are on in more detail. A small tag at the end of that line says when a
+change shows: *Next game*, or *After a restart* of RiftWii; without one it
+changes at once.
+
+- **Switches** turn something on or off.
+- **Choices** with arrows step through their values with the arrows (or
+  Left and Right); **A opens a list** of every value, the one in use
+  marked, with a note on each.
+- **Buttons** (*Test*, *Rescan*, *Import*, *Send*) do something at once.
+- **Show advanced settings**, at the end of a page, shows the settings
+  most players never need: system software (cIOS), the emulated NAND's
+  folder and contents, debugging and network packs. It is remembered.
+- **Search**: the magnifier at the top right of the tiles (or **1**, **Y**
+  on a Classic or GameCube controller) searches every setting by name,
+  what it does and words like *memory card* or *video*. The results are
+  the rows themselves, each with its section, and change as they do on
+  their page; advanced settings are found too.
 
 - **Language**: English, Español, 日本語, Português, Italiano, Français,
   한국어 (Korean) or *Wii* to follow the console. Korean needs **Menu font** set
@@ -1971,12 +1994,11 @@ launch:
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
   *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
-  stay off too, and so do those of LEGO Indiana Jones 1 and 2, LEGO
-  Batman, Ghostbusters: The Video Game and 007 Quantum of Solace,
-  which RiftWii starts the same way: its hooks then use the memory the
-  cheat list would go in, and the game starts without cheats (boot.log:
-  "Codes are off"). A code build whose gameconfig.txt moves the list
-  elsewhere can still run codes.
+  stay off too, and so do those of Ghostbusters: The Video Game and 007
+  Quantum of Solace, which RiftWii starts the same way: its hooks then
+  use the memory the cheat list would go in, and the game starts without
+  cheats (boot.log: "Codes are off"). A code build whose gameconfig.txt
+  moves the list elsewhere can still run codes.
 - **New Super Mario Bros. Wii** (its disc check), **Resident Evil 4**
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some

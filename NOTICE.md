@@ -192,6 +192,18 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   2026-10-20), read for behaviour only. Dolphin
   presents a TGC as a disc of its own; RiftWii instead moves the files onto
   the outer disc and bounds every field, and its code is its own.
+- The Zelda Ocarina of Time / Master Quest bonus disc's emulator arguments
+  (`find_gc_tgc_menu_start` in `src/disc/gctgc.cpp`, `gc_on_tgc_start` in
+  `runtime/gc/gc_rt.c`): that the N64 emulator in the disc's TGC takes the
+  ROM to run from an argument without a dash and options from `-V`, `-P`,
+  `-C` and others, and runs a built-in default ROM (Master Quest on that
+  disc) without one, follows the zeldaret oot-gc decompilation
+  (https://github.com/zeldaret/oot-gc, `src/emulator/simGCN.c`'s
+  `simulatorParseArguments` and the ROM choice, `src/emulator/xlCoreGCN.c`'s
+  `main`, at commit 6e449e1748a02c12b4cb218453c529175b85364a), read for behaviour only. The
+  menu's own list and start routine were found by RiftWii in Dolphin from
+  the running disc's memory; nothing of the decompilation or of the disc
+  is in RiftWii.
 - The GameCube loader's per-game list `gc_keeps_aram_addresses`
   (`src/patching/gxpatches.cpp`) rests on Mario Party 4's sound manager as
   its community decompilation shows it (https://github.com/mariopartyrd/marioparty4,

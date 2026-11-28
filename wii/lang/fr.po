@@ -3366,6 +3366,384 @@ msgstr "Je pense que vos enfants vont deviner ce code. Voulez-vous vraiment l'ut
 msgid "If your kid is a hacker, they're going to guess the passcode correctly. Are you sure you want to use it?"
 msgstr "Si votre enfant est un hacker, il va deviner ce code. Voulez-vous vraiment l'utiliser ?"
 
+msgid "1 setting"
+msgstr "1 réglage"
+
+msgid "{1} settings"
+msgstr "{1} réglages"
+
+msgid "12-hour or 24-hour time."
+msgstr "Heure sur 12 ou 24 heures."
+
+msgid "A short tour of RiftWii."
+msgstr "Une courte visite de RiftWii."
+
+msgid "A white box behind channel banners."
+msgstr "Un cadre blanc derrière les bannières des chaînes."
+
+msgid "After a restart"
+msgstr "Après redémarrage"
+
+msgid "Blinks the disc slot while a game loads."
+msgstr "La fente du disque clignote pendant le chargement d'un jeu."
+
+msgid "Checks that the Wii is online."
+msgstr "Vérifie que la Wii est en ligne."
+
+msgid "Copies GameCube saves before each game starts."
+msgstr "Copie les sauvegardes GameCube avant chaque partie."
+
+msgid "Copies a Wii disc to your USB drive or SD card."
+msgstr "Copie un disque Wii sur votre clé USB ou carte SD."
+
+msgid "Copies network packs again on the next launch."
+msgstr "Recopie les packs réseau au prochain lancement."
+
+msgid "Copy controller layouts from Nintendont."
+msgstr "Copiez les configurations de manettes de Nintendont."
+
+msgid "Copy your saves over from Nintendont."
+msgstr "Récupérez vos sauvegardes de Nintendont."
+
+msgid "Counts the games you play, for Recently played."
+msgstr "Compte les jeux joués, pour Joués récemment."
+
+msgid "Default options for installed emulators."
+msgstr "Options par défaut des émulateurs installés."
+
+msgid "Download themes made by the community."
+msgstr "Téléchargez des thèmes faits par la communauté."
+
+msgid "Downloads covers Home doesn't have yet."
+msgstr "Télécharge les jaquettes qui manquent à l'Accueil."
+
+msgid "Downloads covers for emulator games."
+msgstr "Télécharge les jaquettes des jeux d'émulateurs."
+
+msgid "Downloads the newest game names."
+msgstr "Télécharge les noms de jeux les plus récents."
+
+msgid "Draws the menu for a 4:3 or a 16:9 TV."
+msgstr "Affiche le menu pour une télé 4:3 ou 16:9."
+
+msgid "Extra covers from SteamGridDB."
+msgstr "Jaquettes en plus depuis SteamGridDB."
+
+msgid "Finds mod packs shared from a PC."
+msgstr "Trouve les packs de mods partagés depuis un PC."
+
+msgid "Fix worn sticks and triggers."
+msgstr "Corrigez les sticks et gâchettes usés."
+
+msgid "GameCube controllers through a USB adapter."
+msgstr "Manettes GameCube via un adaptateur USB."
+
+msgid "Homebrew apps, checked by the RiftWii team."
+msgstr "Applis homebrew vérifiées par l'équipe RiftWii."
+
+msgid "How games look on Home."
+msgstr "L'apparence des jeux à l'Accueil."
+
+msgid "How loud the menu's clicks are."
+msgstr "Le volume des clics du menu."
+
+msgid "How round the Channels view's tiles are."
+msgstr "L'arrondi des tuiles de la vue Chaînes."
+
+msgid "How to set up a USB drive."
+msgstr "Comment préparer une clé USB."
+
+msgid "How wide the game's picture is drawn."
+msgstr "La largeur de l'image du jeu."
+
+msgid "Install WADs, or copy saves and Miis."
+msgstr "Installez des WAD ou copiez sauvegardes et Mii."
+
+msgid "Keeps the music playing while a game starts."
+msgstr "Garde la musique pendant le lancement d'un jeu."
+
+msgid "Lets GameCube controllers rumble."
+msgstr "Permet aux manettes GameCube de vibrer."
+
+msgid "Lets RiftWii download names, covers and updates."
+msgstr "Permet à RiftWii de télécharger noms, jaquettes et mises à jour."
+
+msgid "Lets Wii Remotes rumble."
+msgstr "Permet aux Wiimotes de vibrer."
+
+msgid "Lists the Wii's own channels on Home too."
+msgstr "Affiche aussi les chaînes de la Wii à l'Accueil."
+
+msgid "Lock games by age rating with a PIN."
+msgstr "Verrouillez les jeux par âge avec un code."
+
+msgid "Looks for a newer RiftWii."
+msgstr "Cherche une version plus récente de RiftWii."
+
+msgid "Makes games use 4:3 or widescreen."
+msgstr "Fait passer les jeux en 4:3 ou en large."
+
+msgid "More folders to look for games in."
+msgstr "D'autres dossiers où chercher des jeux."
+
+msgid "Next game"
+msgstr "Prochain jeu"
+
+msgid "No d2x cIOS was found."
+msgstr "Aucun cIOS d2x trouvé."
+
+msgid "No settings match \"{1}\"."
+msgstr "Aucun réglage ne correspond à « {1} »."
+
+msgid "Plays a game's banner music on its page."
+msgstr "Joue la musique de la bannière d'un jeu sur sa page."
+
+msgid "Plays music while the menu is open."
+msgstr "Joue de la musique pendant que le menu est ouvert."
+
+msgid "Puts every setting back as it came."
+msgstr "Remet tous les réglages d'origine."
+
+msgid "Reads your drives again."
+msgstr "Relit vos supports."
+
+msgid "Removes black bars at the picture's edges."
+msgstr "Retire les bandes noires sur les bords de l'image."
+
+msgid "Removes your SteamGridDB key."
+msgstr "Supprime votre clé SteamGridDB."
+
+msgid "Search settings"
+msgstr "Chercher un réglage"
+
+msgid "See what your USB controllers are pressing."
+msgstr "Voyez ce que pressent vos manettes USB."
+
+msgid "Sends RiftWii's log to a USB Gecko."
+msgstr "Envoie le journal de RiftWii à un USB Gecko."
+
+msgid "Sends a report to help fix a problem."
+msgstr "Envoie un rapport pour aider à corriger un problème."
+
+msgid "Settings for experienced players."
+msgstr "Réglages pour joueurs avertis."
+
+msgid "Show advanced settings"
+msgstr "Afficher les réglages avancés"
+
+msgid "Shows the disc drive on Home."
+msgstr "Affiche le lecteur de disque à l'Accueil."
+
+msgid "Shows the edges of the next and previous pages."
+msgstr "Affiche les bords des pages précédente et suivante."
+
+msgid "Shows the game's disc on its page."
+msgstr "Affiche le disque du jeu sur sa page."
+
+msgid "Shows the games you hid from Home."
+msgstr "Affiche les jeux masqués de l'Accueil."
+
+msgid "Shows the settings most players never need: system software (cIOS), the copy of the Wii's memory, debugging and network packs. Settings' search always finds them."
+msgstr "Affiche les réglages dont peu de joueurs ont besoin : logiciel système (cIOS), la copie de la mémoire de la Wii, le débogage et les packs réseau. La recherche des Réglages les trouve toujours."
+
+msgid "Shows your RiiTag."
+msgstr "Affiche votre RiiTag."
+
+msgid "Shrinks the menu if your TV cuts off its edges."
+msgstr "Réduit le menu si votre télé en coupe les bords."
+
+msgid "Smaller tiles with more room between them."
+msgstr "Des tuiles plus petites, plus espacées."
+
+msgid "Softens the picture to hide flicker."
+msgstr "Adoucit l'image pour cacher le scintillement."
+
+msgid "Some USB partitions could not be read."
+msgstr "Certaines partitions USB n'ont pas pu être lues."
+
+msgid "Start RiftWii from the Wii Menu."
+msgstr "Lancez RiftWii depuis le Menu Wii."
+
+msgid "Starts games with the WiiRD debugger."
+msgstr "Lance les jeux avec le débogueur WiiRD."
+
+msgid "Starts your last game after a short countdown."
+msgstr "Lance votre dernier jeu après un court compte à rebours."
+
+msgid "Take pictures while you play."
+msgstr "Prenez des captures pendant que vous jouez."
+
+msgid "Test switches are turning parts of RiftWii off."
+msgstr "Des réglages de test désactivent une partie de RiftWii."
+
+msgid "The TV signal games use: 60 Hz, 50 Hz, 480p or 240p."
+msgstr "Le signal télé des jeux : 60 Hz, 50 Hz, 480p ou 240p."
+
+msgid "The language games are told to use."
+msgstr "La langue indiquée aux jeux."
+
+msgid "The language the menu is written in."
+msgstr "La langue du menu."
+
+msgid "The letters the menu is written in."
+msgstr "La police du menu."
+
+msgid "The menu's colors, pictures and sounds."
+msgstr "Les couleurs, images et sons du menu."
+
+msgid "The online service that replaces Nintendo's."
+msgstr "Le service en ligne qui remplace celui de Nintendo."
+
+msgid "The order games are listed in."
+msgstr "L'ordre des jeux."
+
+msgid "The system software games run under."
+msgstr "Le logiciel système des jeux."
+
+msgid "The system software the menu runs under."
+msgstr "Le logiciel système du menu."
+
+msgid "Use USB controllers, keyboards and mice."
+msgstr "Utilisez manettes, claviers et souris USB."
+
+msgid "Uses this Wii's own menu music."
+msgstr "Utilise la musique du menu de cette Wii."
+
+msgid "Uses this Wii's own menu sounds."
+msgstr "Utilise les sons du menu de cette Wii."
+
+msgid "What changed in this version."
+msgstr "Ce qui a changé dans cette version."
+
+msgid "What the copy of the Wii's memory keeps."
+msgstr "Ce que garde la copie de la mémoire de la Wii."
+
+msgid "What you see while a game starts."
+msgstr "Ce que vous voyez au lancement d'un jeu."
+
+msgid "Where Wii games keep their saves."
+msgstr "Où les jeux Wii gardent leurs sauvegardes."
+
+msgid "Where you go when you quit a game."
+msgstr "Où vous allez en quittant un jeu."
+
+msgid "Whether games are looked for on the SD card."
+msgstr "Chercher ou non des jeux sur la carte SD."
+
+msgid "Which buttons take you out of a game."
+msgstr "Les boutons pour quitter un jeu."
+
+msgid "Which drive holds the copy of the Wii's memory."
+msgstr "Le support qui garde la copie de la mémoire de la Wii."
+
+msgid "Which games Home shows."
+msgstr "Les jeux affichés à l'Accueil."
+
+msgid "Which memory card GameCube games use."
+msgstr "La carte mémoire des jeux GameCube."
+
+msgid "Which page Home opens on."
+msgstr "La page où s'ouvre l'Accueil."
+
+msgid "Which song the menu plays."
+msgstr "Le morceau joué par le menu."
+
+msgid "Who made RiftWii's parts, and its license."
+msgstr "Les auteurs des parties de RiftWii et sa licence."
+
+msgid "Your SteamGridDB key."
+msgstr "Votre clé SteamGridDB."
+
+msgid "The TV signal this game uses."
+msgstr "Le signal TV utilisé par ce jeu."
+
+msgid "A picture for a game from another region."
+msgstr "Une image pour un jeu d'une autre région."
+
+msgid "Makes this game use 4:3 or widescreen."
+msgstr "Fait passer ce jeu en 4:3 ou en écran large."
+
+msgid "Lets the Wii Remotes rumble in this game."
+msgstr "Fait vibrer les Wiimotes dans ce jeu."
+
+msgid "Sound from the Wii Remotes' speakers."
+msgstr "Le son des haut-parleurs des Wiimotes."
+
+msgid "Country names for a game from another region."
+msgstr "Les noms de pays pour un jeu d'une autre région."
+
+msgid "The language this game is told to use."
+msgstr "La langue indiquée à ce jeu."
+
+msgid "The system software this game runs under."
+msgstr "Le logiciel système sous lequel tourne ce jeu."
+
+msgid "Which copy of the Wii's memory starts it."
+msgstr "La copie de la mémoire de la Wii qui le lance."
+
+msgid "Downloads this game's box art now."
+msgstr "Télécharge la jaquette de ce jeu maintenant."
+
+msgid "Some games have a second GameTDB cover."
+msgstr "Certains jeux ont une seconde jaquette sur GameTDB."
+
+msgid "Pick any of GameTDB's covers."
+msgstr "Choisissez une des jaquettes de GameTDB."
+
+msgid "Where this tile's cover and About page come from."
+msgstr "D'où viennent la jaquette et la page À propos de cette tuile."
+
+msgid "How fast the game's disc is read."
+msgstr "La vitesse de lecture du disque du jeu."
+
+msgid "Which memory card this game uses."
+msgstr "La carte mémoire utilisée par ce jeu."
+
+msgid "480p, 240p or the game's own picture."
+msgstr "480p, 240p ou l'image d'origine du jeu."
+
+msgid "Fills a widescreen TV with the game world."
+msgstr "Remplit une TV écran large avec le monde du jeu."
+
+msgid "60 Hz plays smoother on a TV that takes it."
+msgstr "60 Hz est plus fluide sur une TV qui l'accepte."
+
+msgid "Makes a quiet game louder."
+msgstr "Rend un jeu trop discret plus fort."
+
+msgid "The language this game plays in."
+msgstr "La langue dans laquelle se joue ce jeu."
+
+msgid "Which buttons act as the GameCube controller's."
+msgstr "Les boutons qui servent de manette GameCube."
+
+msgid "What RiftWii's extras take from the game."
+msgstr "Ce que les extras de RiftWii prennent au jeu."
+
+msgid "Puts this game's options back to Settings."
+msgstr "Remet les options de ce jeu à celles des Réglages."
+
+msgid "Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."
+msgstr "Affiche les options dont presque personne n'a besoin : le cIOS, les corrections de région et la vitesse de chargement. Celles que vous avez changées restent affichées."
+
+msgid "Settings show each value and what it does"
+msgstr "Les réglages montrent leur valeur et leur rôle"
+
+msgid "Search all settings"
+msgstr "Rechercher dans tous les réglages"
+
+msgid "Get more mods and Get a save"
+msgstr "Obtenir des mods et une sauvegarde"
+
+msgid "Miis in Manage emulated NAND"
+msgstr "Les Mii dans Gérer la NAND émulée"
+
+msgid "F-Zero GX and the Zelda disc start"
+msgstr "F-Zero GX et le disque Zelda démarrent"
+
+msgid "LEGO games get the adapter back"
+msgstr "Les jeux LEGO retrouvent l'adaptateur"
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 
@@ -4142,24 +4520,6 @@ msgstr "Appuyez sur un bouton pour voir ce que fait RiftWii."
 
 msgid "Game's box: the game's box while it starts; press any button to see what RiftWii is doing. Log: every step, line by line. A launch that fails always shows the log."
 msgstr "Boîte du jeu : la boîte du jeu pendant son lancement ; appuyez sur un bouton pour voir ce que fait RiftWii. Journal : chaque étape, ligne par ligne. Un lancement qui échoue affiche toujours le journal."
-
-msgid "Get more themes works again"
-msgstr "Obtenir d'autres thèmes refonctionne"
-
-msgid "A only presses what the pointer is on"
-msgstr "A n'appuie que sur ce que vise le pointeur"
-
-msgid "Themes can draw the back of the box"
-msgstr "Les thèmes peuvent dessiner le dos de la boîte"
-
-msgid "The menu no longer freezes with big themes"
-msgstr "Le menu ne se fige plus avec les gros thèmes"
-
-msgid "Emulated NAND games go back to RiftWii"
-msgstr "Les jeux en NAND émulée reviennent à RiftWii"
-
-msgid "The GameCube pointer hides when unplugged"
-msgstr "Le pointeur GameCube disparaît une fois débranché"
 
 msgid "Manage game"
 msgstr "Gérer le jeu"

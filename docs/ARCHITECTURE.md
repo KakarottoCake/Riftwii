@@ -820,6 +820,24 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   disc starts as itself (its menu), the reason in the log. Packs are left off for such a game, and
   its own OSExec switches run as made: exec.txt cannot name a program
   inside a TGC.
+  The Zelda disc keeps both games in one TGC, with one N64 emulator, and
+  its menu tells the emulator which ROM to run and how (`zle_f.n64 -V1
+  -P1 -C1`: the ROM, rumble, progressive scan, the memory card) through
+  an argument list; without it the emulator runs its default ROM, Master
+  Quest. The menu fills the list only after it has read the TGC's header,
+  then hands it to its start routine with the TGC's DVDFileInfo, and that
+  routine loads the program past the blob's hooks. So the loader finds
+  that routine (`find_gc_tgc_menu_start` in `src/disc/gctgc.cpp`: the
+  run that ends the list with its last option and a 0, then the call that
+  takes the list's address) and hooks it (`gc_on_tgc_start`); the hook
+  writes the list as `gc_arg=` lines beside `gc_tgc=`, and the TGC's
+  reads start nothing on such a disc. The next start puts the arguments
+  in the TGC's BI2, where the game's start-up code reads them
+  (`gc_pack_exec_args`). The list is written whole or not at all (at
+  most eight arguments that all fit exec.txt's sector), and the hook
+  turns the read rule back on as it runs, so a start it can't carry out
+  is still caught the old way. The Collector's Edition menu has no such routine
+  and keeps the read rule: each of its games is a TGC of its own.
 
 Only for an image on the SD card, with a way back. If IOS refuses to
 leave, exec.txt goes back to `--idle--` and the start runs as the game
@@ -911,7 +929,7 @@ ID, including this change, consistently.
 | `0x81200000` | The game's apploader, while it runs |
 | Top of arena 2, below its high end (a homebrew app's start only) | When the app lands on RiftWii's own memory (WiiSX, Wii64): the routine that finishes copying it, its plan and a small stack, about 2 KB (`channel/common/dolfar.S`, the far copy in `dolboot.c`) |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
-| `0x80002FE0`–`0x80003000` | Return to RiftWii's stub for code builds and games that clear MEM1's top (RE4, older LEGO games, Ghostbusters). Below the OS globals and past every veneer; an ordinary cheat list ends before it. Other games keep the stub above their MEM1 arena, away from mod loaders' low-memory code |
+| `0x80002FE0`–`0x80003000` | Return to RiftWii's stub for code builds and games that clear MEM1's top (RE4, Ghostbusters). Below the OS globals and past every veneer; an ordinary cheat list ends before it. Other games keep the stub above their MEM1 arena, away from mod loaders' low-memory code |
 | Top of the game's MEM1 arena | Resident runtime code (for Super Smash Bros. Brawl only its jumps into the code, 256 bytes: the code is in MEM2, `game_needs_runtime_code_in_mem2`), then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |

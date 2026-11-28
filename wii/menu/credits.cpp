@@ -116,6 +116,9 @@ const char* const kCredits[] = {
     "The Mario Kart: Double Dash!! decompilation (doldecomp): how the game asks SIProbe before it reads "
     "a controller port, read as documentation; no code copied.",
     "",
+    "zeldaret's oot-gc decompilation: how the N64 emulator on the Zelda Ocarina of Time / Master Quest disc "
+    "takes its ROM and options as arguments, read as documentation; no code copied.",
+    "",
     "dekuNukem's Nintendo Switch reverse engineering notes, HIDtoVPAD by Maschell (its controller_patcher, "
     "GPL-3.0), Linux's hid-nintendo and SDL's Switch driver: the wired Switch Pro Controller's start-up messages "
     "and reports, read as documentation; no code copied.",

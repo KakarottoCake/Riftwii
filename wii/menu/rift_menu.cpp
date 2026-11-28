@@ -5417,12 +5417,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Get more themes works again",
-	"A only presses what the pointer is on",
-	"Themes can draw the back of the box",
-	"The menu no longer freezes with big themes",
-	"Emulated NAND games go back to RiftWii",
-	"The GameCube pointer hides when unplugged",
+	"Settings show each value and what it does",
+	"Search all settings",
+	"Get more mods and Get a save",
+	"Miis in Manage emulated NAND",
+	"F-Zero GX and the Zelda disc start",
+	"LEGO games get the adapter back",
 };
 
 static std::string WhatsNewText()
@@ -9766,7 +9766,7 @@ struct RowRef {
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs,
-		CoverSet, CoverPick, GameTdbEntry, GetMods } what = What::Note;
+		CoverSet, CoverPick, GameTdbEntry, GetMods, ShowAdvanced } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -11450,12 +11450,13 @@ using PageAside = std::function<void(const std::function<void()>&)>;
 // second line (FlowRow::detail).
 static void RunRowPage(const std::string& title, const std::string& subtitle, std::vector<FlowRow>& rows,
 		       const std::function<std::string(int)>& note, const std::function<bool(int, const PageAside&)>& act,
-		       const std::function<std::string()>& status = nullptr, int rowHeight = 0, int initial = 0)
+		       const std::function<std::string()>& status = nullptr, int rowHeight = 0, int initial = 0,
+		       const skin::Tex* icon = &skin::iconSaves)
 {
 	GuiText titleTxt(title.c_str(), 30, skin::kInk);
 	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
-	PageIcon pageIcon(&skin::iconSaves);
+	PageIcon pageIcon(icon);
 	const std::string sub = FlatCapped(subtitle, 40);
 	GuiText subTxt(sub.c_str(), 16, skin::kInkDim);
 	subTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -16472,11 +16473,121 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 // none says so (and the first stays).
 static bool g_coverSecondAsked = false;
 
+// A game's own Settings page is made like Settings' pages
+// (MenuSettingsSection): a plain line under each row, "Next game" where a
+// change waits for the game to start, on and off as a switch, actions as
+// buttons, and the options most players never need behind Show advanced
+// settings, the same switch as Settings' (one a player changed stays in
+// sight, so nothing set is ever out of view).
+static bool AdvancedSettingsShown()
+{
+	const auto& other = riftwii::wii::Settings().other;
+	const auto it = other.find("settings_advanced");
+	return it != other.end() && it->second == "on";
+}
+
+static bool GameRowAdvanced(RowRef::What what)
+{
+	using W = RowRef::What;
+	return what == W::Cios || what == W::NandSource || what == W::RegionVideo || what == W::RegionStrings ||
+		what == W::GcDiscReads || what == W::Memory;
+}
+
+static std::string GameRowShortNote(RowRef::What what)
+{
+	using W = RowRef::What;
+	switch (what) {
+		case W::Width: case W::GcWidth: return tr("How wide the game's picture is drawn.");
+		case W::Deflicker: return tr("Softens the picture to hide flicker.");
+		case W::Borders: return tr("Removes black bars at the picture's edges.");
+		case W::VideoMode: return tr("The TV signal this game uses.");
+		case W::RegionVideo: return tr("A picture for a game from another region.");
+		case W::Aspect: return tr("Makes this game use 4:3 or widescreen.");
+		case W::Rumble: return tr("Lets the Wii Remotes rumble in this game.");
+		case W::Speaker: return tr("Sound from the Wii Remotes' speakers.");
+		case W::RegionStrings: return tr("Country names for a game from another region.");
+		case W::Language: return tr("The language this game is told to use.");
+		case W::Cios: return tr("The system software this game runs under.");
+		case W::NandSource: return tr("Which copy of the Wii's memory starts it.");
+		case W::Server: return tr("The online service that replaces Nintendo's.");
+		case W::Cover: return tr("Downloads this game's box art now.");
+		case W::CoverSet: return tr("Some games have a second GameTDB cover.");
+		case W::CoverPick: return tr("Pick any of GameTDB's covers.");
+		case W::GameTdbEntry: return tr("Where this tile's cover and About page come from.");
+		case W::GcDiscReads: return tr("How fast the game's disc is read.");
+		case W::GcCard: return tr("Which memory card this game uses.");
+		case W::GcProgressive: return tr("480p, 240p or the game's own picture.");
+		case W::GcWidescreen: return tr("Fills a widescreen TV with the game world.");
+		case W::GcSharp: return tr("Turns off the soft blur some games add.");
+		case W::GcSpeed: return tr("60 Hz plays smoother on a TV that takes it.");
+		case W::GcVolume: return tr("Makes a quiet game louder.");
+		case W::GcLanguage: return tr("The language this game plays in.");
+		case W::GcControls: return tr("Which buttons act as the GameCube controller's.");
+		case W::Memory: return tr("What RiftWii's extras take from the game.");
+		case W::ResetOptions: return tr("Puts this game's options back to Settings.");
+		case W::ShowAdvanced: return tr("Settings for experienced players.");
+		default: return "";
+	}
+}
+
+// BuildGameRows' rows for the game's Settings page, made as above.
+static void DecorateGameSettingRows(const FrontendState& state, std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+{
+	using W = RowRef::What;
+	const bool showAdvanced = AdvancedSettingsShown();
+	bool anyAdvanced = false;
+	std::vector<FlowRow> kept;
+	std::vector<RowRef> keptRefs;
+	for (std::size_t i = 0; i < rows.size() && i < refs.size(); ++i) {
+		FlowRow row = rows[i];
+		const RowRef ref = refs[i];
+		// One list, as on Settings' pages: no group names.
+		if (row.heading) continue;
+		if (GameRowAdvanced(ref.what)) {
+			anyAdvanced = true;
+			// Changed from Settings' choice. The cIOS row's "on" leaves out
+			// Automatic, but a game set to Automatic overrides Settings' slot.
+			const bool changed = row.on || (ref.what == W::Cios && state.model.game.cios != "global");
+			if (!showAdvanced && !changed) continue;
+		}
+		row.detail = GameRowShortNote(ref.what);
+		// Sharper picture is on or off: a switch, as Rumble's.
+		if (ref.what == W::GcSharp) {
+			row.kind = FlowRow::Kind::Toggle;
+			row.value = row.on ? tr("On") : tr("Off");
+		}
+		// Every option here is read when the game starts.
+		const bool setting = row.kind == FlowRow::Kind::Option || row.kind == FlowRow::Kind::Toggle;
+		if (setting && !row.dim && ref.what != W::CoverSet) row.tag = tr("Next game");
+		if (ref.what == W::Cover && row.kind == FlowRow::Kind::Action) row.button = true;
+		if (ref.what == W::ResetOptions) {
+			row.value = tr("Reset");
+			row.button = true;
+		}
+		if (ref.what == W::GcControls || ref.what == W::CoverPick) row.opens = true;
+		kept.push_back(row);
+		keptRefs.push_back(ref);
+	}
+	if (anyAdvanced) {
+		FlowRow advanced;
+		advanced.kind = FlowRow::Kind::Toggle;
+		advanced.label = tr("Show advanced settings");
+		advanced.on = showAdvanced;
+		advanced.value = showAdvanced ? tr("On") : tr("Off");
+		advanced.detail = GameRowShortNote(W::ShowAdvanced);
+		kept.push_back(advanced);
+		keptRefs.push_back({W::ShowAdvanced});
+	}
+	rows.swap(kept);
+	refs.swap(keptRefs);
+}
+
 static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 {
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs, true, false);
+	DecorateGameSettingRows(state, rows, refs);
 
 	// As wide as the game page that opened it: at 16:9 the rows' names get
 	// the room the TV has past the 4:3 middle ("GameCube controllers" was
@@ -16496,10 +16607,13 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	const int titleEnd = page.left + 38 + titleTxt.GetTextWidth();
 	gameTxt.SetMaxWidth(page.right - titleEnd - 24);
 	NoteCard noteCard(page.left);
-	GuiFlowList list(page.left, 84, page.Width(), 5);
+	// Two lines a row, as Settings' pages: four rows to a page.
+	GuiFlowList list(page.left, 84, page.Width(), 4);
 	list.SetCards(true);
+	list.SetRowHeight(58);
+	list.SetNotesUnder(true);
 	list.SetRows(&rows);
-	list.Select(1);
+	list.Select(0);
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, page.left + 36, NoteCard::kTextY);
 	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
@@ -16537,7 +16651,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		std::vector<FlowRow> readyRows;
 		std::vector<RowRef> readyRefs;
 		BuildGameRows(state, readyRows, readyRefs, true);
+		DecorateGameSettingRows(state, readyRows, readyRefs);
 		HaltGui();
+		// A press while the GUI ran named a row of the old list.
+		list.GetClicked();
+		list.GetClickedBack();
 		rows.swap(readyRows);
 		refs.swap(readyRefs);
 		list.Refresh();
@@ -16545,7 +16663,101 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	refreshRows();
 	ResumeGui();
 
-	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	// The text under the list, kept as said: a choice's list shows its row's.
+	std::string said;
+	const auto say = [&](const std::string& text) {
+		said = text;
+		noteTxt.SetText(text.c_str());
+	};
+	// A choice's values in the order its row steps through them, named as
+	// the row shows them, and which is set: -1 for a row with no list
+	// (picking value i steps the row i - set, as Settings' lists do).
+	const auto choicesOf = [&](RowRef::What what, std::vector<std::string>& labels) -> int {
+		using W = RowRef::What;
+		labels.clear();
+		const riftwii::GameSettings& game = state.model.game;
+		const riftwii::LoaderSettings& global = riftwii::wii::Settings();
+		const auto fromList = [&](const auto& list, const std::string& value, const std::string& globalValue,
+					  std::string (*name)(const std::string&)) {
+			int set = 0;
+			const std::size_t n = sizeof(list) / sizeof(list[0]);
+			for (std::size_t i = 0; i < n; ++i) {
+				if (value == list[i]) set = static_cast<int>(i);
+				labels.push_back(GameValue(list[i], globalValue, name));
+			}
+			return set;
+		};
+		const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
+		// The GameCube rows' Default, named as what it comes to now.
+		riftwii::GameSettings asDefault = game;
+		switch (what) {
+			case W::Width: return fromList(kWidths, game.video_width, global.video_width, WidthName);
+			case W::GcWidth: return fromList(kWidths, game.gc_width, global.video_width, WidthName);
+			case W::Deflicker: return fromList(kDeflickers, game.deflicker, global.deflicker, DeflickerName);
+			case W::Borders: {
+				const int set = fromList(kBorderModes, game.borders, global.borders, BordersName);
+				labels[0] = tr("Default ({1})", {BordersShortName(global.borders)});
+				return set;
+			}
+			case W::VideoMode: return fromList(kVideoModes, game.video_mode, global.video_mode, VideoModeName);
+			case W::Aspect: return fromList(kAspects, game.aspect, global.aspect, AspectName);
+			case W::Language: return fromList(kGameLanguages, game.language, global.game_language, GameLanguageName);
+			case W::Cios: {
+				if (!state.use_channel) return fromList(kCiosChoices, game.cios, global.game_cios, CiosName);
+				// The channel's order, as its handler steps: Automatic
+				// (saved as "global"), then each slot.
+				const std::vector<std::string>& values = ChannelIosValues();
+				const std::string current = game.cios == "global" ? std::string("auto") : game.cios;
+				int set = 0;
+				for (std::size_t i = 0; i < values.size(); ++i) {
+					if (values[i] == current) set = static_cast<int>(i);
+					labels.push_back(ChannelIosName(values[i]));
+				}
+				return set;
+			}
+			case W::Server: return fromList(kServers, game.server, global.wfc_server, ServerName);
+			case W::GcVolume: return fromList(kGcVolumeChoices, game.gc_volume, game.gc_volume, GcVolumeName);
+			case W::GcProgressive: {
+				asDefault.gc_progressive = "global";
+				const std::string now = riftwii::gc_progressive_on(asDefault, state.game_id, console) ? std::string(tr("On"))
+					: riftwii::gc_line240_on(asDefault, state.game_id, console) ? std::string("240p") : std::string(tr("Off"));
+				// kGcProgressiveChoices' order: global, 480p, 240p, game.
+				labels = {tr("Default ({1})", {now}), tr("On (480p)"), "240p", tr("Off")};
+				int set = 0;
+				for (std::size_t i = 0; i < sizeof(kGcProgressiveChoices) / sizeof(kGcProgressiveChoices[0]); ++i)
+					if (game.gc_progressive == kGcProgressiveChoices[i]) set = static_cast<int>(i);
+				return set;
+			}
+			case W::GcWidescreen: {
+				asDefault.gc_widescreen = "global";
+				const std::string now = riftwii::gc_widescreen_on(asDefault, state.game_id, console)
+					? std::string("16:9") : std::string(tr("Game's own"));
+				// kGcWidescreenChoices' order: global, 16:9, game.
+				labels = {tr("Default ({1})", {now}), "16:9", tr("Game's own")};
+				return game.gc_widescreen == "16:9" ? 1 : game.gc_widescreen == "game" ? 2 : 0;
+			}
+			case W::GcLanguage: {
+				asDefault.gc_language = "global";
+				const int number = riftwii::gc_language_number(asDefault, console);
+				const std::string now = GcLanguageName(number >= 0 ? riftwii::kGcLanguages[number] : "game");
+				int set = 0;
+				for (std::size_t i = 0; i < sizeof(kGcLanguageChoices) / sizeof(kGcLanguageChoices[0]); ++i) {
+					if (game.gc_language == kGcLanguageChoices[i]) set = static_cast<int>(i);
+					labels.push_back(i == 0 ? tr("Default ({1})", {now}) : GcLanguageName(kGcLanguageChoices[i]));
+				}
+				return set;
+			}
+			// Two each: the handler switches between them.
+			case W::GcSpeed:
+				labels = {tr("As made (50 Hz)"), tr("Smoother (60 Hz)")};
+				return game.gc_speed == "60" ? 1 : 0;
+			case W::GcDiscReads:
+				labels = {tr("Fast"), tr("As on a GameCube (slower)")};
+				return game.gc_disc_reads == "drive" ? 1 : 0;
+			default:
+				return -1;
+		}
+	};
 	int shownRow = -1;
 	bool done = false;
 	while (!done)
@@ -16663,6 +16875,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 			else if (ref.what == RowRef::What::ResetOptions)
 				say(tr("Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."));
+			else if (ref.what == RowRef::What::ShowAdvanced)
+				say(tr("Shows the options most players never need: the cIOS, the region fixes and the loading speed. One you changed is always shown."));
 			else say("");
 		}
 
@@ -16683,6 +16897,56 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(ProtectedGameNote());
 				ResumeGui();
 				continue;
+			}
+			if (ref.what == RowRef::What::ShowAdvanced) {
+				// The same switch as Settings' pages, saved with the settings.
+				auto& other = riftwii::wii::Settings().other;
+				const bool wasShown = AdvancedSettingsShown();
+				other["settings_advanced"] = wasShown ? "off" : "on";
+				if (!riftwii::wii::SaveSettings()) {
+					other["settings_advanced"] = wasShown ? "on" : "off";
+					say(SettingsWriteFailureText());
+				}
+				refreshRows();
+				// Rows came or went above it: the focus stays on this row.
+				for (std::size_t i = 0; i < refs.size(); ++i)
+					if (refs[i].what == RowRef::What::ShowAdvanced) list.Select(static_cast<int>(i));
+				ResumeGui();
+				continue;
+			}
+			// A on a choice (not its arrows) lists its values to pick from,
+			// as on Settings' pages; the arrows still step.
+			const FlowRow actedRow = rows[static_cast<std::size_t>(acted)];
+			if (direction > 0 && !list.LastClickStepped() && actedRow.kind == FlowRow::Kind::Option && !actedRow.dim) {
+				std::vector<std::string> labels;
+				const int set = choicesOf(ref.what, labels);
+				if (set >= 0 && labels.size() > 1) {
+					const std::string about = said;
+					std::vector<FlowRow> choiceRows(labels.size());
+					for (std::size_t i = 0; i < labels.size(); ++i) {
+						choiceRows[i].kind = FlowRow::Kind::Action;
+						choiceRows[i].label = labels[i];
+						if (static_cast<int>(i) == set) {
+							choiceRows[i].on = true;
+							choiceRows[i].value = tr("In use");
+						}
+					}
+					int picked = -1;
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					RunRowPage(actedRow.label, gameName, choiceRows, [&](int) { return about; },
+						[&](int i, const PageAside&) { picked = i; return true; }, nullptr, 0, set, &skin::iconGear);
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					list.GetClicked();
+					list.GetClickedBack();
+					backBtn.button.ResetState();
+					if (picked < 0 || picked == set) {
+						ResumeGui();
+						continue;
+					}
+					direction = picked - set;
+				}
 			}
 			riftwii::GameSettings& game = state.model.game;
 			// What a reset that cannot be saved puts back.
@@ -19700,9 +19964,13 @@ static void MenuParentalControls()
 
 // One section of Settings (the hub's tile): its rows only. `backToHub`:
 // left with Back, for the hub (any other way out goes where it says).
+// SettingsSection::Count is Settings' search: every section's rows that
+// match what the player types first (the hub's Search button).
 static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
 {
 	int menu = MENU_NONE;
+	const bool searching = section == SettingsSection::Count;
+	std::string query;
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	// The theme and font this run of the menu shows (read at the first
 	// visit, before anything here changes them): stepping through them
@@ -19725,12 +19993,427 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kWiiSaves, kEmuNandFolder, kEmuNandKeeps, kEmuNandManager, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kStartLastGame, kShowHidden, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kLaunchLog, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kSteamGridKey, kSteamGridClear, kNetTest, kNames, kRiiTag, kAppStore, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcCalibrate, kNintendontImport, kUsbInput, kGcCard, kGcBackups, kLeaveButtons, kDiscLight, kNintendontSaves, kParental, kSdGames, kGameFolders, kIos, kNet, kResync, kDiscCopy,
-		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading, kAdvanced };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
 	std::string channelWhy;
 	const bool channelCan = riftwii::wii::ChannelInstallerPresent(channelWhy);
+	// What every row is, beside what it does (help, below): a line in plain
+	// words under its name, when a change to it takes effect, whether it is
+	// for experienced players (hidden until Show advanced settings is on),
+	// whether it does something rather than set something (drawn as a
+	// button), and more words Settings' search finds it by.
+	const auto shortNote = [&](RowAction a) -> std::string {
+		switch (a) {
+			case kEmulators: return tr("Default options for installed emulators.");
+			case kLanguage: return tr("The language the menu is written in.");
+			case kWidth: return tr("How wide the game's picture is drawn.");
+			case kDeflicker: return tr("Softens the picture to hide flicker.");
+			case kBorders: return tr("Removes black bars at the picture's edges.");
+			case kVideoMode: return tr("The TV signal games use: 60 Hz, 50 Hz, 480p or 240p.");
+			case kAspect: return tr("Makes games use 4:3 or widescreen.");
+			case kGameLanguage: return tr("The language games are told to use.");
+			case kGameCios: return tr("The system software games run under.");
+			case kWiiSaves: return tr("Where Wii games keep their saves.");
+			case kEmuNandFolder: return tr("Which drive holds the copy of the Wii's memory.");
+			case kEmuNandKeeps: return tr("What the copy of the Wii's memory keeps.");
+			case kEmuNandManager: return tr("Install WADs, or copy saves and Miis.");
+			case kNonGames: return tr("Lists the Wii's own channels on Home too.");
+			case kServer: return tr("The online service that replaces Nintendo's.");
+			case kReturnTo: return tr("Where you go when you quit a game.");
+			case kLeaveButtons: return tr("Which buttons take you out of a game.");
+			case kShots: return tr("Take pictures while you play.");
+			case kGcCard: return tr("Which memory card GameCube games use.");
+			case kGcBackups: return tr("Copies GameCube saves before each game starts.");
+			case kDiscLight: return tr("Blinks the disc slot while a game loads.");
+			case kNintendontSaves: return tr("Copy your saves over from Nintendont.");
+			case kParental: return tr("Lock games by age rating with a PIN.");
+			case kGcAdapter: return tr("GameCube controllers through a USB adapter.");
+			case kGcRumble: return tr("Lets GameCube controllers rumble.");
+			case kWiiRumble: return tr("Lets Wii Remotes rumble.");
+			case kGcTest: return tr("See what your USB controllers are pressing.");
+			case kGcCalibrate: return tr("Fix worn sticks and triggers.");
+			case kNintendontImport: return tr("Copy controller layouts from Nintendont.");
+			case kUsbInput: return tr("Use USB controllers, keyboards and mice.");
+			case kHomeTiles: return tr("How games look on Home.");
+			case kChannelCorners: return tr("How round the Channels view's tiles are.");
+			case kChannelBackground: return tr("A white box behind channel banners.");
+			case kPagePeek: return tr("Shows the edges of the next and previous pages.");
+			case kGridSpacing: return tr("Smaller tiles with more room between them.");
+			case kHomeSource: return tr("Which games Home shows.");
+			case kHomeSort: return tr("The order games are listed in.");
+			case kHomeStart: return tr("Which page Home opens on.");
+			case kStartLastGame: return tr("Starts your last game after a short countdown.");
+			case kShowHidden: return tr("Shows the games you hid from Home.");
+			case kPlayHistory: return tr("Counts the games you play, for Recently played.");
+			case kDiscTile: return tr("Shows the disc drive on Home.");
+			case kWidescreen: return tr("Draws the menu for a 4:3 or a 16:9 TV.");
+			case kScreenSize: return tr("Shrinks the menu if your TV cuts off its edges.");
+			case kTheme: return tr("The menu's colors, pictures and sounds.");
+			case kThemeBrowse: return tr("Download themes made by the community.");
+			case kClockFormat: return tr("12-hour or 24-hour time.");
+			case kNoClock: return tr("Turns off the clock on Home.");
+			case kFont: return tr("The letters the menu is written in.");
+			case kSounds: return tr("How loud the menu's clicks are.");
+			case kWiiSounds: return tr("Uses this Wii's own menu sounds.");
+			case kWiiMusic: return tr("Uses this Wii's own menu music.");
+			case kMusic: return tr("Plays music while the menu is open.");
+			case kMusicFile: return tr("Which song the menu plays.");
+			case kLaunchMusic: return tr("Keeps the music playing while a game starts.");
+			case kLaunchLog: return tr("What you see while a game starts.");
+			case kPageBannerSound: return tr("Plays a game's banner music on its page.");
+			case kDiscArt: return tr("Shows the game's disc on its page.");
+			case kIos: return tr("The system software the menu runs under.");
+			case kNone: return tr("No d2x cIOS was found.");
+			case kSdGames: return tr("Whether games are looked for on the SD card.");
+			case kGameFolders: return tr("More folders to look for games in.");
+			case kRescan: return tr("Reads your drives again.");
+			case kPartitionFailures: return tr("Some USB partitions could not be read.");
+			case kNet: return tr("Finds mod packs shared from a PC.");
+			case kResync: return tr("Copies network packs again on the next launch.");
+			case kDiscCopy: return tr("Copies a Wii disc to your USB drive or SD card.");
+			case kOnline: return tr("Lets RiftWii download names, covers and updates.");
+			case kEmulatorCovers: return tr("Downloads covers for emulator games.");
+			case kSteamGridCovers: return tr("Extra covers from SteamGridDB.");
+			case kSteamGridKey: return tr("Your SteamGridDB key.");
+			case kSteamGridClear: return tr("Removes your SteamGridDB key.");
+			case kAppStore: return tr("Homebrew apps, checked by the RiftWii team.");
+			case kNames: return tr("Downloads the newest game names.");
+			case kNetTest: return tr("Checks that the Wii is online.");
+			case kMissingCovers: return tr("Downloads covers Home doesn't have yet.");
+			case kRiiTag: return tr("Shows your RiiTag.");
+			case kUpdate: return tr("Looks for a newer RiftWii.");
+			case kTests: return tr("Test switches are turning parts of RiftWii off.");
+			case kGeckoLog: return tr("Sends RiftWii's log to a USB Gecko.");
+			case kWiirdDebugger: return tr("Starts games with the WiiRD debugger.");
+			case kReport: return tr("Sends a report to help fix a problem.");
+			case kWhatsNew: return tr("What changed in this version.");
+			case kUsbHelp: return tr("How to set up a USB drive.");
+			case kTutorial: return tr("A short tour of RiftWii.");
+			case kWiiChannel: return tr("Start RiftWii from the Wii Menu.");
+			case kResetAll: return tr("Puts every setting back as it came.");
+			case kCredits: return tr("Who made RiftWii's parts, and its license.");
+			case kAdvanced: return tr("Settings for experienced players.");
+			default: return "";
+		}
+	};
+	// When a change is seen: at once (no tag), with the next game, or once
+	// RiftWii starts again.
+	const auto effectTag = [&](RowAction a) -> std::string {
+		switch (a) {
+			case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect: case kGameLanguage:
+			case kGameCios: case kWiiSaves: case kEmuNandFolder: case kEmuNandKeeps: case kServer: case kReturnTo:
+			case kLeaveButtons: case kShots: case kGcCard: case kGcBackups: case kDiscLight: case kGcAdapter:
+			case kGcRumble: case kWiiRumble: case kLaunchLog: case kLaunchMusic: case kWiirdDebugger: case kResync:
+				return tr("Next game");
+			case kTheme: case kFont: case kIos: case kStartLastGame: case kHomeStart: case kGeckoLog:
+				return tr("After a restart");
+			default:
+				return "";
+		}
+	};
+	const auto isAdvanced = [](RowAction a) {
+		switch (a) {
+			case kGameCios: case kIos: case kNone: case kEmuNandFolder: case kEmuNandKeeps: case kGeckoLog:
+			case kWiirdDebugger: case kSteamGridCovers: case kSteamGridKey: case kSteamGridClear: case kNet:
+			case kResync: case kChannelCorners: case kNonGames: case kLeaveButtons:
+				return true;
+			default:
+				return false;
+		}
+	};
+	const auto isButton = [](RowAction a) {
+		switch (a) {
+			case kGcTest: case kNintendontImport: case kNintendontSaves: case kRescan: case kResync: case kDiscCopy:
+			case kNetTest: case kNames: case kMissingCovers: case kUpdate: case kReport: case kSteamGridClear:
+			case kResetAll: case kTests:
+				return true;
+			default:
+				return false;
+		}
+	};
+	// Words a player may search by that the row's name and line do not
+	// have (English; the translated name and line are searched too).
+	const auto keywords = [](RowAction a) -> const char* {
+		switch (a) {
+			case kWidth: return "video picture screen tv";
+			case kDeflicker: return "video picture blur filter";
+			case kBorders: return "video picture black bars";
+			case kVideoMode: return "video picture tv ntsc pal 480p 240p hz progressive";
+			case kAspect: return "video picture widescreen 16:9 4:3 tv";
+			case kLanguage: case kGameLanguage: return "language";
+			case kGameCios: case kIos: return "cios ios d2x";
+			case kWiiSaves: return "save saves nand";
+			case kEmuNandFolder: case kEmuNandKeeps: case kEmuNandManager: return "nand emunand saves wad";
+			case kServer: return "online wiimmfi wfc wiilink";
+			case kGcCard: return "memory card save saves gamecube";
+			case kGcBackups: return "memory card backup save saves restore gamecube";
+			case kNintendontSaves: return "memory card save saves nintendont import";
+			case kGcAdapter: return "gamecube controller adapter usb";
+			case kGcRumble: case kWiiRumble: return "rumble vibration controller";
+			case kGcCalibrate: return "controller stick drift calibrate";
+			case kNintendontImport: return "controller layout ini import";
+			case kUsbInput: return "usb controller keyboard mouse";
+			case kHomeTiles: return "layout view covers grid shelf";
+			case kHomeSort: return "home order sort";
+			case kReturnTo: return "quit exit game wii menu";
+			case kWidescreen: return "video 16:9 4:3 tv";
+			case kScreenSize: return "video overscan tv edges";
+			case kTheme: case kThemeBrowse: return "look colors colours";
+			case kSounds: case kWiiSounds: case kMusic: case kMusicFile: case kLaunchMusic: case kPageBannerSound:
+				return "sound audio music volume";
+			case kShots: return "screenshot picture";
+			case kParental: return "pin lock age kids children";
+			case kOnline: case kNetTest: return "internet network wifi download";
+			case kUpdate: return "update version";
+			case kReport: return "bug problem help";
+			case kSdGames: case kGameFolders: case kRescan: return "drive scan usb sd folder";
+			case kDiscCopy: return "rip dump disc copy";
+			case kClockFormat: case kNoClock: return "time clock";
+			case kFont: return "text letters";
+			case kResetAll: return "default reset";
+			default: return "";
+		}
+	};
+	// Settings' search: every word typed is in the row's name, its line,
+	// its section's name or its other words (letters compared without case).
+	// The keyboard has a to z only, so accented letters are compared as the
+	// plain letter: a French player finds "écran" by typing "ecran".
+	const auto lowerAscii = [](const std::string& text) {
+		// UTF-8 C3 80 to C3 BF (À to ÿ), as plain letters; "" keeps the letter.
+		static const char* const kLatin1[64] = {
+			"a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
+			"d", "n", "o", "o", "o", "o", "o", "", "o", "u", "u", "u", "u", "y", "", "ss",
+			"a", "a", "a", "a", "a", "a", "ae", "c", "e", "e", "e", "e", "i", "i", "i", "i",
+			"d", "n", "o", "o", "o", "o", "o", "", "o", "u", "u", "u", "u", "y", "", "y"};
+		std::string folded;
+		folded.reserve(text.size());
+		for (std::size_t i = 0; i < text.size(); ++i) {
+			const unsigned char c = static_cast<unsigned char>(text[i]);
+			const unsigned char next = i + 1 < text.size() ? static_cast<unsigned char>(text[i + 1]) : 0;
+			const bool latin1 = c == 0xC3 && next >= 0x80 && next <= 0xBF && kLatin1[next - 0x80][0] != '\0';
+			const bool oeLigature = c == 0xC5 && (next == 0x92 || next == 0x93);  // Œ œ
+			if (latin1) {
+				folded += kLatin1[next - 0x80];
+				++i;
+			} else if (oeLigature) {
+				folded += "oe";
+				++i;
+			} else if (c >= 'A' && c <= 'Z') {
+				folded += static_cast<char>(c - 'A' + 'a');
+			} else {
+				folded += static_cast<char>(c);
+			}
+		}
+		return folded;
+	};
+	const auto hayOf = [&](const FlowRow& row, RowAction a, SettingsSection s) {
+		return lowerAscii(row.label + " " + shortNote(a) + " " + SectionName(s) + " " + keywords(a));
+	};
+	const auto hayMatches = [](const std::string& hay, const std::string& typed) {
+		std::size_t at = 0;
+		bool any = false;
+		while (at < typed.size()) {
+			const std::size_t end = typed.find(' ', at);
+			const std::string word = typed.substr(at, end == std::string::npos ? std::string::npos : end - at);
+			at = end == std::string::npos ? typed.size() : end + 1;
+			if (word.empty()) continue;
+			any = true;
+			if (hay.find(word) == std::string::npos) return false;
+		}
+		return any;
+	};
+	// Every searchable row's words, kept by build() for the keyboard's keys.
+	std::vector<std::string> allHays;
+	const auto matchesQuery = [&](const FlowRow& row, RowAction a, SettingsSection s) {
+		return hayMatches(hayOf(row, a, s), lowerAscii(query));
+	};
+	const auto advancedShown = [&]() {
+		const auto it = settings.other.find("settings_advanced");
+		return it != settings.other.end() && it->second == "on";
+	};
+	// The values Games from offers (SD only while the SD card is searched)
+	// and the GameCube memory cards this console has: the picker lists these
+	// and the handlers step through or take them, so the two always agree.
+	const auto homeSourceChoices = [&]() {
+		std::vector<std::string> sources{"all", "sd", "usb", "wii", "gamecube"};
+		if (settings.sd_games == "off") sources.erase(sources.begin() + 1);
+		return sources;
+	};
+	const auto gcCardChoices = []() {
+		std::vector<std::string> cards{"own", "shared"};
+		// The real cards only where the Wii has GameCube slots.
+		if (!riftwii::wii::is_wii_u()) {
+			cards.push_back("real");
+			cards.push_back("real_b");
+		}
+		return cards;
+	};
+	// A choice's values in the order its handler steps through them, named
+	// (and each one's note, where it has one), and which is set: -1 for a
+	// row that is not a list. Picking value i steps the handler i - set.
+	const auto choicesOf = [&](RowAction a, std::vector<std::string>& labels, std::vector<std::string>& notes) -> int {
+		labels.clear();
+		notes.clear();
+		const auto fromList = [&](const auto& list, bool withGlobal, const std::string& value, const auto& name) {
+			const std::size_t first = withGlobal ? 0 : 1;
+			const std::size_t n = sizeof(list) / sizeof(list[0]);
+			int set = 0;
+			for (std::size_t i = first; i < n; ++i) {
+				if (value == list[i]) set = static_cast<int>(i - first);
+				labels.push_back(name(list[i]));
+			}
+			return set;
+		};
+		const auto two = [&](bool secondSet, const std::string& first, const std::string& second) {
+			labels = {first, second};
+			return secondSet ? 1 : 0;
+		};
+		switch (a) {
+			case kLanguage: return fromList(kLanguages, true, settings.language, LanguageName);
+			case kWidth: {
+				const int set = fromList(kWidths, false, settings.video_width, WidthName);
+				for (std::size_t i = 1; i < sizeof(kWidths) / sizeof(kWidths[0]); ++i) notes.push_back(WidthNote(kWidths[i]));
+				return set;
+			}
+			case kDeflicker: return fromList(kDeflickers, false, settings.deflicker, DeflickerName);
+			case kBorders: return fromList(kBorderModes, false, settings.borders, BordersName);
+			case kVideoMode: {
+				const int set = fromList(kVideoModes, false, settings.video_mode, VideoModeName);
+				for (std::size_t i = 1; i < sizeof(kVideoModes) / sizeof(kVideoModes[0]); ++i)
+					notes.push_back(VideoModeNote(kVideoModes[i], true));
+				return set;
+			}
+			case kAspect: return fromList(kAspects, false, settings.aspect, AspectName);
+			case kGameLanguage: return fromList(kGameLanguages, false, settings.game_language, GameLanguageName);
+			case kGameCios: return fromList(kCiosChoices, false, settings.game_cios, CiosName);
+			case kWiiSaves: {
+				const auto name = [](const std::string& v) { return std::string(tr(SaveLabel(v).c_str())); };
+				return fromList(kSavesEveryGameChoices, true, settings.saves_every_game, name);
+			}
+			case kEmuNandFolder: return fromList(kEmuNandFolderChoices, true, settings.emunand_folder, EmuNandFolderName);
+			case kEmuNandKeeps: return fromList(kEmuNandKeepChoices, true, settings.emunand_keeps, EmuNandKeepsName);
+			case kServer: return fromList(kServers, false, settings.wfc_server, ServerName);
+			case kChannelCorners:
+				return fromList(kChannelCornerChoices, true, settings.channel_corners, ChannelCornersName);
+			case kReturnTo:
+				// The returnto test switch sends games to the Wii Menu whatever is saved.
+				return two(settings.return_to == "menu" || riftwii::wii::debug_off("returnto"), tr("Back to RiftWii"),
+					tr("Wii Menu"));
+			case kLeaveButtons:
+				return two(settings.leave_buttons == "off", tr("HOME or buttons"), tr("HOME only"));
+			case kHomeStart:
+				return two(settings.home_start == "last", tr("First page"), tr("Last game"));
+			case kGridSpacing:
+				return two(settings.grid_spacing == "roomy", tr("Normal"), tr("Roomy"));
+			case kChannelBackground:
+				return two(settings.channel_background == "card", tr("Transparent"), tr("White"));
+			case kLaunchMusic:
+				return two(settings.launch_music == "off", tr("Keep playing"), tr("Fade out"));
+			case kLaunchLog:
+				return two(settings.launch_log == "on", tr("Game's box"), tr("Log"));
+			case kFont:
+				return two(settings.menu_font == "wii", "RiftWii", tr("Wii Menu"));
+			case kSdGames:
+				return two(settings.sd_games == "off", tr("Look for them"), tr("Don't look"));
+			case kHomeSource: {
+				const std::vector<std::string> sources = homeSourceChoices();
+				int set = 0;
+				for (std::size_t i = 0; i < sources.size(); ++i) {
+					if (settings.home_source == sources[i]) set = static_cast<int>(i);
+					labels.push_back(HomeSourceName(sources[i]));
+					notes.push_back(HomeSourceNote(sources[i]));
+				}
+				return set;
+			}
+			case kHomeSort: {
+				static const char* const kSortChoices[] = {"az", "recent", "most", "custom"};
+				int set = 0;
+				for (int i = 0; i < 4; ++i) {
+					if (settings.home_sort == kSortChoices[i]) set = i;
+					labels.push_back(HomeSortName(kSortChoices[i]));
+				}
+				return set;
+			}
+			case kSounds: {
+				static const char* const kSoundChoices[] = {"normal", "quiet", "off"};
+				int set = 0;
+				for (int i = 0; i < 3; ++i) {
+					if (settings.menu_sounds == kSoundChoices[i]) set = i;
+					labels.push_back(MenuSoundsName(kSoundChoices[i]));
+				}
+				return set;
+			}
+			case kHomeTiles: {
+				// NextHomeTiles' order, from Covers.
+				std::string tiles = "covers";
+				int set = 0;
+				for (int i = 0; i < 6; ++i) {
+					if (settings.home_tiles == tiles) set = i;
+					labels.push_back(HomeTilesName(tiles));
+					notes.push_back(HomeTilesNote(tiles));
+					tiles = NextHomeTiles(tiles);
+				}
+				return set;
+			}
+			case kWidescreen: {
+				labels = {tr("Automatic"), "16:9", "4:3"};
+				return settings.menu_widescreen == "on" ? 1 : settings.menu_widescreen == "off" ? 2 : 0;
+			}
+			case kScreenSize: {
+				for (int size = 80; size <= 100; size += 5) labels.push_back(std::to_string(size) + "%");
+				const int set = (settings.screen_size - 80) / 5;
+				return set < 0 ? 0 : set > 4 ? 4 : set;
+			}
+			case kClockFormat: {
+				labels = {tr("Automatic"), tr("12-hour"), tr("24-hour")};
+				return settings.clock == "12" ? 1 : settings.clock == "24" ? 2 : 0;
+			}
+			case kWiirdDebugger: {
+				labels = {tr("Off"), tr("On"), tr("Pause at start")};
+				return settings.wiird_debugger == "on" ? 1 : settings.wiird_debugger == "pause" ? 2 : 0;
+			}
+			case kGcAdapter: {
+				static const char* const kAdapterChoices[] = {"auto", "on", "off"};
+				labels = {tr("Automatic"), tr("On"), tr("Off")};
+				for (const char* v : kAdapterChoices) notes.push_back(AdapterNote(v));
+				return settings.gc_adapter == "on" ? 1 : settings.gc_adapter == "off" ? 2 : 0;
+			}
+			case kGcCard: {
+				const std::vector<std::string> cards = gcCardChoices();
+				int set = 0;
+				for (std::size_t i = 0; i < cards.size(); ++i) {
+					if (settings.gc_card == cards[i]) set = static_cast<int>(i);
+					labels.push_back(GcCardName(cards[i]));
+				}
+				return set;
+			}
+			case kTheme: {
+				std::vector<std::string> folders{"default"};
+				for (const riftwii::wii::ThemeEntry& t : themes) folders.push_back(t.folder);
+				if (std::find(folders.begin(), folders.end(), settings.theme) == folders.end())
+					folders.push_back(settings.theme);
+				int set = 0;
+				for (std::size_t i = 0; i < folders.size(); ++i) {
+					if (settings.theme == folders[i]) set = static_cast<int>(i);
+					labels.push_back(themeName(folders[i]));
+				}
+				return set;
+			}
+			case kIos: {
+				int set = 0;
+				for (std::size_t i = 0; i < iosChoices.size(); ++i) {
+					if (iosChoices[i] == iosSlot) set = static_cast<int>(i);
+					labels.push_back(MenuIosLabel(iosChoices[i]));
+					notes.push_back(MenuIosNote(iosChoices[i]));
+				}
+				return set;
+			}
+			default:
+				return -1;
+		}
+	};
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -19792,7 +20475,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		FlowRow nintendontSaves;
 		nintendontSaves.kind = FlowRow::Kind::Action;
 		nintendontSaves.label = tr("Bring your Nintendont saves");
-		nintendontSaves.value = tr("Open");
+		nintendontSaves.value = tr("Import");
 		rows.push_back(nintendontSaves);
 		actions.push_back(kNintendontSaves);
 		FlowRow parental;
@@ -19826,7 +20509,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		FlowRow nintendontImport;
 		nintendontImport.kind = FlowRow::Kind::Action;
 		nintendontImport.label = tr("Import from Nintendont");
-		nintendontImport.value = tr("Open");
+		nintendontImport.value = tr("Import");
 		rows.push_back(nintendontImport);
 		actions.push_back(kNintendontImport);
 		option(tr("USB input devices"), settings.usb_input == "off" ? tr("Off") : tr("On"),
@@ -20111,23 +20794,90 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::More;
 			}
 		};
+		// Each row gets its line in plain words, when a change takes
+		// effect, and a button's look for what is done rather than set. The
+		// advanced ones are left out unless shown (a search finds them all).
 		std::vector<FlowRow> kept;
 		std::vector<RowAction> keptActions;
+		allHays.clear();
+		const bool showAdvanced = searching || advancedShown();
+		bool anyAdvanced = false;
 		for (std::size_t i = 0; i < rows.size(); ++i) {
-			if (sectionOf(actions[i]) != section) continue;
-			kept.push_back(rows[i]);
-			keptActions.push_back(actions[i]);
+			const RowAction a = actions[i];
+			const SettingsSection from = sectionOf(a);
+			if (from == SettingsSection::Count) continue;
+			if (searching) allHays.push_back(hayOf(rows[i], a, from));
+			if (searching ? !matchesQuery(rows[i], a, from) : from != section) continue;
+			if (isAdvanced(a)) {
+				anyAdvanced = true;
+				if (!showAdvanced) continue;
+			}
+			FlowRow row = rows[i];
+			// A search's rows come from every section: the row's section
+			// where its page shows when a change takes effect.
+			row.detail = shortNote(a);
+			row.tag = searching ? SectionName(from) : effectTag(a);
+			row.button = isButton(a);
+			kept.push_back(row);
+			keptActions.push_back(a);
+		}
+		if (!searching && anyAdvanced) {
+			FlowRow advanced;
+			advanced.kind = FlowRow::Kind::Toggle;
+			advanced.label = tr("Show advanced settings");
+			advanced.value = advancedShown() ? tr("On") : tr("Off");
+			advanced.on = advancedShown();
+			advanced.detail = shortNote(kAdvanced);
+			kept.push_back(advanced);
+			keptActions.push_back(kAdvanced);
 		}
 		rows.swap(kept);
 		actions.swap(keptActions);
 	};
+	// Search: what to look for first, on the keyboard, with how many rows
+	// match as it is typed. Cancelled, it goes back to the hub.
+	if (searching) {
+		const auto typed = [&](const std::string& text, std::string& matches, std::string& next) {
+			query = text;
+			build();
+			// The keys still worth pressing: those that leave something found.
+			next.clear();
+			// As typed, a space at its end kept: "memory " then "c" is
+			// "memory c", which the memory card's rows match.
+			std::string typedLower = lowerAscii(text);
+			typedLower.erase(0, typedLower.find_first_not_of(' ') == std::string::npos ? typedLower.size()
+				: typedLower.find_first_not_of(' '));
+			for (const char c : std::string("abcdefghijklmnopqrstuvwxyz0123456789 :-'.")) {
+				for (const std::string& hay : allHays) {
+					const bool fits = c == ' ' ? !typedLower.empty() && typedLower.back() != ' ' && hayMatches(hay, typedLower)
+						: hayMatches(hay, typedLower + c);
+					if (fits) {
+						next += c;
+						break;
+					}
+				}
+			}
+			std::string names;
+			for (std::size_t i = 0; i < rows.size() && i < 6; ++i) names += (i ? ", " : "") + rows[i].label;
+			if (rows.size() > 6) names += ", ...";
+			matches = query.empty() ? std::string() : names;
+			if (query.empty()) return std::string();
+			return rows.size() == 1 ? std::string(tr("1 setting")) : tr("{1} settings", {std::to_string(rows.size())});
+		};
+		std::string text;
+		if (!AskSearch(text, typed, tr("Search settings")) || TrimSearch(text).empty()) {
+			backToHub = true;
+			return MENU_SOURCE;
+		}
+		query = TrimSearch(text);
+	}
 	build();
 
-	const std::string sectionTitle = SectionName(section);
+	const std::string sectionTitle = searching ? tr("Search: {1}", {FlatCapped(query, 24)}) : SectionName(section);
 	GuiText titleTxt(sectionTitle.c_str(), 30, skin::kInk);
 	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
-	PageIcon pageIcon(SectionIcon(section));
+	PageIcon pageIcon(searching ? &skin::iconSearch : SectionIcon(section));
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	const auto saveSettings = [&]() {
 		if (!riftwii::wii::SaveSettings()) return SettingsWriteFailureText();
@@ -20146,13 +20896,19 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
 	NoteCard noteCard;
-	GuiFlowList list(40, 84, 560, 5);
+	// Two lines a row: the name with its value or switch, and under them
+	// what it is, in plain words (FlowRow::detail, SetNotesUnder): four rows
+	// of 58 end where the note card starts (y 316).
+	GuiFlowList list(40, 84, 560, 4);
+	list.SetRowHeight(58);
+	list.SetNotesUnder(true);
 	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	if (searching && rows.empty()) noteTxt.SetText(tr("No settings match \"{1}\".", {query}).c_str());
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
@@ -20291,6 +21047,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return tr("Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.");
 				return tr("Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.");
 			case kHeading: return "";
+			case kAdvanced:
+				return tr("Shows the settings most players never need: system software (cIOS), the copy of the Wii's memory, debugging and network packs. Settings' search always finds them.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
@@ -20373,7 +21131,77 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				if (saved) note(text);
 				return saved;
 			};
-			switch (actions[static_cast<std::size_t>(acted)]) {
+			// A on a choice opens its list (the current one lit), as a modern
+			// console's settings do; its arrows and Left/Right still step it.
+			// Picking value i steps the row's own handler (below) by i - set at
+			// once, so whatever that value asks (a warning) is asked once.
+			bool stepIt = true;
+			int listPick = -1;  // the value picked from the list, else -1 (stepped)
+			const RowAction actedAction = actions[static_cast<std::size_t>(acted)];
+			const FlowRow& actedRow = rows[static_cast<std::size_t>(acted)];
+			if (direction > 0 && !list.LastClickStepped() && actedRow.kind == FlowRow::Kind::Option && !actedRow.dim) {
+				std::vector<std::string> labels, notes;
+				const int set = choicesOf(actedAction, labels, notes);
+				// Screen size saved between the fives (settings.txt takes 82):
+				// none of the list is in use; the focus starts on the five
+				// under it, and picking any one sets it.
+				const bool sizeBetween = settings.screen_size % 5 != 0 || settings.screen_size < 80 ||
+					settings.screen_size > 100;
+				const bool setListed = !(actedAction == kScreenSize && sizeBetween);
+				if (set >= 0 && labels.size() > 1) {
+					const std::string about = help(actedAction);
+					std::vector<FlowRow> choiceRows(labels.size());
+					for (std::size_t i = 0; i < labels.size(); ++i) {
+						choiceRows[i].kind = FlowRow::Kind::Action;
+						choiceRows[i].label = labels[i];
+						if (static_cast<int>(i) == set && setListed) {
+							choiceRows[i].on = true;
+							choiceRows[i].value = tr("In use");
+						}
+					}
+					int picked = -1;
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					RunRowPage(actedRow.label, sectionTitle, choiceRows,
+						[&](int i) { return i < static_cast<int>(notes.size()) && !notes[i].empty() ? notes[i] : about; },
+						[&](int i, const PageAside&) { picked = i; return true; }, nullptr, 0, set,
+						searching ? &skin::iconSearch : SectionIcon(section));
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					list.GetClicked();
+					list.GetClickedBack();
+					backBtn.button.ResetState();
+					// Games from and the memory card can hold a value their
+					// list lacks (SD with the SD card not searched, a Wii U's
+					// saved real card), shown as the first: picking even that
+					// one sets it, as the handler takes a pick as it is.
+					// Quitting a game with its test switch on: a pick, even
+					// the one in use, takes the switch out (its help says A
+					// here does).
+					// Menu IOS whose saved slot is no longer installed: the
+					// list marks IOS 58, the slot that is used, and picking it
+					// saves it.
+					const bool iosSlotGone = std::find(iosChoices.begin(), iosChoices.end(), iosSlot) == iosChoices.end();
+					const bool takesPick = actedAction == kGcCard || actedAction == kHomeSource ||
+						(actedAction == kReturnTo && riftwii::wii::debug_off("returnto")) ||
+						(actedAction == kIos && iosSlotGone) || !setListed;
+					if (picked < 0 || (picked == set && !takesPick)) stepIt = false;
+					else {
+						direction = picked - set;
+						listPick = picked;
+					}
+				}
+			}
+			if (actedAction == kAdvanced) {
+				stepIt = false;
+				settings.other["settings_advanced"] = advancedShown() ? "off" : "on";
+				if (saveOrUndo()) note(help(kAdvanced));
+				// Rows came or went above it: the focus stays on this row, the last.
+				build();
+				list.Refresh();
+				list.Select(static_cast<int>(rows.size()) - 1);
+			}
+			if (stepIt) switch (actedAction) {
 				case kEmulators:
 					WaitForDriveScan(noteTxt);
 					// Home still has to collect the finished scan's new catalog.
@@ -20402,7 +21230,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					const bool drawable = riftwii::wii::MenuLanguageDrawable(lang);
 					riftwii::wii::SetMenuLanguage(drawable ? lang : "en");
 					namesStale = true;  // fetched once, on the way out
-					titleTxt.SetText(SectionName(section).c_str());
+					titleTxt.SetText((searching ? tr("Search: {1}", {FlatCapped(query, 24)}) : SectionName(section)).c_str());
 					// With no Hangul source the catalog above is English, so
 					// the player can still read how to copy the font.
 					if (error.empty() && !drawable)
@@ -20496,18 +21324,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeSource: {
-					static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii", "gamecube"};
-					constexpr int kSources = 5;
-					int at = 0;
-					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
-					// With the SD scan off SD would list nothing: stepped over. GameCube stays, it lists USB games too.
-					const bool sdScanned = settings.sd_games != "off";
-					for (int tries = 0; tries < kSources; ++tries) {
-						at = ((at % kSources) + kSources + direction) % kSources;
-						const std::string choice = kSourceChoices[at];
-						if (sdScanned || choice != "sd") break;
-					}
-					settings.home_source = kSourceChoices[at];
+					// With the SD scan off SD would list nothing: not offered.
+					// GameCube stays, it lists USB games too.
+					const std::vector<std::string> sources = homeSourceChoices();
+					settings.home_source = listPick >= 0 && listPick < static_cast<int>(sources.size())
+						? sources[static_cast<std::size_t>(listPick)]
+						: StepList(sources, settings.home_source, direction);
 					saveAndNote(help(kHomeSource));
 					rebuild();
 					break;
@@ -20577,6 +21399,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						if (kept.empty()) settings.other.erase(it);
 						else it->second = kept;
 						logf("Settings: debug_off returnto taken out (%s left)\n", kept.empty() ? "nothing" : kept.c_str());
+						// Picked from the list (Back to RiftWii, Wii Menu): that one too.
+						if (listPick >= 0) settings.return_to = listPick == 1 ? "menu" : "riftwii";
 					} else {
 						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
 					}
@@ -20585,17 +21409,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kDiscLight:
 					settings.disc_light = !settings.disc_light;
-					saveAndNote(tr("Disc slot light"));
+					saveAndNote(help(kDiscLight));
 					rebuild();
 					break;
 				case kGcCard: {
-					// The real cards only where the Wii has GameCube slots.
-					std::vector<std::string> cards{"own", "shared"};
-					if (!riftwii::wii::is_wii_u()) {
-						cards.push_back("real");
-						cards.push_back("real_b");
-					}
-					settings.gc_card = StepList(cards, settings.gc_card, 1);
+					const std::vector<std::string> cards = gcCardChoices();
+					settings.gc_card = listPick >= 0 && listPick < static_cast<int>(cards.size())
+						? cards[static_cast<std::size_t>(listPick)]
+						: StepList(cards, settings.gc_card, direction);
 					saveAndNote(help(kGcCard));
 					rebuild();
 					break;
@@ -20681,7 +21502,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = NextHomeTiles(settings.home_tiles);
+					// Six views, in NextHomeTiles' order: back is five on.
+					for (int steps = ((direction % 6) + 6) % 6; steps > 0; --steps)
+						settings.home_tiles = NextHomeTiles(settings.home_tiles);
 					saveAndNote(help(kHomeTiles));
 					rebuild();
 					break;
@@ -20715,9 +21538,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kScreenSize:
 					// 100% down to 80%, 5 at a time, round and round.
-					settings.screen_size += direction < 0 ? -5 : 5;
-					if (settings.screen_size > 100) settings.screen_size = 80;
-					if (settings.screen_size < 80) settings.screen_size = 100;
+				{
+					// 80 to 100 in fives, round from one end to the other.
+					int at = (settings.screen_size - 80) / 5;
+					at = at < 0 ? 0 : at > 4 ? 4 : at;
+					if (listPick >= 0 && listPick <= 4) settings.screen_size = 80 + 5 * listPick;
+					else settings.screen_size = 80 + 5 * (((at + direction) % 5 + 5) % 5);
+				}
 					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
 						riftwii::wii::ApplyMenuDisplay();
 					rebuild();
@@ -21092,12 +21919,18 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					std::size_t at = 0;
 					while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
 					const int n = static_cast<int>(iosChoices.size());
-					iosSlot = iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
-					if (riftwii::wii::SaveMenuIos(iosSlot)) {
+					const int wanted = listPick >= 0 && listPick < n
+						? iosChoices[static_cast<std::size_t>(listPick)]
+						: iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
+					if (riftwii::wii::SaveMenuIos(wanted)) {
+						iosSlot = wanted;
 						logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
 						noteTxt.SetText(MenuIosNote(iosSlot).c_str());
 					} else {
-						noteTxt.SetText("Cannot write sd:/riftwii/menu_ios.txt");
+						// A failed write may have emptied the file: shown as the card has it.
+						iosSlot = riftwii::wii::LoadMenuIos();
+						logf("Menu IOS: could not save %s\n", MenuIosLabel(wanted).c_str());
+						noteTxt.SetText(tr("Cannot write sd:/riftwii/menu_ios.txt"));
 					}
 					build();
 					list.Refresh();
@@ -21350,6 +22183,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 // `focus`: the tile lit, kept between visits.
 // -1 when the player goes back to Home, kLeaveRiftWii to leave RiftWii.
 static constexpr int kLeaveRiftWii = -3;
+static constexpr int kSearchSettings = -4;  // the hub's Search
 static int SettingsHub(int& focus, bool fromSection)
 {
 	const riftwii::LoaderSettings& settings = riftwii::wii::Settings();
@@ -21405,7 +22239,12 @@ static int SettingsHub(int& focus, bool fromSection)
 	TitleBand titleBand;
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	versionTxt.SetPosition(-40, 40);
+	versionTxt.SetPosition(-92, 40);
+	// Search every setting: at the band's right, as Home's is on its bar;
+	// 1 (Classic Y, GameCube Y) too.
+	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 562, 22, nullptr,
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f);
+	searchBtn.backAction = false;
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tilesSpec);
 	tileGrid.Select(focus);
@@ -21414,6 +22253,7 @@ static int SettingsHub(int& focus, bool fromSection)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	prompts.Add("B", tr("Back"));
+	prompts.Add("1", tr("Search"));
 	prompts.Add("A", tr("Open"));
 	// Lines beside the same info icon as list pages, below the grid; the
 	// last is cut short of the prompts.
@@ -21426,6 +22266,7 @@ static int SettingsHub(int& focus, bool fromSection)
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
 	w.Append(&tileGrid);
+	w.Append(&searchBtn.button);
 	w.Append(&noteCard);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -21441,7 +22282,8 @@ static int SettingsHub(int& focus, bool fromSection)
 		usleep(10000);
 		RestartIfOutOfMemory();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button});
+		ClearStaleButtons({&backBtn.button, &searchBtn.button});
+		if (searchBtn.Clicked()) picked = kSearchSettings;
 		const int lit = tileGrid.Selected();
 		if (lit != shown && lit >= 0 && lit < static_cast<int>(tilesSpec.size())) {
 			shown = lit;
@@ -21471,8 +22313,14 @@ static int MenuSettings(FrontendState& state)
 	for (;;) {
 		const int picked = SettingsHub(focus, fromSection);
 		if (picked == kLeaveRiftWii) return MENU_EXIT;
-		if (picked < 0) return MENU_SOURCE;
 		bool backToHub = false;
+		if (picked == kSearchSettings) {
+			const int menu = MenuSettingsSection(state, SettingsSection::Count, backToHub);
+			if (!backToHub) return menu;
+			fromSection = true;
+			continue;
+		}
+		if (picked < 0) return MENU_SOURCE;
 		const int menu = MenuSettingsSection(state, static_cast<SettingsSection>(picked), backToHub);
 		if (!backToHub) return menu;
 		fromSection = true;

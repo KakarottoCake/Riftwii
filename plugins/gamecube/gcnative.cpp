@@ -266,10 +266,18 @@ bool open_gc_tgc(const ByteSource& f, const std::vector<std::uint8_t>& disc_boot
 // The TGC images among the disc's files (`fst`, as the game will have it),
 // at most GC_TGC_MAX, each with a header that stays within its file: the
 // ones a bonus disc's menu can start a game from. One that does not parse
-// is left as the disc has it, and the log says why.
+// is left as the disc has it, and the log says why; so are any past the
+// first GC_TGC_MAX.
 std::vector<GcTgc> find_gc_tgc_starts(const ByteSource& f, const std::vector<std::uint8_t>& fst) {
     std::vector<GcTgc> starts;
-    for (const GcFstFile& file : find_gc_tgc_files(fst, GC_TGC_MAX)) {
+    std::vector<GcFstFile> files = find_gc_tgc_files(fst, GC_TGC_MAX + 1);
+    if (files.size() > GC_TGC_MAX) {
+        logf("GameCube: the disc has more than %u TGC images; the menu's start of a game from one after the first %u "
+             "runs as the menu makes it, unpatched\n",
+             static_cast<unsigned>(GC_TGC_MAX), static_cast<unsigned>(GC_TGC_MAX));
+        files.resize(GC_TGC_MAX);
+    }
+    for (const GcFstFile& file : files) {
         std::uint8_t header[kGcTgcHeaderBytes];
         GcTgc tgc;
         std::string why = "unreadable";
@@ -2638,6 +2646,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             if (!ok) error = "cannot read " + image.path;
         }
     }
+    // The game that runs, for the per-game lists (gxpatches.hpp and the
+    // like): a game packed in a TGC image is its own game, not the bonus
+    // disc's menu. The Mario Party 5 demo on the Mario Kart: Double Dash!!
+    // Bonus Disc stopped with a sound error on a black screen, as GP5 is
+    // listed to keep the SDK's ARAM addresses but the disc is PM4E01.
+    std::string game_id = image.id;
+    if (ok && tgc_offset != 0) {
+        const std::string packed_id(reinterpret_cast<const char*>(boot.data()), 6);
+        const bool printable = std::all_of(packed_id.begin(), packed_id.end(),
+                                           [](char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z'); });
+        if (printable) {
+            game_id = packed_id;
+            logf("GameCube: %s's own fixes apply to the packed game (the disc is %s)\n", game_id.c_str(),
+                 image.id.c_str());
+        }
+    }
     // A switch to another program on the disc (gc_on_boot_dol): that one,
     // with its arguments in BI2 where its start-up code reads them.
     const std::uint32_t dol_offset = image.exec && image.exec_dol != 0 ? image.exec_dol : be32(&boot[0x420]);
@@ -2650,6 +2674,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     if (ok && image.exec && !gc_pack_exec_args(bi2, image.exec_args)) {
         error = "the program's arguments do not fit where the game reads them";
         ok = false;
+    }
+    // A game from a TGC image gets the arguments its menu gave it
+    // (gc_on_tgc_read copies them), in the TGC's own BI2 where the game's
+    // start-up code reads them. Not when no TGC game started: the disc's
+    // menu takes none.
+    if (ok && tgc_offset != 0 && !image.exec_args.empty()) {
+        if (gc_pack_exec_args(bi2, image.exec_args)) {
+            logf("GameCube: the game packed in the TGC image gets the %u argument(s) its menu gave it\n",
+                 static_cast<unsigned>(image.exec_args.size()));
+        } else {
+            error = "the arguments the bonus disc's menu gave its game do not fit where the game reads them";
+            ok = false;
+        }
     }
     // With packs, the header and FST are the plan's (the files moved to
     // its window), and the game reads that FST from memory.
@@ -3310,7 +3347,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 ready = false;
             }
             if (blank) {
-                const bool shift_jis = gc_card_shift_jis(image.id);
+                const bool shift_jis = gc_card_shift_jis(game_id);
                 format_card(card_image, shift_jis);
                 logf("GameCube: a newly formatted memory card, %s (%u KB)\n", path.c_str(), GC_CARD_BYTES / 1024);
                 std::FILE* f = std::fopen(path.c_str(), "wb");
@@ -3476,7 +3513,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     static_cast<gc_bt*>(staged(bt_addr))->map = controls;
     // A Triforce game's boards: what they answer with, then the hooks below.
     if (tri_addr != 0) {
-        gc_tri_identity(*static_cast<gc_tri*>(staged(tri_addr)), image.id.size() > 3 ? image.id[3] : 'E');
+        gc_tri_identity(*static_cast<gc_tri*>(staged(tri_addr)), game_id.size() > 3 ? game_id[3] : 'E');
         ctx->tri = tri_addr;
     }
     // The GameCube adapter for Wii U: its driver runs from the game's
@@ -3579,9 +3616,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // too, is told the strap is set (riftwii/gcfont.hpp). The 480p patch
         // above matches only reads of the low two bits, never this bit test,
         // and once the load is replaced nothing later can match it either.
-        if (image.id.size() > 3 && image.id[3] == 'J') {
+        if (game_id.size() > 3 && game_id[3] == 'J') {
             std::vector<GcFontRead> unclassified;
-            const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id, &unclassified);
+            const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), game_id, &unclassified);
             for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
             if (!fonts.empty()) {
                 logf("GameCube: %u font choice(s) (OSGetFontEncode, first at 0x%08x) see a Japanese console, so the "
@@ -3606,7 +3643,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
 
         // Luigi's Mansion: buffers use the queued heap, callbacks escape only
         // temporary heaps so a scene-queued archive can still live persistently.
-        const LmLoader lm = find_lm_loader(image.id, code);
+        const LmLoader lm = find_lm_loader(game_id, code);
         if (lm.heap_offset != 0) {
             const GcLoadHeaps heaps = find_gc_load_heaps(code.ranges(), lm.group,
                                                        static_cast<std::int32_t>(lm.heap_offset));
@@ -3635,7 +3672,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 logf("GameCube: the file loader's callback heaps were not identified; callbacks keep the game's "
                      "current heap, so only read buffers are protected from temporary heaps\n");
             }
-        } else if (gc_loads_use_queued_heap(image.id)) {
+        } else if (gc_loads_use_queued_heap(game_id)) {
             logf("GameCube: Luigi's Mansion's file loader was not found; it allocates from whichever heap is current\n");
         }
 
@@ -3812,7 +3849,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // The game's own code words that need a different value in Wii mode
         // (gc_code_fixes, riftwii/gxpatches.hpp). Each is checked against the
         // word it expects first, so another version of the game is left as it is.
-        for (const GcCodeFix& fix : gc_code_fixes(image.id)) {
+        for (const GcCodeFix& fix : gc_code_fixes(game_id)) {
             if (!code.has(fix.address) || code.at(fix.address) != fix.expected) {
                 logf("GameCube: game fix at 0x%08x not applied, the game's code is not what it was made for (%s)\n",
                      static_cast<unsigned>(fix.address), fix.what);
@@ -3831,7 +3868,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         const bool reset_hookable = reset.reset_system != 0 && opcode(code.at(reset.reset_system)) != 16 &&
                                     opcode(code.at(reset.reset_system)) != 18;
         GcRestartPlan restart;
-        if (main_program && reset_hookable && gc_restart_known_to_work(image.id)) {
+        if (main_program && reset_hookable && gc_restart_known_to_work(game_id)) {
             std::vector<GcRestartPiece> pieces;
             if (dol.bss_size != 0) pieces.push_back({dol.bss, dol.bss_size, true});
             pieces.push_back({di_regs, kGcDiRegsBytes, true});
@@ -3867,7 +3904,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  "piece(s), 0x%08x-0x%08x%s\n",
                  reset.reset_system, reset.hardware_reset, static_cast<unsigned>(restart_count), restart.table,
                  restart.end, pad_read != 0 ? "" : " (PADRead not found: only the game's own Reset)");
-        } else if (main_program && reset_hookable && gc_restart_known_to_work(image.id)) {
+        } else if (main_program && reset_hookable && gc_restart_known_to_work(game_id)) {
             logf("GameCube: Reset goes back to RiftWii: the game's memory does not fit in the restart's %u MB\n",
                  static_cast<unsigned>(kGcRestartWindowBytes >> 20));
         } else if (reset_hookable) {
@@ -3969,14 +4006,36 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 if (exec_sector != 0 && !tgcs.empty()) {
                     ctx->tgc_sector = exec_sector;
                     ctx->tgc_count = static_cast<std::uint32_t>(tgcs.size());
+                    gc_rt_cold* const tgc_cold = static_cast<gc_rt_cold*>(staged(cold_addr));
                     for (std::size_t i = 0; i < tgcs.size(); ++i) {
-                        ctx->tgc_offset[i] = tgcs[i].disc_offset;
-                        ctx->tgc_dol_start[i] = tgcs[i].dol_at();
-                        ctx->tgc_dol_end[i] = tgcs[i].dol_end();
+                        tgc_cold->tgc_offset[i] = tgcs[i].disc_offset;
+                        tgc_cold->tgc_dol_start[i] = tgcs[i].dol_at();
+                        tgc_cold->tgc_dol_end[i] = tgcs[i].dol_end();
                     }
                     logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
                          "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
                          static_cast<unsigned>(tgcs.size()), exec_sector);
+                    // A menu that hands the game it starts an argument list
+                    // (the Zelda Ocarina of Time / Master Quest disc: which
+                    // ROM, rumble, progressive scan, the memory card): its
+                    // start routine is hooked, and the list goes into
+                    // exec.txt with the TGC's offset.
+                    const GcTgcMenuStart menu = find_gc_tgc_menu_start(code.ranges());
+                    // The routine must be in the program's own code (a call
+                    // can name any address): else nothing is hooked.
+                    const bool menu_in_code = menu.start != 0 && code.has(menu.start);
+                    const unsigned menu_first = menu_in_code ? opcode(code.at(menu.start)) : 0;
+                    if (menu_in_code && menu_first != 16 && menu_first != 18) {
+                        replay_hook(menu.start, h.hook_tgc_start, h.replay_tgc_start, h.continue_tgc_start);
+                        static_cast<gc_rt_cold*>(staged(cold_addr))->tgc_start_hooked = 1;
+                        logf("GameCube: the menu's start routine 0x%08x is hooked, so the game it starts gets the "
+                             "arguments the menu gives it (its list at 0x%08x)\n",
+                             static_cast<unsigned>(menu.start), static_cast<unsigned>(menu.args));
+                    } else if (menu_in_code) {
+                        logf("GameCube: the menu's start routine 0x%08x begins with a branch and is left alone; the "
+                             "game it starts gets no arguments\n",
+                             static_cast<unsigned>(menu.start));
+                    }
                 } else if (!tgcs.empty()) {
                     logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
                          why_not.c_str());
@@ -3987,7 +4046,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (!card_image.empty()) {
             // The disc's ID tells the finder the few games whose 0x40-byte SDK
             // links no EXIProbeEx (gcexi.cpp's links_no_probe_ex).
-            const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges(), image.id);
+            const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges(), game_id);
             const auto& exi = found_exi.hooks;
             const std::uint32_t ecb = found_exi.blocks;
             // All or nothing (riftwii/gcexi.hpp's decide_gc_exi_hooks): a game
@@ -4034,7 +4093,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 } else if (found_exi.probe_ex_absent) {
                     logf("GameCube: memory card: no EXIProbeEx found; %s is on the list of games whose SDK has none, "
                          "so the other ten EXI functions are hooked\n",
-                         image.id.c_str());
+                         game_id.c_str());
                 }
                 break;
             case GcExiVerdict::NoTables:
@@ -4062,7 +4121,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 }
                 logf("GameCube: memory card off: %s is on the list of games without EXIProbeEx, but the listed-game "
                      "check refused (EXI blocks 0x%08x): %s at 0x%08x\n",
-                     image.id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
+                     game_id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
                 break;
             }
             case GcExiVerdict::Overlapping:
@@ -4112,7 +4171,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // A game whose own checks need the SDK's ARAM addresses keeps them
         // (gxpatches.hpp's gc_keeps_aram_addresses).
         if (main_program) gc_progress("Getting the game ready", 66);
-        const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
+        const bool keep_aram = gc_keeps_aram_addresses(game_id) || test_keep_aram;
         // Read before ARGetBaseAddress is raised, which changes its shape.
         const std::vector<std::uint32_t> aram_ends_after_base = find_gc_aram_ends_after_base(code.ranges());
         const unsigned aram_raised =
@@ -4123,12 +4182,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
         if (dsp_patched)
             logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
-        else if (keep_aram && !gc_keeps_aram_addresses(image.id))
+        else if (keep_aram && !gc_keeps_aram_addresses(game_id))
             logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
                  "may play wrong)\n");
         else if (keep_aram)
             logf("GameCube: ARAM addresses left as the SDK gives them: %s breaks when they are raised (see "
-                 "gc_keeps_aram_addresses; its sound may play wrong)\n", image.id.c_str());
+                 "gc_keeps_aram_addresses; its sound may play wrong)\n", game_id.c_str());
         else
             logf("GameCube: ARAM addresses from 0x10004000 (%u place(s), %u sound heap limit(s) raised with them) for the "
                  "sound program to read MEM2 (%s)\n",
@@ -4586,7 +4645,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The console's TV format the game reads (0x800000CC): its own region
     // always, even in PAL 60: the VI it sets up for that is the same, and
     // a game told PAL might pick its 576-line modes or refuse to start.
-    const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
+    const std::uint32_t tv_mode = gc_pal_game(game_id) ? 1 : 0;  // PAL or NTSC
     // The picture the game is handed: the Wii's video encoder in the
     // signal the launch chose (gc_tv_signal: the game's region, or PAL 60
     // or NTSC as Video mode asks; its region setting must suit the game's

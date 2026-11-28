@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/symsearch.hpp"
+
 namespace riftwii {
 
 // A TGC image: a whole GameCube disc packed into one file on another disc.
@@ -99,5 +101,39 @@ std::vector<GcFstFile> find_gc_fst_files_ending(const std::vector<std::uint8_t>&
 
 // The file of a GameCube FST that starts at `offset`; false when none does.
 bool find_gc_fst_file_at(const std::vector<std::uint8_t>& fst, std::uint32_t offset, GcFstFile& out);
+
+
+// How a bonus disc's menu starts a game from a TGC image, found in its
+// code. The Zelda Ocarina of Time / Master Quest disc (D43E01) packs both
+// games in one TGC with one N64 emulator, and its menu tells the emulator
+// which ROM to run and how ("zle_f.n64", "-V1" for rumble, "-P0" for
+// progressive scan, "-C1" for the memory card) through an argument list,
+// the emulator's argv. RiftWii starts the TGC's game again itself, so it
+// needs that list; without it the emulator runs its default ROM, Master
+// Quest, whichever game was picked.
+//
+// The menu fills the list only once Play is pressed and the TGC's header
+// is read, then hands it to its start routine, start(file, list), which
+// loads the program with a disc driver of its own: no read RiftWii sees
+// comes after the list is filled. So the routine is what is hooked.
+//
+// The list is a global array of string pointers, the last entry 0. The
+// menu fills it in a run that ends with its last option and the 0, then
+// calls the routine with the list's address:
+//     lis rB,hi ; addi rList,rB,lo         the list (a MEM1 address)
+//     ...
+//     addi rS,r13,d ; stwx rS,rList,rI     an option from the small data
+//     li rZ,0 ; ... ; stwx rZ,rList,rJ     the end of the list
+//     ...
+//     lis r4,hi ; ... ; addi r4,r4,lo      the list again, as the argument
+//     bl start
+// with each step at most a few instructions from the one before. Both
+// are 0 when the menu has no such run, or more than one place looks like
+// it.
+struct GcTgcMenuStart {
+    std::uint32_t args = 0;   // the list's address
+    std::uint32_t start = 0;  // the routine it is handed to
+};
+GcTgcMenuStart find_gc_tgc_menu_start(const std::vector<CodeRange>& text);
 
 }  // namespace riftwii

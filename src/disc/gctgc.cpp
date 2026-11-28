@@ -203,4 +203,119 @@ bool find_gc_fst_file_at(const std::vector<std::uint8_t>& fst, std::uint32_t off
     return false;
 }
 
+
+namespace {
+
+// PowerPC instruction fields (big-endian words).
+unsigned opcode(std::uint32_t insn) { return insn >> 26; }
+unsigned reg_d(std::uint32_t insn) { return (insn >> 21) & 31u; }
+unsigned reg_a(std::uint32_t insn) { return (insn >> 16) & 31u; }
+std::int32_t simm(std::uint32_t insn) { return static_cast<std::int16_t>(insn & 0xFFFFu); }
+
+bool is_stwx(std::uint32_t insn) { return opcode(insn) == 31 && ((insn >> 1) & 0x3FFu) == 151; }
+bool is_li_zero(std::uint32_t insn, unsigned reg) { return insn == (0x38000000u | (reg << 21)); }
+
+// How far apart the steps of the list's run may be, in instructions.
+constexpr std::size_t kNearSteps = 3;
+constexpr std::size_t kNearList = 12;
+
+// The list's address when the words before `end` (a stwx storing the
+// list's 0) are the run find_gc_tgc_menu_args describes; 0 when not.
+std::uint32_t menu_args_ending_at(const std::uint8_t* bytes, std::size_t end) {
+    const auto word = [&](std::size_t i) { return be32(bytes + i * 4); };
+    const std::uint32_t last = word(end);
+    const unsigned zero_reg = reg_d(last);
+    const unsigned list_reg = reg_a(last);
+    // li rZ,0 just before.
+    std::size_t li = end;
+    for (std::size_t back = 1; back <= kNearSteps && back <= end && li == end; ++back)
+        if (is_li_zero(word(end - back), zero_reg)) li = end - back;
+    if (li == end) return 0;
+    // An option stored into the same list just before that, from r13's data.
+    std::size_t option = li;
+    for (std::size_t back = 1; back <= kNearSteps && back <= li && option == li; ++back) {
+        const std::uint32_t store = word(li - back);
+        if (!is_stwx(store) || reg_a(store) != list_reg) continue;
+        const std::size_t at = li - back;
+        for (std::size_t from = 1; from <= kNearSteps && from <= at; ++from) {
+            const std::uint32_t load = word(at - from);
+            if (opcode(load) == 14 && reg_a(load) == 13 && reg_d(load) == reg_d(store)) {
+                option = at;
+                break;
+            }
+        }
+    }
+    if (option == li) return 0;
+    // The list's address: addi rList,rB,lo after lis rB,hi.
+    for (std::size_t back = 1; back <= kNearList && back <= option; ++back) {
+        const std::uint32_t add = word(option - back);
+        if (opcode(add) != 14 || reg_d(add) != list_reg || reg_a(add) == 0) continue;
+        const std::size_t at = option - back;
+        for (std::size_t from = 1; from <= kNearSteps && from <= at; ++from) {
+            const std::uint32_t high = word(at - from);
+            if (opcode(high) == 15 && reg_a(high) == 0 && reg_d(high) == reg_a(add)) {
+                const std::uint32_t address = ((high & 0xFFFFu) << 16) + static_cast<std::uint32_t>(simm(add));
+                // A word in MEM1, as the menu's globals are.
+                const bool in_mem1 = address >= 0x80000000u && address < 0x81800000u && address % 4 == 0;
+                return in_mem1 ? address : 0;
+            }
+        }
+        return 0;  // rList set otherwise: not this run
+    }
+    return 0;
+}
+
+// The routine the list is handed to, in the instructions after the run's
+// end (`end`): the first `bl` whose r4 was just loaded with the list's
+// address (other calls come between: the Zelda disc's menu stops its
+// music and the disc first); 0 when none comes before the function
+// returns, or soon.
+constexpr std::size_t kNearCall = 64;
+constexpr std::uint32_t kBlr = 0x4E800020u;
+
+std::uint32_t menu_start_after(const CodeRange& range, std::size_t end, std::uint32_t list) {
+    const std::size_t count = range.size / 4;
+    const auto word = [&](std::size_t i) { return be32(range.bytes + i * 4); };
+    for (std::size_t i = end + 1; i < count && i <= end + kNearCall; ++i) {
+        const std::uint32_t call = word(i);
+        if (call == kBlr) return 0;
+        if (opcode(call) != 18 || (call & 3u) != 1) continue;  // bl
+        // addi r4,r4,lo with lis r4,hi before it, the list's address.
+        for (std::size_t back = 1; back <= kNearSteps && back <= i; ++back) {
+            const std::uint32_t add = word(i - back);
+            if (opcode(add) != 14 || reg_d(add) != 4 || reg_a(add) != 4) continue;
+            for (std::size_t from = 1; from <= kNearSteps && from <= i - back; ++from) {
+                const std::uint32_t high = word(i - back - from);
+                if (opcode(high) != 15 || reg_d(high) != 4 || reg_a(high) != 0) continue;
+                if (((high & 0xFFFFu) << 16) + static_cast<std::uint32_t>(simm(add)) != list) return 0;
+                std::int32_t offset = static_cast<std::int32_t>(call & 0x03FFFFFCu);
+                if (offset & 0x02000000) offset -= 0x04000000;  // sign of the 26-bit field
+                return range.address + static_cast<std::uint32_t>(i * 4) + static_cast<std::uint32_t>(offset);
+            }
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+GcTgcMenuStart find_gc_tgc_menu_start(const std::vector<CodeRange>& text) {
+    GcTgcMenuStart found;
+    for (const CodeRange& range : text) {
+        const std::size_t count = range.size / 4;
+        for (std::size_t i = 0; i < count; ++i) {
+            if (!is_stwx(be32(range.bytes + i * 4))) continue;
+            GcTgcMenuStart here;
+            here.args = menu_args_ending_at(range.bytes, i);
+            if (here.args == 0) continue;
+            here.start = menu_start_after(range, i, here.args);
+            if (here.start == 0) continue;
+            // Two different places: not sure which is the menu's.
+            if (found.args != 0 && (found.args != here.args || found.start != here.start)) return GcTgcMenuStart();
+            found = here;
+        }
+    }
+    return found;
+}
+
 }  // namespace riftwii
