@@ -477,9 +477,6 @@ msgstr "Buscar juegos de nuevo"
 msgid "Rescan"
 msgstr "Buscar"
 
-msgid "Leave RiftWii"
-msgstr "Salir de RiftWii"
-
 msgid "Exit"
 msgstr "Salir"
 

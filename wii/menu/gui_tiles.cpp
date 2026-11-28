@@ -200,7 +200,7 @@ void GuiTiles::Layout(int i) {
     int room = s.x + s.w - kPad - textX - chevronRoom;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
     int size = points;
-    for (; size > (s.ownSize ? 12 : 15); --size) {
+    for (; size > (s.ownSize ? 12 : s.minPoints > 0 ? s.minPoints : 15); --size) {
         label[i]->SetFontSize(size);
         if (label[i]->GetTextWidth() <= room) break;
     }

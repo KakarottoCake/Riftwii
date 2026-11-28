@@ -652,12 +652,17 @@ USB deletion needs FAT32; NTFS drives remain read-only.
 ### Settings
 
 The gear at the bottom right (or **2**, **Z** on a GameCube controller
-on Home) opens Settings: nine tiles, each
-showing what it is set to now. *Picture* and *Games* are the defaults for
-every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
-sounds, music), *Online*, *Drives* (finding games), *Help* (reports,
-tutorial, the channel, reset, credits) and *Exit*. Each opens a short
-list; B goes back to the tiles.
+on Home) opens Settings: the sections in a list on the left and the
+lit section's options on the right. *Picture* and *Games* are the defaults
+for every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
+sounds, music), *Online*, *Drives* (finding games) and *Help* (reports,
+tutorial, the channel, reset, credits); **Exit RiftWii** is a button of its
+own under them. The options follow the lit section before you press
+anything. Left and Right go between the list and the options, Up and Down
+move within one, A opens the lit section or changes the lit option, and B
+goes from the options back to the list and from the list out to Home. With
+the pointer, pointing at a section shows it and A on it moves into its
+options.
 
 Each row shows what it is set to now, with a line under it that says
 what it does in plain words; the note under the list explains the row you
@@ -666,14 +671,14 @@ change shows: *Next game*, or *After a restart* of RiftWii; without one it
 changes at once.
 
 - **Switches** turn something on or off.
-- **Choices** with arrows step through their values with the arrows (or
-  Left and Right); **A opens a list** of every value, the one in use
-  marked, with a note on each.
+- **Choices** step through their values with their small arrows (or **-**,
+  **L** on a GameCube controller, to go back); **A opens a list** of every
+  value, the one in use marked, with a note on each.
 - **Buttons** (*Test*, *Rescan*, *Import*, *Send*) do something at once.
 - **Show advanced settings**, at the end of a page, shows the settings
   most players never need: system software (cIOS), the emulated NAND's
   folder and contents, debugging and network packs. It is remembered.
-- **Search**: the magnifier at the top right of the tiles (or **1**, **Y**
+- **Search**: the magnifier at the top right (or **1**, **Y**
   on a Classic or GameCube controller) searches every setting by name,
   what it does and words like *memory card* or *video*. The results are
   the rows themselves, each with its section, and change as they do on
@@ -867,7 +872,7 @@ changes at once.
 - **My RiiTag** shows your RiiTag (see RiiTag below).
 - **Settings > Drives > Look for games again**, **Settings > Online >
   Check for a new version** (on GitHub; with downloads on, RiftWii also
-  looks at every start and asks before it updates), and **Leave RiftWii**,
+  looks at every start and asks before it updates), and **Exit RiftWii**,
   which opens the HOME Menu (below).
 - **Settings > Help > Send a problem report**: see Reporting a problem below.
 - **Settings > Help > What's new** shows this version's main changes
@@ -922,7 +927,7 @@ it.
 
 ### HOME Menu
 
-HOME on Home (or **Leave RiftWii** in Settings) opens the HOME Menu, as
+HOME on Home (or **Exit RiftWii** in Settings) opens the HOME Menu, as
 on the Wii: **Homebrew Channel**, **Wii Menu**, **Priiloader** (its menu)
 or **Power off**. Where Priiloader is not installed, the third button is
 **Restart**: it restarts the console, which on a Wii U leaves the Wii side

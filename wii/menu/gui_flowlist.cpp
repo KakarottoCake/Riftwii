@@ -308,9 +308,13 @@ void GuiFlowList::Draw() {
                 const int room = ControlsRight() - x0 - kPad - (r.indent ? 22 : 0);
                 const bool onButton = cards && r.button && !text.empty();
                 int end = 0;
+                value[i]->SetFontSize(14);
                 if (r.kind == FlowRow::Kind::Option && !r.dim) end = kSmallPair;
                 else if (r.kind == FlowRow::Kind::Toggle) end = kSwitchW;
                 else if (onButton) end = std::min(value[i]->GetTextWidth(), kChipW - 20) + 32;
+                // At the row's end, not under the name: an action's chevron and a fact's value.
+                else if (OpensScreen(r)) end = kOpensW;
+                else if (r.kind == FlowRow::Kind::Info && !r.value.empty()) end = std::min(value[i]->GetTextWidth(), kChipW - 20);
                 label[i]->SetFontSize(r.heading ? 18 : note ? 14 : 16);
                 // A button that would cut its name goes under it instead.
                 stackedButton[i] = onButton && label[i]->GetTextWidth() > room - end - kPad;
@@ -680,7 +684,8 @@ void GuiFlowList::Update(GuiTrigger* t) {
     if (grabChan >= 0) return;  // another Wii Remote holds the list
 
     const bool a = Pressed(t, kWpadA, PAD_BUTTON_A, WIIDRC_BUTTON_A);
-    const bool back = Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
+    // Settings' two panes: Y is Search there, so a GameCube controller steps back with L (its - on the prompts).
+    const bool back = Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, sideKeys ? PAD_TRIGGER_L : PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
     if (pointing) {
         // While pointing, the D-pad scrolls by a row.
         if (t->Down()) ScrollTo(aim + rowH);

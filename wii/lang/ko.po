@@ -477,9 +477,6 @@ msgstr "다시 게임을 찾아보기"
 msgid "Rescan"
 msgstr "재검색"
 
-msgid "Leave RiftWii"
-msgstr "RiftWii 나가기"
-
 msgid "Exit"
 msgstr "나가기"
 

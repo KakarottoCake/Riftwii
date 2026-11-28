@@ -36,6 +36,8 @@ struct TileSpec {
     // A name that must fit whole (Settings' Exit RiftWii in a translation):
     // it steps down to 12 points, on its own, before "..." cuts it.
     bool ownSize = false;
+    // The smallest size a name steps down to before "..." cuts it; 0 for 15.
+    int minPoints = 0;
 };
 
 class GuiTiles : public GuiElement {
@@ -48,6 +50,7 @@ public:
     // The lit tile, or the one the D-pad lit last while the pointer is
     // off the tiles.
     int Selected() const { return hover >= 0 ? hover : focus; }
+    bool Hovered() const { return hover >= 0; }  // the pointer is on a tile
     // The tile A was pressed on since the last call; -1 when none.
     int GetClicked();
     // Settings' section list sits beside another list. While keys are off

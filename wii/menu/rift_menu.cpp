@@ -20444,6 +20444,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
+	std::string steamGridSuffixCached;
+	bool steamGridStale = true;
 	const auto build = [&]() {
 		rows.clear();
 		actions.clear();
@@ -20675,7 +20677,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			FlowRow::Kind::Toggle);
 		option(tr("Covers for emulator games"), settings.emulator_covers ? tr("On") : tr("Off"),
 			settings.emulator_covers, kEmulatorCovers, FlowRow::Kind::Toggle);
-		const std::string steamGridSuffix = riftwii::wii::SteamGridKeySuffix();
+		// Read from the card once, and again after the key changes: build()
+		// runs at every step through the sections.
+		if (steamGridStale) {
+			steamGridSuffixCached = riftwii::wii::SteamGridKeySuffix();
+			steamGridStale = false;
+		}
+		const std::string steamGridSuffix = steamGridSuffixCached;
 		const bool steamGridKey = !steamGridSuffix.empty();
 		option(tr("SteamGridDB covers"), steamGridKey
 			? (settings.steamgrid_covers ? tr("On (key found)") : tr("Off (key found)")) : tr("No API key"),
@@ -20787,7 +20795,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		actions.push_back(kCredits);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
-		exitRow.label = tr("Leave RiftWii");
+		exitRow.label = tr("Exit RiftWii");
 		exitRow.value = tr("Exit");
 		rows.push_back(exitRow);
 		actions.push_back(kExit);
@@ -20938,7 +20946,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	// so a long French or Portuguese name or value still fits. A wider
 	// (16:9) page keeps the rows as Settings had them: name and control on
 	// one line, the explanation under.
-	constexpr int kPaneGap = 18, kListTop = 88, kTilePitch = 34, kTileH = 30;
+	constexpr int kPaneGap = 18, kListTop = 87, kTilePitch = 34, kTileH = 30;
 	const int leftW = page.Width() > 600 ? 188 : 168;
 	const int rowsX = twoPane ? page.left + leftW + kPaneGap : 40;
 	const int rowsW = twoPane ? page.right - rowsX : 560;
@@ -20962,6 +20970,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			t.label = SectionName(static_cast<SettingsSection>(i));
 			t.icon = SectionIcon(static_cast<SettingsSection>(i));
 			t.labelPoints = 18;
+			t.minPoints = 13;  // a long name (Controladores, コントローラー) steps down, all alike, before "..."
 			sectionTiles.push_back(t);
 		}
 		// Exit is a button of its own, apart from the sections.
@@ -20982,7 +20991,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		// Search every setting: at the band's right, as Home's is on its
 		// bar; 1 (Classic Y, GameCube Y) too.
 		searchOwned.reset(new SkinButton(skin::roundBtn, skin::roundBtnOver, 2, page.right - 38, 22, nullptr,
-			WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_X, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f));  // X: Y steps a row back on a GameCube controller
+			WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconSearch, 0.5f));
 		searchOwned->backAction = false;
 		searchButton = searchOwned.get();
 	}
@@ -20999,8 +21008,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	list.SetRows(&rows);
 	list.Select(0);
 	if (twoPane) list.SetKeysActive(false);
-	const int noteLines = compact ? 3 : NoteCard::kLines;
-	GuiText noteTxt("", compact ? 14 : 15, skin::kInkSoft);
+	const int noteLines = NoteCard::kLines;  // four lines of 13 points end at y 402 at 4:3, 15 points at y 410 at 16:9
+	GuiText noteTxt("", compact ? 13 : 15, skin::kInkSoft);
 	Place(noteTxt, noteX + 36, NoteCard::kTextY);
 	noteTxt.SetWrap(true, noteW, noteLines);
 	if (searching && rows.empty()) noteTxt.SetText(tr("No settings match \"{1}\".", {query}).c_str());
@@ -21158,6 +21167,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	int shownRow = -1;
 	std::string shownVerb;
 	bool sectionNote = false;  // two-pane: the note is the lit section's
+	int rowMemory[static_cast<int>(SettingsSection::More) + 1] = {};  // two-pane: each section's last row
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -21173,34 +21183,59 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		ClearStaleButtons({&backBtn.button});
 		if (twoPane) {
 			ClearStaleButtons({&searchButton->button});
+			// Where the pointers are: on the rows (not the note under them), or on
+			// the tiles' column at all.
+			bool pointerOnRows = false, anyPointer = false;
+			for (int chan = 0; chan < 4; ++chan) {
+				const auto* wpad = userInput[chan].wpad;
+				if (!wpad || !wpad->ir.valid) continue;
+				anyPointer = true;
+				if (wpad->ir.x >= rowsX - 8 && wpad->ir.y >= 80 && wpad->ir.y < 316) pointerOnRows = true;
+			}
 			// The right-hand rows follow the section list's focus, or the
-			// pointer on a section, before A is pressed.
+			// pointer on a section, before A is pressed. Each section keeps
+			// the row it was left on.
+			const int lastSection = static_cast<int>(SettingsSection::More);
 			const int litTile = sectionList.Selected();
-			if (litTile >= 0 && litTile <= static_cast<int>(SettingsSection::More) &&
-			    litTile != static_cast<int>(section)) {
+			if (litTile >= 0 && litTile <= lastSection && litTile != static_cast<int>(section)) {
+				rowMemory[static_cast<int>(section)] = list.Selected();
 				section = static_cast<SettingsSection>(litTile);
 				build();
 				list.Refresh();
-				list.Select(0);
+				list.Select(std::min(rowMemory[litTile], std::max(0, static_cast<int>(rows.size()) - 1)));
 				sectionList.SetCurrent(litTile);
 				shownRow = -1;
+				// The pointer chose another section: the list has the focus again.
+				if (side == 1) {
+					side = 0;
+					shownVerb.clear();
+				}
 			}
+			// The pointer left the Exit tile: its focus does not stay lit.
+			if (anyPointer && !sectionList.Hovered() && sectionList.Selected() > lastSection)
+				sectionList.Select(static_cast<int>(section));
 			const auto intoRows = [&]() {
 				if (rows.empty()) return;
 				side = 1;
-				list.Select(0);
+				// Where this section was left (a fact or a note is not a row to stop on).
+				int at = std::min(rowMemory[static_cast<int>(section)], static_cast<int>(rows.size()) - 1);
+				for (int tries = 0; tries < static_cast<int>(rows.size()) && (rows[at].kind == FlowRow::Kind::Info);
+				     ++tries)
+					at = (at + 1) % static_cast<int>(rows.size());
+				list.Select(at);
 				shownRow = -1;
 				shownVerb.clear();
 			};
 			const int pressed = sectionList.GetClicked();
-			if (pressed == static_cast<int>(SettingsSection::More) + 1) {
+			if (pressed == lastSection + 1) {
 				if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			} else if (pressed >= 0) {
 				intoRows();
-			} else if (side == 0 && sectionList.TakeRight() && litTile <= static_cast<int>(SettingsSection::More)) {
+			} else if (side == 0 && sectionList.TakeRight() && litTile <= lastSection) {
 				intoRows();
 			}
 			if (side == 1 && list.TakeLeft()) {
+				rowMemory[static_cast<int>(section)] = list.Selected();
 				side = 0;
 				shownRow = -1;
 			}
@@ -21215,11 +21250,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			// While the sections have the focus, the note is the lit
 			// section's (or the Exit button's), the key hint opens it.
 			// The pointer on the rows shows their help, not the section's.
-			bool pointerOnRows = false;
-			for (int chan = 0; chan < 4; ++chan) {
-				const auto* wpad = userInput[chan].wpad;
-				if (wpad && wpad->ir.valid && wpad->ir.x >= rowsX - 8 && wpad->ir.y >= 80) pointerOnRows = true;
-			}
 			sectionNote = side == 0 && !pointerOnRows;
 			if (sectionNote) {
 				const int tile = std::min(sectionList.Selected(), static_cast<int>(SettingsSection::More) + 1);
@@ -21236,6 +21266,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (!(twoPane && sectionNote) && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
 			const FlowRow& row = rows[static_cast<std::size_t>(focused)];
 			std::string verb = tr("Change");
+			// A on an option opens its choices (Left and Right go between the two panes).
+			if (twoPane && row.kind == FlowRow::Kind::Option && !row.dim) verb = tr("Choose");
 			if (row.dim || row.kind == FlowRow::Kind::Info)
 				verb = tr("About this");
 			else if (row.kind == FlowRow::Kind::Action) {
@@ -21254,7 +21286,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			prompts.SetShown(promptChange, row.kind != FlowRow::Kind::Info);
 			if (focused != shownRow) {
 				shownRow = focused;
-				noteTxt.SetText(help(actions[static_cast<std::size_t>(focused)]).c_str());
+				std::string about = help(actions[static_cast<std::size_t>(focused)]);
+				// Narrow rows have no tag line: when a change takes effect leads the note.
+				if (compact && !row.tag.empty() && !about.empty()) about = row.tag + ": " + about;
+				noteTxt.SetText(about.c_str());
 			}
 		}
 		int acted = list.GetClicked();
@@ -21904,6 +21939,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						break;
 					}
 					const bool saved = riftwii::wii::SaveSteamGridKey(key);
+					steamGridStale = true;
 					if (saved) ResetCoverDownloads();
 					note(saved ? tr("SteamGridDB key saved.") : tr("Could not change the SteamGridDB key. Check the SD card."));
 					rebuild();
@@ -21912,6 +21948,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kSteamGridClear: {
 					WaitForDriveScan(noteTxt);
 					const bool cleared = riftwii::wii::ClearSteamGridKey();
+					steamGridStale = true;
 					if (cleared) ResetCoverDownloads();
 					note(cleared ? tr("SteamGridDB key cleared.") : tr("Could not change the SteamGridDB key. Check the SD card."));
 					rebuild();
@@ -22302,6 +22339,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (menu == MENU_NONE && backBtn.Clicked()) {
 			if (twoPane && side == 1) {
 				// From the rows back to the list of sections.
+				rowMemory[static_cast<int>(section)] = list.Selected();
 				side = 0;
 				shownRow = -1;
 			} else {
