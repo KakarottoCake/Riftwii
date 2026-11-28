@@ -77,10 +77,7 @@ bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memo
 bool find_pattern(const std::vector<MemoryRegion>& loaded, MemoryAccess& memory, const std::vector<std::uint8_t>& pattern,
                   std::uint64_t align, std::uint32_t& found, std::size_t& region_index, std::string& error,
                   SearchState& state, std::uint64_t from = 0) {
-    if (align == 0) align = 1;
-    // Beyond any region's size the stride leaves one candidate per region;
-    // clamping keeps the arithmetic below inside 32 bits on the console.
-    if (align > 0x10000000) align = 0x10000000;
+    align = search_stride(align);
     const std::size_t n = pattern.size();
     for (std::size_t ri = 0; ri < loaded.size(); ++ri) {
         const MemoryRegion& r = loaded[ri];

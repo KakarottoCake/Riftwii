@@ -104,6 +104,14 @@ private:
 // a pack's searches (padhook.cpp) keeps to it too.
 constexpr std::uint64_t kMaxSearchBytes = std::uint64_t(1) << 30;
 
+// A search's stride as the patcher takes it: 0 is 1, and beyond any
+// region's size it leaves one candidate per region, so it is capped
+// there (keeping the patcher's arithmetic inside 32 bits on the
+// console). The pads' preview of a pack's searches takes the same.
+constexpr std::uint64_t search_stride(std::uint64_t align) {
+    return align == 0 ? 1 : align > 0x10000000 ? 0x10000000 : align;
+}
+
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;
 

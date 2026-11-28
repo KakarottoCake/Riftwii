@@ -1120,7 +1120,7 @@ struct PackWrites {
     std::vector<bool> applies;
     std::vector<PackWrite> writes;
     bool incomplete = false;  // more writes than the planning follows (plan_pack_writes)
-    std::vector<CodeRange> program;  // the game's program as loaded (its DOL's sections)
+    std::vector<CodeRange> program;  // the game's program as loaded (the regions the patcher searches)
     // Where file patches that apply go (their bytes aren't read yet here),
     // and which patch each is (document order: a later write over its bytes
     // decides them).
@@ -1211,7 +1211,7 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             // Only the program image, as the search itself reads only the
             // loaded sections: the game's own bytes (a plain compare), or,
             // where an earlier write reaches, the writes over them.
-            const std::uint64_t align = patch.align == 0 ? 1 : patch.align;
+            const std::uint64_t align = search_stride(patch.align);  // as the patcher takes it
             const std::size_t n = patch.original.size();
             // Starts whose pattern reaches into an earlier write are checked
             // with the writes over them: a pattern an earlier patch replaced
@@ -1272,7 +1272,7 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
         if (patch.ocarina || patch.value.empty()) continue;
         if (patch.search) {
             if (patch.original.empty()) continue;
-            const std::uint64_t align = patch.align == 0 ? 1 : patch.align;
+            const std::uint64_t align = search_stride(patch.align);  // as the patcher takes it
             const std::size_t step = std::max(patch.original.size(), patch.value.size());
             // Starts whose pattern reaches into an earlier write: the bytes
             // there may be the write's, not the game's, so those are checked
@@ -1667,8 +1667,8 @@ void read_patched_code(const std::vector<MemoryPatch>& patches, PatchedCode& out
 }
 
 bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches,
-                        bool program_from_pack, bool standin, bool nunchuk, bool sideways, bool pointing, bool usb,
-                        PadHook& out, std::string& why) {
+                        const std::vector<MemoryRegion>& loaded, bool program_from_pack, bool standin, bool nunchuk,
+                        bool sideways, bool pointing, bool usb, PadHook& out, std::string& why) {
     out = PadHook{};
     out.demo = demo;
     out.standin = standin;
@@ -1729,9 +1729,15 @@ bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<Memor
     // patch over the game's own program (quatric's) isn't one, though the
     // game links a PADRead it never calls (Kirby's Return to Dream Land).
     // What the packs' memory patches will write, with search patches found
-    // in the game's program as loaded (its code and data sections).
+    // in the game's program as loaded: the regions the patcher searches, in
+    // the order it searches them (the apploader's loads), as a search's match
+    // decides where its next one may be (CodeRabbit on #650). A launch with
+    // no such list (a channel's, which has no packs) takes the DOL's
+    // sections, its code and data.
     std::vector<CodeRange> image;
-    for (std::size_t i = 0; standin && i < kDolSections; ++i) {
+    for (std::size_t i = 0; standin && i < loaded.size(); ++i)
+        image.push_back({loaded[i].address, reinterpret_cast<const std::uint8_t*>(loaded[i].address), loaded[i].length});
+    for (std::size_t i = 0; standin && loaded.empty() && i < kDolSections; ++i) {
         const DolSection& s = dol.sections[i];
         if (s.used()) image.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }

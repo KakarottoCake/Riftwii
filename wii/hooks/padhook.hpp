@@ -242,9 +242,11 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 // KPAD game, whose KPAD knows no Classic Controller); `usb` false: no adapter is wanted and /dev/usb/hid is never
 // opened (the Wii's own ports only). False (with a reason) turns the
 // adapter off.
+// `loaded`: the regions the <memory> patches search, in the order they
+// search them (empty: the DOL's sections).
 bool find_pad_functions(const DolHeader& dol, bool demo, const std::vector<MemoryPatch>& patches,
-                        bool program_from_pack, bool standin, bool nunchuk, bool sideways, bool pointing, bool usb,
-                        PadHook& out, std::string& why);
+                        const std::vector<MemoryRegion>& loaded, bool program_from_pack, bool standin, bool nunchuk,
+                        bool sideways, bool pointing, bool usb, PadHook& out, std::string& why);
 
 // Before the <memory> patches, on the game as loaded: what their plain
 // writes will leave (PatchedCode), for a PADRead search. Without memory
