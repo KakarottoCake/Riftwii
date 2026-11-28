@@ -28,6 +28,7 @@
 #include "plugins.hpp"
 #include "progress.hpp"
 #include "riftwii/byteorder.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/hbmsearch.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/mempatch.hpp"
@@ -1138,7 +1139,13 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
     constexpr std::size_t kMaxMatches = 1024;  // per search patch
     constexpr std::size_t kMaxWrites = PatchedCode::kMaxPreviewedPatches;
     PackWrites out;
-    out.applies.assign(patches.size(), false);
+    // Sized by the pack: asked for without throwing, and a plan the memory
+    // can't hold is one the checks can't vouch for (AGENTS.md's rule;
+    // CodeRabbit on #651).
+    if (!try_assign(out.applies, patches.size(), false)) {
+        out.incomplete = true;
+        return out;
+    }
     out.program = image;
     const auto byte_at = [&](std::uint32_t address, std::uint8_t& value) {
         const std::uint32_t ram_end = address < 0x90000000u ? 0x81800000u : 0x94000000u;
@@ -1197,6 +1204,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             // with the writes over them: a pattern an earlier patch replaced
             // isn't there when this search runs (CodeRabbit, fork #25).
             std::vector<std::pair<std::uint64_t, std::uint64_t>> near;
+            if (!try_reserve(near, out.writes.size())) {
+                out.incomplete = true;
+                return out;
+            }
             for (const PackWrite& w : out.writes) {
                 const std::uint64_t lo = w.at >= n ? w.at - n + 1 : 0;
                 near.push_back({lo, std::uint64_t(w.at) + patches[w.patch].value.size()});
@@ -1234,7 +1245,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             if (patch.has_offset && !patch.search && !patch.ocarina &&
                 matches_at(memory_patch_target(patch), patch.original)) {
                 out.applies[i] = true;
-                out.files.push_back({memory_patch_target(patch), i});
+                if (!try_push_back(out.files, PackWrites::File{memory_patch_target(patch), i})) {
+                    out.incomplete = true;
+                    return out;
+                }
             }
             continue;
         }
@@ -1247,6 +1261,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             // there may be the write's, not the game's, so those are checked
             // whatever the game's byte (as disjoint ranges, in order).
             std::vector<std::pair<std::uint64_t, std::uint64_t>> near;
+            if (!try_reserve(near, out.writes.size())) {
+                out.incomplete = true;
+                return out;
+            }
             for (const PackWrite& w : out.writes) {
                 const std::uint64_t lo = w.at >= patch.original.size() ? w.at - patch.original.size() + 1 : 0;
                 near.push_back({lo, std::uint64_t(w.at) + patches[w.patch].value.size()});
@@ -1286,7 +1304,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
                             out.incomplete = true;
                             return out;
                         }
-                        out.writes.push_back({static_cast<std::uint32_t>(pos), i});
+                        if (!try_push_back(out.writes, PackWrite{static_cast<std::uint32_t>(pos), i})) {
+                            out.incomplete = true;
+                            return out;
+                        }
                         out.applies[i] = true;
                         ++found;
                         pos += step;
@@ -1311,7 +1332,10 @@ PackWrites plan_pack_writes(const std::vector<MemoryPatch>& patches, const std::
             return out;
         }
         out.applies[i] = true;
-        out.writes.push_back({at, i});
+        if (!try_push_back(out.writes, PackWrite{at, i})) {
+            out.incomplete = true;
+            return out;
+        }
     }
     return out;
 }
@@ -1333,6 +1357,10 @@ constexpr std::uint64_t kMaxSpanBytes = std::uint64_t(2) << 20;
 bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan, SearchSpans& spans) {
     spans.clear();
     std::vector<std::pair<std::uint64_t, std::uint64_t>> words;  // [from, to), whole words
+    // The copies below are sized by the pack: asked for without throwing,
+    // and spans that don't fit in memory are spans the checks can't follow
+    // (AGENTS.md's rule; CodeRabbit on #651).
+    if (!try_reserve(words, plan.writes.size())) return false;
     for (const PackWrite& w : plan.writes) {
         const std::uint64_t from = w.at & ~std::uint64_t(3);
         const std::uint64_t to = (std::uint64_t(w.at) + patches[w.patch].value.size() + 3) & ~std::uint64_t(3);
@@ -1340,6 +1368,7 @@ bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan,
     }
     std::sort(words.begin(), words.end());
     std::vector<std::pair<std::uint64_t, std::uint64_t>> joined;
+    if (!try_reserve(joined, words.size())) return false;
     for (const auto& r : words) {
         if (!joined.empty() && r.first <= joined.back().second) {
             joined.back().second = std::max(joined.back().second, r.second);
@@ -1361,9 +1390,14 @@ bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan,
     // Which patch last wrote each byte (kNone: none, the game's).
     constexpr std::size_t kNone = ~std::size_t(0);
     std::vector<std::vector<std::size_t>> last;
+    if (!try_reserve(spans, joined.size()) || !try_reserve(last, joined.size())) return false;
     for (const auto& r : joined) {
-        spans.push_back({static_cast<std::uint32_t>(r.first), std::vector<std::uint8_t>(r.second - r.first)});
-        last.emplace_back(static_cast<std::size_t>(r.second - r.first), kNone);
+        const std::size_t n = static_cast<std::size_t>(r.second - r.first);
+        std::vector<std::uint8_t> bytes;
+        std::vector<std::size_t> by;
+        if (!try_assign(bytes, n, std::uint8_t(0)) || !try_assign(by, n, kNone)) return false;
+        spans.push_back({static_cast<std::uint32_t>(r.first), std::move(bytes)});
+        last.push_back(std::move(by));
     }
     // Every write, in order, over the spans it reaches (a later one wins).
     for (const PackWrite& w : plan.writes) {
@@ -1402,7 +1436,8 @@ bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan,
         SearchSpans kept;
         for (std::size_t k = 0; k < spans.size(); ++k) {
             const std::uint64_t lo = joined[k].first;
-            std::vector<bool> open(spans[k].second.size(), false);
+            std::vector<bool> open;
+            if (!try_assign(open, spans[k].second.size(), false)) return false;
             for (const PackWrites::File& f : plan.files) {
                 const std::uint64_t from = std::max<std::uint64_t>(lo, f.at);
                 const std::uint64_t to = std::min<std::uint64_t>(joined[k].second, std::uint64_t(f.at) + kMaxMemoryValueBytes);
@@ -1414,10 +1449,14 @@ bool pack_spans(const std::vector<MemoryPatch>& patches, const PackWrites& plan,
             std::size_t run = 0;  // the start of the words kept so far
             for (std::size_t w = 0; w <= spans[k].second.size(); w += 4) {
                 if (w < spans[k].second.size() && !open[w]) continue;
-                if (w > run)
-                    kept.push_back({spans[k].first + static_cast<std::uint32_t>(run),
-                                    std::vector<std::uint8_t>(spans[k].second.begin() + static_cast<std::ptrdiff_t>(run),
-                                                              spans[k].second.begin() + static_cast<std::ptrdiff_t>(w))});
+                if (w > run) {
+                    std::vector<std::uint8_t> piece;
+                    if (!try_assign_range(piece, spans[k].second.begin() + static_cast<std::ptrdiff_t>(run),
+                                          spans[k].second.begin() + static_cast<std::ptrdiff_t>(w)) ||
+                        !try_push_back(kept, std::make_pair(spans[k].first + static_cast<std::uint32_t>(run),
+                                                            std::move(piece))))
+                        return false;
+                }
                 run = w + 4;
             }
         }
