@@ -75,7 +75,7 @@ Which one to pick: the one the game itself is played with. The back of the box, 
 | C-stick | Twist it (roll) |
 | R | Shake it |
 
-In every choice, **L + R + Z + Start** together opens the game's HOME Menu on that player's own controller, or goes back to RiftWii in a game that has no HOME Menu.
+In every choice, holding **L + R + Z + Start** together opens the game's HOME Menu on that player's own controller. Where RiftWii can't open the game's HOME Menu (a game without one, or one whose HOME Menu RiftWii doesn't find), it goes back to RiftWii instead. With Settings > **Leaving a game** set to **HOME only**, the combo does nothing.
 
 A real Wii Remote that's turned on for the same player takes over from the GameCube controller, and the GameCube controller gets the player back when the Wii Remote is turned off.
 
@@ -89,7 +89,7 @@ A real Wii Remote that's turned on for the same player takes over from the GameC
 - **The Nunchuk can't be shaken** separately from the Wii Remote, so a game that wants both shaken in turn (Donkey Kong: Barrel Blast's racing) needs a pack.
 - **The pointer moves from a stick**, so pointing is slower and less exact than a real Wii Remote. Fine for menus and most aiming, harder for fast pointer games.
 
-Packs that bring their own GameCube controls (like quatric's controller patches, or packs made for one game) still work. When a pack you turned on brings its own controller code, it keeps the controls, and the launch screen says "A pack brings its own controls: 'Controllers act as' is off." You don't have to change the setting back. One exception: a pack that uses the game's own GameCube controller code without adding any of its own (quatric's Sonic and the Secret Rings patch, for example) isn't recognised, so for a game with such a pack, leave **Controllers act as** on Default.
+Packs that bring their own GameCube controls (like quatric's controller patches, or packs made for one game) still work. When a pack you turned on brings its own controller code, it keeps the controls, and the launch screen says "A pack brings its own controls: 'Controllers act as' is off." You don't have to change the setting back. One exception: a pack that uses the game's own GameCube controller code without adding any of its own (quatric's Sonic and the Secret Rings patch, for example) isn't recognised, so for a game with such a pack, leave **Controllers act as** on Default. One more exception, with a GameCube controller adapter: a pack whose only controller code reads the GameCube ports straight from the hardware (like quatric's) sees just the Wii's own ports, so its controls can't reach the adapter, and RiftWii doesn't turn the override off for it. To play such a game on the adapter, pick a form in **Controllers act as** (or use a pack that asks for one): the override then plays it with that form's controls, not the pack's, and the launch screen says nothing. On Default with no form asked for, the override stays off.
 
 Games that already support GameCube controllers don't need the override at all: leave them on Default.
 
