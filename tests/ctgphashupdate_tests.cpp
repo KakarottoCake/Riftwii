@@ -123,11 +123,11 @@ void name8(std::vector<std::uint8_t>& out, const char* n) {
     out.insert(out.end(), b, b + 8);
 }
 
-std::vector<std::uint8_t> packages_bin(std::uint32_t hash_version) {
+std::vector<std::uint8_t> packages_bin(std::uint32_t hash_version, std::uint32_t hash_flags = 0x0B000000u) {
     std::vector<std::uint8_t> p = {'P', 'A', 'K', '0'};
     be(p, 0x40); be(p, 0); be(p, 3);
     name8(p, "RMC"); be(p, 0x01000000u); be(p, 0x09000000u);
-    name8(p, "HASH"); be(p, hash_version); be(p, 0x0B000000u);
+    name8(p, "HASH"); be(p, hash_version); be(p, hash_flags);
     name8(p, "RMCP"); be(p, 0x01000000u); be(p, 0x09000000u);
     return p;
 }
@@ -146,7 +146,7 @@ enum class Damage {
 // jelly.bin's inner disk, plain: /PACKAGES.BIN and /PACKAGES/HASH/TEST.HSH,
 // 4 KiB clusters; `clusters` sets how much is free.
 fatimg::Bytes inner_plain(const std::vector<std::uint8_t>& list, std::uint32_t clusters,
-                          Damage damage = Damage::None) {
+                          Damage damage = Damage::None, std::uint32_t hash_flags = 0x0B000000u) {
     fatimg::Image img(512, 8, 0, clusters);
     fatimg::Bytes root = fatimg::short_entry("PACKAGESBIN", 0x20, 4, 0x40);
     const fatimg::Bytes dir = fatimg::short_entry("PACKAGES   ", 0x10, 3, 0);
@@ -166,7 +166,7 @@ fatimg::Bytes inner_plain(const std::vector<std::uint8_t>& list, std::uint32_t c
         }
     }
     img.write_dir({hash_cluster}, hash);
-    img.write_data({4}, packages_bin(0x01031374u));
+    img.write_data({4}, packages_bin(0x01031374u, hash_flags));
     img.write_data({list_cluster}, list);
     // Every other cluster in use, so the disk is as full as asked.
     std::vector<std::uint32_t> filler;
@@ -648,6 +648,106 @@ void test_cuts(const fs::path& dir) {
     std::cout << "ctgphashupdate: cut after each of " << completed_at - 1 << " block writes, all recovered" << std::endl;
 }
 
+// A writer straight over jelly.bin's bytes in memory (no outer card).
+struct MemoryJelly {
+    fatimg::Bytes image;
+    CtgpPackIo io() {
+        CtgpPackIo io;
+        io.read = [this](std::uint64_t o, std::uint32_t n, std::uint8_t* out) {
+            if (o + n > image.size()) return false;
+            std::memcpy(out, image.data() + o, n);
+            return true;
+        };
+        io.write = [this](std::uint64_t o, const std::uint8_t* in, std::uint32_t n) {
+            if (o + n > image.size()) return false;
+            std::memcpy(image.data() + o, in, n);
+            return true;
+        };
+        return io;
+    }
+};
+
+const std::array<std::uint8_t, 16> kMemoryKey = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6};
+
+// The room check follows the write's order: on a disk with no free cluster,
+// a list that shrinks by one cluster pays for a later list that grows by one.
+void test_shrink_pays_for_growth() {
+    fatimg::Image img(512, 8, 0, 32);
+    fatimg::Bytes root = fatimg::short_entry("PACKAGESBIN", 0x20, 4, 0x40);
+    const fatimg::Bytes dir = fatimg::short_entry("PACKAGES   ", 0x10, 3, 0);
+    root.insert(root.end(), dir.begin(), dir.end());
+    img.write_dir({2}, root);
+    img.write_dir({3}, fatimg::short_entry("HASH       ", 0x10, 5, 0));
+    const std::uint32_t cb = img.cluster_bytes();
+    fatimg::Bytes hash = fatimg::short_entry("BIG     HSH", 0x20, 6, 2 * cb - 10);
+    const fatimg::Bytes two = fatimg::short_entry("TWO     HSH", 0x20, 8, 100);
+    hash.insert(hash.end(), two.begin(), two.end());
+    img.write_dir({5}, hash);
+    img.write_data({4}, packages_bin(0x01031374u));
+    img.write_data({6, 7}, fatimg::Bytes(2 * cb - 10, 0x11));
+    img.write_data({8}, fatimg::Bytes(100, 0x22));
+    std::vector<std::uint32_t> filler;
+    for (std::uint32_t c = 9; c < 2 + 32; ++c) filler.push_back(c);
+    img.chain(filler);
+    fatimg::Bytes plain = img.bytes;
+    plain.resize((plain.size() + kChunk - 1) / kChunk * kChunk, 0);
+    MemoryJelly jelly{encrypt(plain, kMemoryKey)};
+
+    CtgpHashUpdateList shrink;
+    shrink.package = "BIG";
+    shrink.disk_path = "/PACKAGES/HASH/BIG.HSH";
+    shrink.bytes.assign(cb - 10, 0x33);
+    CtgpHashUpdateList grow;
+    grow.package = "TWO";
+    grow.disk_path = "/PACKAGES/HASH/TWO.HSH";
+    grow.bytes.assign(2 * cb - 10, 0x44);
+    std::string e;
+    CtgpPackWriter w;
+    EXPECT_TRUE(w.open(jelly.io(), jelly.image.size(), kMemoryKey, kIv, e));
+    EXPECT_TRUE(w.free_clusters() == 0);
+    bool needs_growth = true;
+    const bool fits = ctgp_hash_update_fits(w, {shrink, grow}, e, &needs_growth);
+    if (!fits) std::cerr << "shrink then grow: " << e << std::endl;
+    EXPECT_TRUE(fits && !needs_growth);
+    // The other order can't go in: the growth comes first, with nothing free.
+    EXPECT_TRUE(!ctgp_hash_update_fits(w, {grow, shrink}, e, &needs_growth));
+    EXPECT_TRUE(needs_growth);
+    EXPECT_TRUE(ctgp_hash_update_write(w, {shrink, grow}, 0x01031375u, e));
+    std::vector<std::uint8_t> back;
+    EXPECT_TRUE(w.read_file(shrink.disk_path, back, e) && back == shrink.bytes);
+    EXPECT_TRUE(w.read_file(grow.disk_path, back, e) && back == grow.bytes);
+    w.close();
+}
+
+// The read-back compares the whole PACKAGES.BIN with what was written, and
+// wants the HASH record's 0x40000000 flag cleared.
+void test_verify_packages() {
+    const CtgpDsaKey key = test_key();
+    std::string e;
+    {
+        MemoryJelly jelly{encrypt(inner_plain(new_list().bytes, 64), kMemoryKey)};
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(jelly.io(), jelly.image.size(), kMemoryKey, kIv, e));
+        const auto same = packages_bin(0x01031374u);
+        const bool ok = ctgp_hash_update_verify(w, {new_list()}, 0x01031374u, e, &key, &same);
+        if (!ok) std::cerr << "verify packages: " << e << std::endl;
+        EXPECT_TRUE(ok);
+        auto other = same;
+        other[16 + 11] ^= 1;  // the RMC record's version
+        EXPECT_TRUE(!ctgp_hash_update_verify(w, {new_list()}, 0x01031374u, e, &key, &other));
+        EXPECT_TRUE(e.find("version list") != std::string::npos);
+        w.close();
+    }
+    {
+        MemoryJelly jelly{encrypt(inner_plain(new_list().bytes, 64, Damage::None, 0x4B000000u), kMemoryKey)};
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(jelly.io(), jelly.image.size(), kMemoryKey, kIv, e));
+        EXPECT_TRUE(!ctgp_hash_update_verify(w, {new_list()}, 0x01031374u, e, &key));
+        EXPECT_TRUE(e.find("HASH record") != std::string::npos);
+        w.close();
+    }
+}
+
 void test_in_place_bounds() {
     Setup s = setup(64);
     std::string e;
@@ -673,6 +773,8 @@ int main() {
     test_set_version();
     test_build();
     test_in_place_bounds();
+    test_shrink_pays_for_growth();
+    test_verify_packages();
     test_install(dir);
     test_refusals(dir);
     test_cuts(dir);

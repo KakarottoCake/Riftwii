@@ -71,11 +71,14 @@ bool ctgp_hash_update_write(CtgpPackWriter& jelly, const std::vector<CtgpHashUpd
 // Reads back what ctgp_hash_update_write left: each list byte for byte and
 // checked again as a signed list, and the HASH record (its version and the
 // cleared 0x40000000 flag); with `expected_packages`, the whole PACKAGES.BIN
-// byte for byte, so the other records are checked too. Run on a writer
+// byte for byte, so the other records are checked too. `no_memory` (may be
+// null) is set when a list could not be checked for want of memory, which
+// says nothing about the card. Run on a writer
 // opened afresh over the card, so it reads what is really there.
 bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
                              std::uint32_t version, std::string& error, const CtgpDsaKey* key = nullptr,
-                             const std::vector<std::uint8_t>* expected_packages = nullptr);
+                             const std::vector<std::uint8_t>* expected_packages = nullptr,
+                             bool* no_memory = nullptr);
 
 // Sets the version of record `component` in a PACKAGES.BIN ("PAK0", the
 // count at 12, 16-byte records from 16: name[8], version, flags), and clears

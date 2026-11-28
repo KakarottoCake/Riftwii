@@ -1150,7 +1150,8 @@ void test_update_plain_files() {
         const auto dia = make_dia({make_section_flags(5, {0x40, 'w', 'o', 'r', 'l', 'd'}, "/A.bin", 0x00020000u, {}),
                                    second});
         EXPECT_TRUE(!apply_map(dia, target, failure));
-        EXPECT_TRUE(failure != CtgpUpdateFailure::Unsupported);
+        EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
+        EXPECT_TRUE(error.find("malformed") != std::string::npos);
     }
     {
         // A later section whose header can't be read before the install

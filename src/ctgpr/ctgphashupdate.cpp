@@ -268,7 +268,8 @@ bool ctgp_hash_update_write(CtgpPackWriter& jelly, const std::vector<CtgpHashUpd
 
 bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
                              std::uint32_t version, std::string& error, const CtgpDsaKey* key,
-                             const std::vector<std::uint8_t>* expected_packages) {
+                             const std::vector<std::uint8_t>* expected_packages, bool* no_memory_out) {
+    if (no_memory_out != nullptr) *no_memory_out = false;
     std::vector<std::uint8_t> bytes;
     for (const CtgpHashUpdateList& list : lists) {
         if (!jelly.read_file(list.disk_path, bytes, error)) {
@@ -280,8 +281,13 @@ bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUp
             return false;
         }
         std::string check_error;
-        if (!check_list(bytes, list.package, check_error, key)) {
-            error = list.disk_path + " does not check out after writing: " + check_error;
+        bool no_memory = false;
+        if (!check_list(bytes, list.package, check_error, key, &no_memory)) {
+            // Out of memory says nothing about the card: the caller still
+            // rolls back, but the player reads that trying again may work.
+            if (no_memory && no_memory_out != nullptr) *no_memory_out = true;
+            error = no_memory ? "there is not enough free memory to check " + list.disk_path + "; try again"
+                              : list.disk_path + " does not check out after writing: " + check_error;
             return false;
         }
     }
@@ -348,10 +354,11 @@ bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const s
     }
     if (ok) {
         CtgpPackWriter check;
+        bool no_memory = false;
         ok = check.open(read_only, size, key, iv, error) && ctgp_hash_update_verify(check, lists, version, error, dsa_key,
-                                                                                      &written_packages);
+                                                                                      &written_packages, &no_memory);
         check.close();
-        if (!ok) error = "jelly.bin did not read back right: " + error;
+        if (!ok && !no_memory) error = "jelly.bin did not read back right: " + error;
     }
     std::string journal_error;
     if (ok && !journal.commit(sync, journal_error)) {

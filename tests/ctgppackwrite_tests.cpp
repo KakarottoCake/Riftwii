@@ -198,6 +198,42 @@ int main() {
         EXPECT_TRUE(image == before);
     }
 
+    // Loops further along the chain: a rho (3 -> 4 -> 5 -> 4) and a 2-cycle
+    // (3 -> 4 -> 3). The replace walks the whole chain and catches either;
+    // a size that reaches into the loop makes both reads refuse too.
+    for (const bool rho : {true, false}) {
+        auto plain = make_plain(4);
+        if (rho) {
+            set_fat(plain, 4, 5);
+            set_fat(plain, 5, 4);
+        } else {
+            set_fat(plain, 4, 3);
+        }
+        auto image = encrypt(plain);
+        const auto before = image;
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        const auto data = pattern(kTestCluster);
+        EXPECT_TRUE(!w.replace_file("/A.BIN", data.data(), data.size(), err));
+        EXPECT_TRUE(err.find("loop") != std::string::npos);
+        w.close();
+        EXPECT_TRUE(writes == 0);
+        EXPECT_TRUE(image == before);
+
+        set_size(plain, 5 * kTestCluster);
+        image = encrypt(plain);
+        CtgpPackWriter r;
+        EXPECT_TRUE(r.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        std::vector<std::uint8_t> back;
+        EXPECT_TRUE(!r.read_file("/A.BIN", back, err));
+        EXPECT_TRUE(err.find("loop") != std::string::npos);
+        bool sunk = false;
+        EXPECT_TRUE(!r.read_file("/A.BIN", [&sunk](const std::uint8_t*, std::size_t) { sunk = true; return true; },
+                                 nullptr, err));
+        EXPECT_TRUE(!sunk);
+    }
+
     // A growth the disk can't hold leaves no cluster marked used: with one
     // free cluster, growing A.BIN by two fails, and a later replace that
     // fits (which writes the FAT) still leaves that cluster free.
