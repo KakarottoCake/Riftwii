@@ -1005,8 +1005,17 @@ bool CtgpPackWriter::stat_file(const std::string& path, bool& present, std::uint
         return false;
     }
     if (clusters != nullptr) {
+        // The same whole-chain check as replace_file: a chain that runs off
+        // the image or holds less than the size is damage, not capacity.
         std::vector<std::uint32_t> chain;
-        if (!impl_->walk_chain(entry.cluster, chain, error)) return false;
+        bool chain_clean = false;
+        if (!impl_->walk_chain(entry.cluster, chain, error, &chain_clean)) return false;
+        const bool no_chain = entry.cluster == 0 && entry.size == 0;
+        if (!no_chain &&
+            (!chain_clean || std::uint64_t(chain.size()) * impl_->cluster_bytes() < entry.size)) {
+            error = "the package disk's chain for " + path + " is damaged";
+            return false;
+        }
         *clusters = std::uint32_t(chain.size());
     }
     present = true;

@@ -172,6 +172,36 @@ int main() {
         EXPECT_TRUE(image == before);
     }
 
+    // stat_file's cluster count takes the same whole-chain check as the
+    // replace: a link off the image, or a chain shorter than the size, is
+    // damage and gives no count; a clean chain counts every cluster.
+    {
+        auto image = encrypt(make_plain(kEnd));
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        bool present = false;
+        std::uint32_t size = 0, clusters = 0;
+        EXPECT_TRUE(w.stat_file("/A.BIN", present, size, err, &clusters));
+        EXPECT_TRUE(present && size == kTestCluster && clusters == 1);
+    }
+    for (const bool off_image : {true, false}) {
+        auto plain = make_plain(off_image ? 0x00FFFFF0u : kEnd);
+        if (!off_image) set_size(plain, 2 * kTestCluster);
+        auto image = encrypt(plain);
+        int writes = 0;
+        CtgpPackWriter w;
+        EXPECT_TRUE(w.open(io_on(image, writes), image.size(), kKey, kIv, err));
+        bool present = false;
+        std::uint32_t size = 0, clusters = 0;
+        EXPECT_TRUE(!w.stat_file("/A.BIN", present, size, err, &clusters));
+        EXPECT_TRUE(err.find("damaged") != std::string::npos);
+        EXPECT_TRUE(clusters == 0);
+        // Without a count asked for, the entry alone is enough.
+        EXPECT_TRUE(w.stat_file("/A.BIN", present, size, err));
+        EXPECT_TRUE(present);
+    }
+
     // A two-cluster file whose first cluster links to itself: both reads
     // would reach the size with the same cluster twice. Refused before any
     // byte goes to the sink, and the replace writes nothing.
