@@ -574,7 +574,7 @@ private:
     std::vector<std::uint8_t> buffer_;
 
 public:
-    void reserve(std::size_t bytes) { buffer_.reserve(bytes); }
+    bool reserve(std::size_t bytes) { return try_reserve(buffer_, bytes); }
 };
 
 }  // namespace
@@ -608,15 +608,23 @@ bool ctgp_dif_apply(const std::uint8_t* data, std::size_t size, const CtgpDif& s
         }
     }
 
-    std::vector<std::uint8_t> window(kCtgpUpdateWindowBytes, 0);
+    // The rebuild's workspace (about 136 KiB), asked for first: on a Wii short
+    // of memory the section fails as one that can be retried (the caller's
+    // OutOfMemoryScope tells), not at the plugin's emergency exit.
+    std::vector<std::uint8_t> window;
+    std::vector<std::int64_t> base_position;
+    std::vector<std::uint8_t> base_chunk;
+    ApplyOut out(write, user);
+    if (!try_assign(window, kCtgpUpdateWindowBytes, std::uint8_t(0)) ||
+        !try_assign(base_position, bases.size() + 1, std::int64_t(0)) || !try_resize(base_chunk, 64 * 1024) ||
+        !out.reserve(64 * 1024)) {
+        error = "there is not enough free memory to rebuild a file of the update; try again";
+        return false;
+    }
     std::size_t position = 0;
     std::size_t distance = 0;
-    std::vector<std::int64_t> base_position(bases.size() + 1, 0);
-    std::vector<std::uint8_t> base_chunk(64 * 1024);
     std::size_t offset = section.header_size;
     const std::size_t end = section.path_table;
-    ApplyOut out(write, user);
-    out.reserve(64 * 1024);
     const std::uint32_t target = section.unpacked_size;
 
     auto put_byte = [&](std::uint8_t value) {
@@ -980,11 +988,13 @@ public:
     explicit WatchedBase(const CtgpBaseSource& inner) : inner_(inner) {}
     std::uint32_t size() const override { return inner_.size(); }
     bool read(std::uint32_t offset, std::uint8_t* out, std::size_t length) const override {
+        touched = true;
         const bool ok = inner_.read(offset, out, length);
         if (!ok) failed = true;
         return ok;
     }
     mutable bool failed = false;
+    mutable bool touched = false;  // read at all
 
 private:
     const CtgpBaseSource& inner_;
@@ -1082,7 +1092,10 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
     std::vector<double> base_share(count, kBaseShare);
     std::vector<double> unpacked_of(count, double(update.unpacked_size) / double(count ? count : 1));
     std::vector<double> bases_of(count, 0.0);
-    bool by_bases = static_cast<bool>(peek);
+    // The weights only feed the progress callback: with none, nothing is
+    // read for them (a disc base's size costs an image open).
+    const bool sizing = static_cast<bool>(peek) && static_cast<bool>(step);
+    bool by_bases = sizing;
     // A base an earlier section of this update replaces is read as that
     // section left it (C2.szs from 1194's own 29.szs): its size is the one
     // that section declares.
@@ -1094,7 +1107,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         const CtgpDiaSection& place = update.sections[index];
         std::uint8_t head[0x20 + 16 * kCtgpDifMaxEntries];
         const std::size_t want = std::min<std::size_t>(place.size, sizeof head);
-        if (!peek || want < 0x20 || !peek(place.offset, head, want)) {
+        if (!sizing || want < 0x20 || !peek(place.offset, head, want)) {
             by_bases = false;
             continue;
         }
@@ -1155,7 +1168,7 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
             rebuilt_here.emplace_back(own, value);
         }
     }
-    if (log) {
+    if (log && sizing) {
         log(by_bases ? "the bar weighs each file by its " + std::to_string(asked_count) +
                            " base file(s) read for their size and the file it rebuilds"
                      : std::string("the bar weighs each file by its section (a base file's size could not be read)"));
@@ -1186,9 +1199,15 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         const std::uint8_t* data = section.data();
         CtgpDif files;
         bool unsupported = false;
-        if (!ctgp_dif_parse(data, section.size(), files, &unsupported, error)) {
-            failure = unsupported ? CtgpUpdateFailure::Unsupported : CtgpUpdateFailure::BadUpdate;
-            return false;
+        {
+            // Out of memory is not a malformed section: Temporary, rolled back.
+            OutOfMemoryScope parse_memory;
+            if (!ctgp_dif_parse(data, section.size(), files, &unsupported, error)) {
+                failure = parse_memory.failed() ? CtgpUpdateFailure::Temporary
+                          : unsupported         ? CtgpUpdateFailure::Unsupported
+                                                : CtgpUpdateFailure::BadUpdate;
+                return false;
+            }
         }
         // Stored as CTGP-R's channel stores it: Yaz0-packed, or (course
         // lists, names, small tables) as it is.
@@ -1283,20 +1302,29 @@ bool apply_sections(const CtgpDia& update, const CtgpSectionLoader& load_section
         sink.next_tick = 128 * 1024;
         sink.tick = [&](double part) { report(base_part + rebuild_part * part); };
         bool base_short = false;
+        OutOfMemoryScope rebuild_memory;
         if (!ctgp_dif_apply(data, section.size(), files, sources, rebuild_write, &sink, &base_short, error)) {
             bool base_failed = false;
-            for (const auto& base : watched) base_failed = base_failed || base->failed;
-            if (!sink.why.empty()) {
+            bool base_read = false;
+            for (const auto& base : watched) {
+                base_failed = base_failed || base->failed;
+                base_read = base_read || base->touched;
+            }
+            if (rebuild_memory.failed()) {
+                error = path + ": " + error;  // Temporary: rolled back, kept for another try
+            } else if (!sink.why.empty()) {
                 error = path + ": " + sink.why;
             } else if (base_short) {
                 // A base file shorter than the commands expect: a damaged
                 // file in the pack or on the disc, which can be put right.
                 error = path + ": a file it is rebuilt from is shorter than the update expects "
                                "(a damaged file in the pack or on the game disc?)";
-            } else if (plain_base) {
+            } else if (plain_base && base_read) {
                 // An unpacked pack file has no Yaz0 framing to catch damage:
-                // commands that don't fit it point at the file, which can be
-                // put right, rather than at the update. Rolled back.
+                // commands that fail once it has been read point at the file,
+                // which can be put right, rather than at the update. Rolled
+                // back. Commands that fail before reading it (a copy past the
+                // output, a cut-off command) are the update's own.
                 error = path + ": " + error + " (rebuilt from an unpacked file in the pack; is that file damaged?)";
             } else if (!base_failed) {
                 failure = CtgpUpdateFailure::BadUpdate;  // the commands themselves
@@ -1417,8 +1445,14 @@ bool ctgp_update_apply(const CtgpUpdateRead& read, std::uint64_t size, CtgpUpdat
         return false;
     }
     CtgpDia update;
-    if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error) ||
-        !ctgp_dia_is_pack_update(update, error)) {
+    {
+        OutOfMemoryScope parse_memory;
+        if (!ctgp_dia_parse_prefix(prefix.data(), prefix.size(), size, update, error)) {
+            if (parse_memory.failed()) failure = CtgpUpdateFailure::Temporary;  // not a bad file
+            return false;
+        }
+    }
+    if (!ctgp_dia_is_pack_update(update, error)) {
         return false;  // BadUpdate
     }
     return apply_sections(

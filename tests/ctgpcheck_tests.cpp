@@ -80,6 +80,7 @@ std::vector<CtgpPackage> sample_records() {
 void test_records() {
     const auto records = sample_records();
     EXPECT_EQ(records.size(), 5u);
+    if (records.size() != 5u) return;  // the checks below index them
     EXPECT_EQ(records[0].name, "ALPHA");
     EXPECT_EQ(records[0].version, 0x00040250u);  // the package disk's, not the duplicate
     EXPECT_EQ(records[1].name, "HASH");
@@ -91,11 +92,14 @@ void test_records() {
 void test_request() {
     std::array<std::uint8_t, 6> mac = {1, 2, 3, 4, 5, 6};
     auto records = sample_records();
+    EXPECT_EQ(records.size(), 5u);
+    if (records.size() != 5u) return;
     records[1].flags = 0x0B00FFFF;  // only the type byte goes out
     std::vector<std::uint8_t> out;
     std::string error;
     EXPECT_TRUE(ctgp_check_request(mac, records, out, error));
     EXPECT_EQ(out.size(), (records.size() + 9) * 16);
+    if (out.size() != (records.size() + 9) * 16) return;  // the checks below read it
     EXPECT_TRUE(std::memcmp(out.data(), "CTG0", 4) == 0);
     EXPECT_EQ(be32(out.data() + 4), kCtgpCheckClientVersion);
     EXPECT_EQ(out[8], 0);
@@ -178,6 +182,7 @@ void test_exchange_and_download() {
     EXPECT_EQ(last, payload.size());
     // Sent: the request, the download request, the goodbye.
     EXPECT_EQ(server.sent.size(), 4u + 8u + 8u);
+    if (server.sent.size() != 4u + 8u + 8u) return;
     EXPECT_EQ(be32(server.sent.data() + 4), 0u);
     EXPECT_EQ(be32(server.sent.data() + 8), payload.size());
     EXPECT_EQ(be32(server.sent.data() + 12), 0u);
@@ -252,7 +257,9 @@ void test_fetch() {
         std::vector<std::uint32_t> offers;  // what each check offers (0: nothing)
         std::vector<std::uint64_t> sends;   // bytes each download gets before it fails (size: works)
         int checks = 0, downloads = 0, closes = 0;
-        bool open = false;
+        // Open from the start (a connection left from before): the first
+        // check passes only if the fetch closes it first.
+        bool open = true;
         bool bad = false;
     };
     const std::uint32_t size = 12042900u;

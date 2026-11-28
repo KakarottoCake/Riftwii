@@ -249,8 +249,9 @@ public:
     // a temporary file; it must stay readable until the section is stored.
     // `progress` (may be empty) is told how far the unpacking has got. On a
     // failure `failure` says whose fault it is: it comes in as Temporary (the
-    // card, the disc, memory), and a target sets BadUpdate when the entry
-    // asks for something it can never give (a package it doesn't know).
+    // card, the disc, memory). A target sets Unsupported when the entry asks
+    // for a base package it has no way to read (genuine, so CTGP-R's channel
+    // installs it), and BadUpdate only when the entry itself is wrong.
     virtual bool load_base(const std::string& component, const std::string& path, bool packed,
                            std::unique_ptr<CtgpBaseSource>& out, const CtgpProgress& progress,
                            CtgpUpdateFailure& failure, std::string& error) = 0;
@@ -341,9 +342,10 @@ bool ctgp_dia_is_pack_update(const CtgpDia& dia, std::string& error);
 // The DIA0's own signature, checked the way CTGP-R's channel checks it: a
 // DSA signature (DER, at 0x24, its length at 0x20) of the SHA-1 of the whole
 // file, with the length field zeroed and 0x24..0x54 (where the signature
-// sits) replaced by a fixed pattern. Every byte of the update is covered, so
-// an update whose tables or sections were changed after CTGP-R signed it is
-// refused. Verification only: `key` is a public key (ctgp_signing_key(),
+// sits) replaced by a fixed pattern. The signature covers the file in that
+// canonical form: every table and section byte, so an update whose tables or
+// sections were changed after CTGP-R signed it is refused, while the
+// signature fields themselves are replaced before hashing. Verification only: `key` is a public key (ctgp_signing_key(),
 // riftwii/ctgpdsa.hpp, for real updates). `progress` (may be empty) is told
 // the bytes read so far.
 bool ctgp_dia_verify_signature(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDsaKey& key,

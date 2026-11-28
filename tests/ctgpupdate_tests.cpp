@@ -2,11 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // CTGP-R's update container and rebuild stream (riftwii/ctgpupdate.hpp), with
 // synthetic data built to the format the channel's own code reads.
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <system_error>
 #include <utility>
 #include <iostream>
 #include <list>
@@ -27,6 +36,28 @@ static int g_failures = 0;
 using namespace riftwii;
 
 namespace {
+
+// Scratch files go in a folder of this run's own, so a file left by an
+// interrupted run can't make a check pass or fail.
+std::string scratch_path(const char* name) {
+    static const std::filesystem::path folder = [] {
+        std::error_code ec;
+        auto dir = std::filesystem::temp_directory_path(ec);
+        if (ec) dir = ".";
+        dir /= "ctgpupdate_test_" + std::to_string(::getpid());
+        std::filesystem::create_directories(dir, ec);
+        return dir;
+    }();
+    return (folder / name).string();
+}
+
+// True only when the file is known to be gone: an error looking counts as
+// still there.
+bool scratch_gone(const std::string& path) {
+    std::error_code ec;
+    const bool there = std::filesystem::exists(path, ec);
+    return !ec && !there;
+}
 
 void put32(std::vector<std::uint8_t>& out, std::uint32_t value) {
     out.push_back(std::uint8_t(value >> 24));
@@ -239,9 +270,11 @@ void test_dia_parse() {
     EXPECT_EQ(parsed.component, std::string("CTGPR"));
     EXPECT_EQ(parsed.version, 0x01031193u);
     EXPECT_EQ(parsed.bases.size(), std::size_t(1));
+    EXPECT_EQ(parsed.sections.size(), std::size_t(1));
+    // Stop here rather than index a list the parser left short.
+    if (parsed.bases.size() != 1 || parsed.sections.size() != 1) return;
     EXPECT_EQ(parsed.bases[0].component, std::string("CTGPR"));
     EXPECT_EQ(parsed.bases[0].version, 0x01031192u);
-    EXPECT_EQ(parsed.sections.size(), std::size_t(1));
     EXPECT_EQ(parsed.sections[0].offset, 0x7Cu);
     EXPECT_EQ(parsed.sections[0].size, std::uint32_t(section.size()));
     // A truncated download is refused.
@@ -286,6 +319,7 @@ void test_apply() {
     EXPECT_TRUE(ctgp_dif_parse(section.data(), section.size(), dif, error));
     EXPECT_EQ(dif.unpacked_size, 17u);
     EXPECT_EQ(dif.entries.size(), std::size_t(1));
+    if (dif.entries.size() != 1) return;
     EXPECT_EQ(ctgp_dif_path(section.data(), section.size(), dif.path_table), std::string("NEW.SZS"));
     EXPECT_EQ(ctgp_dif_path(section.data(), section.size(), dif.entries[0].path_offset), std::string("NEW.SZS"));
 
@@ -558,8 +592,10 @@ void test_apply_failure_kind() {
     const std::vector<std::uint8_t> good = {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33};
     CtgpUpdateFailure failure = CtgpUpdateFailure::Temporary;
     MemoryTarget fine;
+    fine.base_size = 7;  // could say, but with no progress callback is never asked
     EXPECT_TRUE(run(good, 17, fine, failure));
     EXPECT_TRUE(failure == CtgpUpdateFailure::None);
+    EXPECT_TRUE(fine.sized.empty());
 
     MemoryTarget broken;
     EXPECT_TRUE(!run({0x55}, 1, broken, failure));  // no such opcode
@@ -663,10 +699,10 @@ void test_update_apply() {
     // Kept in a scratch file until it is stored: the same bytes, and the
     // file is gone afterwards.
     MemoryTarget spilled;
-    spilled.scratch = "ctgpupdate-packed.tmp";
+    spilled.scratch = scratch_path("ctgpupdate-packed.tmp");
     EXPECT_TRUE(ctgp_update_apply(dia.data(), dia.size(), spilled, [](const std::string&) {}, error));
     EXPECT_TRUE(spilled.stored == target.stored);
-    EXPECT_TRUE(std::fopen(spilled.scratch.c_str(), "rb") == nullptr);
+    EXPECT_TRUE(scratch_gone(spilled.scratch));
 
     // A header whose unpacked size is not the sum of its files' is refused.
     auto wrong_size = dia;
@@ -815,8 +851,18 @@ void test_update_step_by_bases_fallback() {
     target.base_size = 0;  // can't say
     auto dia = make_dia(section);
     std::string error;
-    EXPECT_TRUE(ctgp_update_apply(dia.data(), dia.size(), target, [&](const std::string& l) { lines.push_back(l); },
-                                  error));
+    // The bar is only weighed for a caller that shows progress.
+    const auto apply_with_bar = [&error](const std::vector<std::uint8_t>& file, MemoryTarget& to,
+                                         const std::function<void(const std::string&)>& log) {
+        const CtgpUpdateRead read = [&file](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+            if (offset + length > file.size()) return false;
+            std::memcpy(out, file.data() + offset, length);
+            return true;
+        };
+        return ctgp_update_apply(read, file.size(), to, log, CtgpUpdateFileDone(),
+                                 [](std::size_t, std::size_t, const std::string&, double, double) {}, error);
+    };
+    EXPECT_TRUE(apply_with_bar(dia, target, [&](const std::string& l) { lines.push_back(l); }));
     bool fell_back = false;
     for (const auto& l : lines) fell_back = fell_back || l.find("weighs each file by its section") != std::string::npos;
     EXPECT_TRUE(fell_back);
@@ -825,7 +871,7 @@ void test_update_step_by_bases_fallback() {
     dia = make_dia(section);
     MemoryTarget damaged;
     damaged.base_size = 7000;
-    EXPECT_TRUE(!ctgp_update_apply(dia.data(), dia.size(), damaged, nullptr, error));
+    EXPECT_TRUE(!apply_with_bar(dia, damaged, nullptr));
     EXPECT_TRUE(damaged.sized.empty());
 }
 
@@ -942,7 +988,7 @@ void test_yaz0_stream_decoder() {
 
 void test_pieces(bool in_file) {
     CtgpPieces pieces;
-    const std::string scratch = "ctgpupdate-pieces.tmp";
+    const std::string scratch = scratch_path("ctgpupdate-pieces.tmp");
     std::string error;
     if (in_file) EXPECT_TRUE(pieces.use_file(scratch, error));
     std::vector<std::uint8_t> all;
@@ -964,8 +1010,8 @@ void test_pieces(bool in_file) {
     EXPECT_TRUE(!pieces.read(all.size() - 1, middle.data(), 2));
     pieces.clear();
     EXPECT_EQ(pieces.size(), std::size_t(0));
-    // The scratch file goes with clear().
-    EXPECT_TRUE(std::fopen(scratch.c_str(), "rb") == nullptr);
+    // The scratch file goes with clear() (only the file-backed case has one).
+    if (in_file) EXPECT_TRUE(scratch_gone(scratch));
 }
 
 void test_apply_rejects_bad_stream() {
@@ -1010,6 +1056,7 @@ void test_dif_flags() {
     const auto two = make_section_flags(5, hello, "/x.bmg", 0x00020000u, {{"CTGPR", 0}, {"RMC", 1}});
     EXPECT_TRUE(ctgp_dif_parse(two.data(), two.size(), dif, &unsupported, error));
     EXPECT_EQ(dif.entries.size(), std::size_t(2));
+    if (dif.entries.size() != 2) return;
     EXPECT_TRUE(!dif.entries[0].packed);
     EXPECT_TRUE(dif.entries[1].packed);
 
@@ -1070,6 +1117,7 @@ void test_update_plain_files() {
         EXPECT_TRUE(failure == CtgpUpdateFailure::None);
         EXPECT_EQ(target.stored, bytes("hello"));
         EXPECT_EQ(target.checked_packed.size(), std::size_t(1));
+        if (target.checked_packed.size() != 1) return;
         EXPECT_TRUE(!target.checked_packed[0]);
         const Sha1Digest want = sha1(target.stored.data(), target.stored.size());
         EXPECT_TRUE(std::memcmp(want.data(), target.last_digest.data(), 20) == 0);
@@ -1083,6 +1131,7 @@ void test_update_plain_files() {
         EXPECT_TRUE(apply(dia, target, failure));
         EXPECT_EQ(target.stored, bytes("helloABCDEFGGGGGG"));
         EXPECT_EQ(target.base_packed.size(), std::size_t(1));
+        if (target.base_packed.size() != 1) return;
         EXPECT_TRUE(!target.base_packed[0]);
     }
     {
@@ -1091,18 +1140,31 @@ void test_update_plain_files() {
         const auto dia = make_dia(make_section(17, {0x40, 'h', 'e', 'l', 'l', 'o', 0x14, 1, 0x33},
                                                "/Race/Course/NEW.szs"));
         EXPECT_TRUE(apply(dia, target, failure));
+        EXPECT_TRUE(!target.base_packed.empty() && !target.checked_packed.empty());
+        if (target.base_packed.empty() || target.checked_packed.empty()) return;
         EXPECT_TRUE(target.base_packed[0] && target.checked_packed[0]);
         std::vector<std::uint8_t> unpacked;
         EXPECT_TRUE(ctgp_yaz0_decode_nintendo(target.stored.data(), target.stored.size(), unpacked, error));
     }
     {
-        // Commands that don't fit an unpacked pack base: the base may be
-        // damaged, so temporary (rolled back), not a bad update.
+        // Commands that fail once an unpacked pack base has been read: the
+        // base may be damaged, so temporary (rolled back), not a bad update.
+        MemoryTarget target;
+        target.expected_path = "/trackNames-EN.bmg";
+        const auto dia =
+            make_dia(make_section_flags(8, {0x14, 1, 0x55}, "/trackNames-EN.bmg", 0x00020000u, {{"CTGPR", 0}}));
+        EXPECT_TRUE(!apply(dia, target, failure));
+        EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+        EXPECT_TRUE(target.stored.empty());
+    }
+    {
+        // A command cut off before the base is read at all: the update's
+        // own commands, not the base, so a bad update.
         MemoryTarget target;
         target.expected_path = "/trackNames-EN.bmg";
         const auto dia = make_dia(make_section_flags(1, {0x55}, "/trackNames-EN.bmg", 0x00020000u, {{"CTGPR", 0}}));
         EXPECT_TRUE(!apply(dia, target, failure));
-        EXPECT_TRUE(failure == CtgpUpdateFailure::Temporary);
+        EXPECT_TRUE(failure == CtgpUpdateFailure::BadUpdate);
         EXPECT_TRUE(target.stored.empty());
     }
     {
@@ -1222,11 +1284,17 @@ public:
 void test_unsigned_hash_list_blocks_writes() {
     CtgpPackWriter pack;
     // Only the signature is wrong about this list: its header, name and body
-    // digest are in order, so the list's own checks would pass.
-    std::vector<std::uint8_t> list(0x60 + 12, 0);
+    // digest are in order (the body an empty table: a root folder and an
+    // empty name), so the list's own checks pass and the unpacked file,
+    // which the list does not name, is taken as the channel takes it.
+    std::vector<std::uint8_t> list(0x60 + 13, 0);
     list[0] = 'H'; list[1] = 'a'; list[2] = 'h'; list[3] = '0';
     list[7] = std::uint8_t(list.size());
     std::memcpy(list.data() + 0x20, "CTGPR", 5);
+    list[0x60] = 1;       // the root is a folder
+    list[0x60 + 11] = 1;  // of one entry, itself
+    const Sha1Digest body = sha1(list.data() + 0x60, list.size() - 0x60);
+    std::memcpy(list.data() + 0x0C, body.data(), 20);
     CountingPackTarget target(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
     const auto dia = make_dia(make_section_flags(5, {0x40, 'h', 'e', 'l', 'l', 'o'}, "/changelog.bin", 0x00020000u, {}));
     const CtgpUpdateRead read = [&dia](std::uint64_t offset, std::uint8_t* out, std::size_t length) {
@@ -1240,13 +1308,17 @@ void test_unsigned_hash_list_blocks_writes() {
                                    error));
     EXPECT_TRUE(error.find("signed") != std::string::npos);
     EXPECT_EQ(target.stores, 0);
-    // With the signature check skipped (a test-only switch) the refusal, if
-    // any, is about something else, so the one above was the signature's.
+    // With the signature check skipped (a test-only switch) the same update
+    // goes through to the one store, so the refusal above was the
+    // signature's and nothing else's.
     CountingPackTarget allowed(pack, CtgpDiscBase(), list, "ctgpupdate_unused_");
     allowed.skip_list_signature_for_tests();
     error.clear();
-    ctgp_update_apply(read, dia.size(), allowed, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure, error);
-    EXPECT_TRUE(error.find("signed") == std::string::npos);
+    failure = CtgpUpdateFailure::None;
+    EXPECT_TRUE(ctgp_update_apply(read, dia.size(), allowed, nullptr, CtgpUpdateFileDone(), CtgpUpdateStep(), failure,
+                                  error));
+    EXPECT_TRUE(failure == CtgpUpdateFailure::None);
+    EXPECT_EQ(allowed.stores, 1);
 }
 
 int main() {
@@ -1270,6 +1342,10 @@ int main() {
     test_yaz0_stream_decoder();
     test_pieces(false);
     test_pieces(true);
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(std::filesystem::path(scratch_path("x")).parent_path(), ec);
+    }
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

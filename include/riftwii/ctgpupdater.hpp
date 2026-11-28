@@ -55,10 +55,11 @@ public:
                     std::string& error) override;
     bool store_file(const std::string& path, const CtgpPieces& packed, const CtgpProgress& progress,
                     std::string& error) override;
-    // The version the update brings. The list in jelly.bin must be labelled
-    // that version or newer (its label, at 0x28, is bound by the checks of
-    // ctgp_load_hash_list for native launch: the same list must not be an
-    // older signed one). 0: not checked (tests).
+    // The version the update brings. The list's declared label (0x28) is
+    // compared with it and must be that version or newer. The label is not
+    // signed (ctgp_hash_list_signature_ok), so this refuses a list that says
+    // it is older, as native launch's ctgp_load_hash_list does; it is not
+    // proof of the list's age. 0: not checked (tests).
     void set_required_list_version(std::uint32_t version) { required_version_ = version; }
     // True once the list could not vouch for the update in a way a newer list
     // may fix: it is not signed by CTGP-R, it is older than the update, or it
