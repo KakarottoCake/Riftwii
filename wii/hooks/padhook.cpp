@@ -331,41 +331,49 @@ bool blob_whole(int kind) {
     // A site's replay falls through into its own way back, so the way back
     // is the 16 bytes right after it: one paired with another site's would
     // have the game's call resume in the wrong function (CodeRabbit on #650).
+    // And a site is whole (its hook, replay and way back) or absent: a hook
+    // with no replay would have the install write at the blob's start. The
+    // sites the install uses in every game (PADRead, PADControlMotor, the
+    // IPC submit routine, OSSleepThread, OSSuspendThread, SIProbe) are in
+    // every build, so one missing there is a damaged build (CodeRabbit on
+    // #651); OSRestart's is optional, and the HOME Menu's and the
+    // stand-in's are checked below.
     {
         std::uint32_t slots[30];    // two for each of the 15 sites a build may have
         std::uint32_t entries[16];  // each site's hook, and the IPC callback
         std::size_t count = 0, entry_count = 0;
-        bool paired = true;
-        const auto add = [&](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume) {
+        bool whole = true;
+        const auto add = [&](std::uint32_t hook, std::uint32_t replay, std::uint32_t resume, bool needed) {
             if (hook != 0) entries[entry_count++] = hook;
             if (replay != 0) slots[count++] = replay;
             if (resume != 0) slots[count++] = resume;
-            if ((replay != 0 || resume != 0) && (replay == 0 || resume != std::uint64_t(replay) + kSiteBytes))
-                paired = false;
+            const bool absent = hook == 0 && replay == 0 && resume == 0;
+            if (absent ? needed : hook == 0 || replay == 0 || resume != std::uint64_t(replay) + kSiteBytes)
+                whole = false;
         };
-        add(h.hook_read, h.replay_read, h.continue_read);
-        add(h.hook_motor, h.replay_motor, h.continue_motor);
-        add(h.complete, 0, 0);
-        add(h.hook_submit, h.replay_submit, h.continue_submit);
-        add(h.hook_sleep, h.replay_sleep, h.continue_sleep);
-        add(h.hook_suspend, h.replay_suspend, h.continue_suspend);
-        add(h.hook_restart, h.replay_restart, h.continue_restart);
-        add(h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
+        add(h.hook_read, h.replay_read, h.continue_read, true);
+        add(h.hook_motor, h.replay_motor, h.continue_motor, true);
+        if (h.complete != 0) entries[entry_count++] = h.complete;  // a callback: no replay of its own
+        add(h.hook_submit, h.replay_submit, h.continue_submit, true);
+        add(h.hook_sleep, h.replay_sleep, h.continue_sleep, true);
+        add(h.hook_suspend, h.replay_suspend, h.continue_suspend, true);
+        add(h.hook_restart, h.replay_restart, h.continue_restart, false);
+        add(h.hook_si_probe, h.replay_si_probe, h.continue_si_probe, true);
         if (!no_home(kind)) {
-            add(h.hook_kpad, h.replay_kpad, h.continue_kpad);
-            add(h.hook_probe, h.replay_probe, h.continue_probe);
-            add(h.hook_menu, h.replay_menu, h.continue_menu);
-            add(h.hook_select, h.replay_select, h.continue_select);
-            add(h.hook_unified, h.replay_unified, h.continue_unified);
+            add(h.hook_kpad, h.replay_kpad, h.continue_kpad, false);
+            add(h.hook_probe, h.replay_probe, h.continue_probe, false);
+            add(h.hook_menu, h.replay_menu, h.continue_menu, false);
+            add(h.hook_select, h.replay_select, h.continue_select, false);
+            add(h.hook_unified, h.replay_unified, h.continue_unified, false);
         }
         if (standin_kind(kind)) {
             const rt_pad_standin_header& own =
                 *reinterpret_cast<const rt_pad_standin_header*>(blob(kind) + sizeof(rt_pad_header));
-            add(own.hook_info, own.replay_info, own.continue_info);
-            add(own.hook_wread, own.replay_wread, own.continue_wread);
-            add(own.hook_format, own.replay_format, own.continue_format);
+            add(own.hook_info, own.replay_info, own.continue_info, false);
+            add(own.hook_wread, own.replay_wread, own.continue_wread, false);
+            add(own.hook_format, own.replay_format, own.continue_format, false);
         }
-        if (!paired) return false;
+        if (!whole) return false;
         for (std::size_t i = 0; i < count; ++i) {
             for (std::size_t j = 0; j < i; ++j)
                 if (slots[i] < std::uint64_t(slots[j]) + kSiteBytes && slots[j] < std::uint64_t(slots[i]) + kSiteBytes)
