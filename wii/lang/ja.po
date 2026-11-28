@@ -5708,3 +5708,6 @@ msgstr "SDカードを読み込めませんでした。もう一度お試しく�
 
 msgid "the update server could not be asked for the next one ({1})"
 msgstr "次の更新について更新サーバーに問い合わせできませんでした（{1}）"
+
+msgid "a waiting update could not be put back; rename update.dif.held in the ctgpr folder on the SD card to update.dif"
+msgstr "待機中の更新を元に戻せませんでした。SDカードのctgprフォルダにあるupdate.dif.heldの名前をupdate.difに変更してください"

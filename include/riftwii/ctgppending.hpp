@@ -123,13 +123,17 @@ inline bool ctgp_hold_update(const std::string& update, const std::string& held,
 // after a power cut. Only when the card says `update` is not there and
 // `held` is: a probe error moves nothing. `size_of` as for
 // ctgp_update_waiting (0 there, -1 not there, else the card could not say).
-inline bool ctgp_restore_held(const std::string& update, const std::string& held,
-                              const std::function<int(const char*, std::uint64_t*)>& size_of,
-                              const std::function<int(const char*, const char*)>& rename) {
+// Nothing: no held update, `update` still taken, or a probe the card could
+// not answer (nothing moved). Failed: a held update that should have gone
+// back but the rename was refused: it stays held, and the player is told.
+enum class CtgpRestoreHeld { Nothing, Restored, Failed };
+inline CtgpRestoreHeld ctgp_restore_held(const std::string& update, const std::string& held,
+                                         const std::function<int(const char*, std::uint64_t*)>& size_of,
+                                         const std::function<int(const char*, const char*)>& rename) {
     std::uint64_t size = 0;
-    if (size_of(update.c_str(), &size) != -1) return false;
-    if (size_of(held.c_str(), &size) != 0) return false;
-    return rename(held.c_str(), update.c_str()) == 0;
+    if (size_of(update.c_str(), &size) != -1) return CtgpRestoreHeld::Nothing;
+    if (size_of(held.c_str(), &size) != 0) return CtgpRestoreHeld::Nothing;
+    return rename(held.c_str(), update.c_str()) == 0 ? CtgpRestoreHeld::Restored : CtgpRestoreHeld::Failed;
 }
 
 // The length of an open file, left at its start. False when the card would

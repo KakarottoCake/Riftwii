@@ -162,20 +162,29 @@ int main() {
         EXPECT_TRUE(ctgp_finish_download(true, false, "update.dif.part", "update.dif", "update.dif.bad", remove,
                                          no_rename) == CtgpDownloadEnd::Removed);
         EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
-        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, rename));
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, rename) == CtgpRestoreHeld::Restored);
         EXPECT_TRUE(files == std::set<std::string>{"update.dif"});
         // While the prerequisite waits at update.dif, nothing comes back.
         files = {"update.dif", "update.dif.held"};
-        EXPECT_TRUE(!ctgp_restore_held("update.dif", "update.dif.held", probe, rename));
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, rename) == CtgpRestoreHeld::Nothing);
         EXPECT_TRUE(files == (std::set<std::string>{"update.dif", "update.dif.held"}));
         // An older held file stops a second hold.
         EXPECT_TRUE(!ctgp_hold_update("update.dif", "update.dif.held", probe, rename));
         // A card that can't say moves nothing.
         const auto unreadable = [](const char*, std::uint64_t*) { return -2; };
         files = {"update.dif.held"};
-        EXPECT_TRUE(!ctgp_restore_held("update.dif", "update.dif.held", unreadable, rename));
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", unreadable, rename) ==
+                    CtgpRestoreHeld::Nothing);
         EXPECT_TRUE(!ctgp_hold_update("update.dif", "update.dif.held", unreadable, rename));
         EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
+        // A rename the card refuses is told apart from "nothing held", and
+        // the held update stays where it is.
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, no_rename) ==
+                    CtgpRestoreHeld::Failed);
+        EXPECT_TRUE(files == std::set<std::string>{"update.dif.held"});
+        // No held update at all: nothing, quietly.
+        files.clear();
+        EXPECT_TRUE(ctgp_restore_held("update.dif", "update.dif.held", probe, rename) == CtgpRestoreHeld::Nothing);
     }
 
     // The size of a file, and a stream the card can't size (a pipe: its seeks
