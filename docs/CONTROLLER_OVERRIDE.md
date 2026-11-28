@@ -91,7 +91,7 @@ A real Wii Remote that's turned on for the same player takes over from the GameC
 
 Packs that bring their own GameCube controls (like quatric's controller patches, or packs made for one game) still work. When a pack you turned on brings its own controller code, it keeps the controls, and the launch screen says "A pack brings its own controls: 'Controllers act as' is off." You don't have to change the setting back. One exception: a pack that uses the game's own GameCube controller code without adding any of its own (quatric's Sonic and the Secret Rings patch, for example) isn't recognised, so for a game with such a pack, leave **Controllers act as** on Default. One more exception, with a GameCube controller adapter: a pack whose only controller code reads the GameCube ports straight from the hardware (like quatric's) sees just the Wii's own ports, so its controls can't reach the adapter, and RiftWii doesn't turn the override off for it. To play such a game on the adapter, pick a form in **Controllers act as** (or use a pack that asks for one): the override then plays it with that form's controls, not the pack's, and the launch screen says nothing. On Default with no form asked for, the override stays off.
 
-Games that already support GameCube controllers don't need the override at all: leave them on Default.
+Games that already support GameCube controllers don't need the override at all: leave them on Default. Default still follows a pack you turned on that asks for a form, so to play such a game with its own GameCube controls, turn that pack off.
 
 ## A few things RiftWii does for you
 
