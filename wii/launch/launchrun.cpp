@@ -304,15 +304,17 @@ bool Session::ensure_probe(std::string& error) {
         // (The pads plugin was loaded at the start, while the card was
         // RiftWii's.)
         if (d2x_ready) {
-            PlayTimeLaunchNand(own_saves_dir);  // where the next start looks for the play log (#642); the card is d2x's after this
             const int base = d2x_base(used_slot);
             std::string why;
             const D2xNandScope scope = own_saves_whole ? D2xNandScope::WholeNand : D2xNandScope::GamePaths;
             if (!own_saves_on_usb && source.game.device == ImageDevice::Sd && base != 56 && base != 57)
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
                      "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
-            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why, scope, nullptr, nullptr,
+            else if (PlayTimeLaunchNand(own_saves_dir),  // the play log's place for the next start (#642), noted while the card is still RiftWii's
+                     !(d2x_saves = enable_d2x_saves(own_saves_dir, why, scope, nullptr, nullptr,
                                                     own_saves_usb_partition))) {
+                // Emulation did not come on: the game writes to the Wii's own NAND.
+                if (!own_saves_on_usb && !sd_held_by_d2x_fat()) PlayTimeLaunchNand("");
                 if (own_saves_on_usb) {
                     error = "Saves: " + why;
                     return false;

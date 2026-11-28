@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 
 #include "riftwii/textlines.hpp"
@@ -76,7 +77,7 @@ const PlayTotal* PlayTotals::find(const std::string& key) const {
 
 void PlayTotals::add(const std::string& key, std::uint64_t seconds, std::uint64_t session_start) {
     PlayTotal& t = totals_[key];
-    t.seconds += std::min(seconds, 0xFFFFFFFFFFFFFFFFull - t.seconds);
+    t.seconds += std::min<std::uint64_t>(seconds, UINT64_MAX - t.seconds);
     t.session_start = session_start;
 }
 
