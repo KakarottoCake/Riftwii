@@ -45,7 +45,7 @@ Which one to pick: the one the game itself is played with. The back of the box, 
 | L, R | Nunchuk Z and C (a light pull counts) |
 | D-pad | D-pad |
 | X | Shake the Wii Remote |
-| C-stick | Move the pointer (it shows while the game has a pointer up, and for 2 seconds after the C-stick moves) |
+| C-stick | Move the pointer (it shows while the game has a pointer up, and for 2 seconds after the C-stick moves; in a game whose pointer switch RiftWii doesn't find, the 2006 games among them, it stays where you left it) |
 
 **Sideways Wii Remote** (held like a NES pad, D-pad on the left)
 
@@ -60,7 +60,7 @@ Which one to pick: the one the game itself is played with. The back of the box, 
 | D-pad, control stick | D-pad, turned the way it reads held sideways (right is right on screen) |
 | R | Shake the Wii Remote |
 | C-stick | Tilt it like a steering wheel, or move the pointer while the game uses one |
-| L (tap) | Show the pointer and keep it up, or hide it again, in games that use one (a C-stick move also shows it for 2 seconds) |
+| L (tap) | Tapped on its own, with nothing else held: show the pointer and keep it up, or hide it again, in games that use one (a C-stick move also shows it for 2 seconds) |
 
 **Pointing Wii Remote** (aimed at the screen)
 
@@ -76,7 +76,7 @@ Which one to pick: the one the game itself is played with. The back of the box, 
 | C-stick | Twist it (roll) |
 | R | Shake it |
 
-In every choice, holding **L + R + Z + Start** together opens the game's HOME Menu on that player's own controller. Where RiftWii can't open the game's HOME Menu (a game without one, or one whose HOME Menu RiftWii doesn't find), it goes back to RiftWii instead. With Settings > **Leaving a game** set to **HOME only**, the combo does nothing.
+In every choice, holding **L + R + Z + Start** together for two seconds opens the game's HOME Menu on that player's own controller. Where RiftWii can't open the game's HOME Menu (a game without one, or one whose HOME Menu RiftWii doesn't find), the same hold goes back to RiftWii instead, as long as RiftWii found the game's way back; if it didn't, the combo does nothing, and `sd:/riftwii/boot.log` says so. With Settings > **Leaving a game** set to **HOME only**, the combo does nothing.
 
 A real Wii Remote that's turned on for the same player takes over from the GameCube controller, and the GameCube controller gets the player back when the Wii Remote is turned off.
 
@@ -96,7 +96,7 @@ Games that already support GameCube controllers don't need the override at all: 
 
 ## A few things RiftWii does for you
 
-- The screen doesn't dim while you play: moving a GameCube controller counts as using the Wii Remote for the Wii's Screen Burn-In Reduction (in every game checked so far).
+- The screen doesn't dim while you play: moving a GameCube controller counts as using the Wii Remote for the Wii's Screen Burn-In Reduction. That needs RiftWii to find the game's own dimming reset, which it has in every game checked so far; `sd:/riftwii/boot.log` gives its address, and where none is found (0) the screen can still dim.
 - Most games that ask the Wii Remote for its battery are told it's full; a few still show a low-battery message (they're in the games list).
 - If a game has no GameCube controller code of its own, RiftWii reads the adapter for it. On a Wii's own GameCube ports this needs the game to have that code (the ports can only be read through it); the log says so when it's missing.
 
