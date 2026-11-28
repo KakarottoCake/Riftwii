@@ -667,6 +667,23 @@ void Fat32Volume::forget_cached() const {
     dir_cache_entries_ = 0;
 }
 
+void Fat32Volume::forget_folder_of(const std::string& path) const {
+    fat_cache_.clear();
+    // Either separator, as lookup() takes both: "/ctgpr\\journal.bin" is in
+    // ctgpr, not in the root.
+    const std::size_t slash = path.find_last_of("/\\");
+    std::uint32_t folder = 0;
+    std::string error;
+    if (slash == std::string::npos || !resolve_directory(path.substr(0, slash), folder, error)) {
+        forget_cached();
+        return;
+    }
+    const auto cached = dir_cache_.find(folder);
+    if (cached == dir_cache_.end()) return;
+    dir_cache_entries_ -= std::min(dir_cache_entries_, cached->second.size());
+    dir_cache_.erase(cached);
+}
+
 bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error,
                                     bool* missing) const {
     if (missing) *missing = false;
@@ -812,6 +829,46 @@ bool Fat32Volume::read(const Fat32File& file, std::uint64_t offset, std::uint8_t
             left -= take;
             block += blocks;
             skip = 0;
+        }
+    }
+    return true;
+}
+
+bool fat32_write_in_place(const Fat32File& file, const BlockWriter& write, std::uint64_t offset,
+                          const std::uint8_t* data, std::size_t length, std::string& error) {
+    if (!write) {
+        error = "no block writer";
+        return false;
+    }
+    if (offset % kFatBlockBytes != 0 || length % kFatBlockBytes != 0) {
+        error = "an in-place write must cover whole 512-byte blocks";
+        return false;
+    }
+    const std::uint64_t whole = file.entry.size - file.entry.size % kFatBlockBytes;
+    if (offset > whole || length > whole - offset) {
+        error = "an in-place write must end within the file";
+        return false;
+    }
+    if (length == 0) return true;
+    std::vector<PlacedRun> runs;
+    if (!place_on_fragments(file.fragments, offset, length, runs, error)) return false;
+    const std::uint8_t* src = data;
+    for (const PlacedRun& r : runs) {
+        if (r.skip % kFatBlockBytes != 0 || r.length % kFatBlockBytes != 0) {
+            error = "an in-place write landed off a block boundary";
+            return false;
+        }
+        std::uint64_t block = r.source + r.skip / kFatBlockBytes;
+        std::uint64_t left = r.length / kFatBlockBytes;
+        while (left > 0) {
+            const std::uint32_t blocks = static_cast<std::uint32_t>(std::min<std::uint64_t>(left, 64));
+            if (!write(block, blocks, src)) {
+                error = "the card refused a write";
+                return false;
+            }
+            src += static_cast<std::size_t>(blocks) * kFatBlockBytes;
+            block += blocks;
+            left -= blocks;
         }
     }
     return true;

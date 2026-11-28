@@ -10227,6 +10227,230 @@ FR.update({
     "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none.": "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas.",
 })
 
+
+# CTGP-R's updater, run by RiftWii before the game starts (docs/PLUGINS.md, "The ctgpupd plugin").
+T.update({
+    "CTGP-R update": ("Actualización de CTGP-R", "CTGP-Rの更新", "Atualização do CTGP-R", "Aggiornamento di CTGP-R"),
+    "Updating CTGP-R": ("Actualizando CTGP-R", "CTGP-Rを更新中", "Atualizando o CTGP-R", "Aggiornamento di CTGP-R"),
+    "CTGP-R update failed": ("Error al actualizar CTGP-R", "CTGP-Rの更新に失敗しました",
+                             "Falha na atualização do CTGP-R", "Aggiornamento di CTGP-R non riuscito"),
+    "The update could not be installed: {1}. CTGP-R starts without it.": (
+        "No se pudo instalar la actualización: {1}. CTGP-R empezará sin ella.",
+        "更新をインストールできませんでした: {1}。CTGP-Rは更新なしで起動します。",
+        "Não foi possível instalar a atualização: {1}. O CTGP-R vai começar sem ela.",
+        "Impossibile installare l'aggiornamento: {1}. CTGP-R partirà senza."),
+})
+KO.update({
+    "CTGP-R update": "CTGP-R 업데이트",
+    "Updating CTGP-R": "CTGP-R 업데이트 중",
+    "CTGP-R update failed": "CTGP-R 업데이트 실패",
+    "The update could not be installed: {1}. CTGP-R starts without it.":
+        "업데이트를 설치할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
+})
+FR.update({
+    "CTGP-R update": "Mise à jour de CTGP-R",
+    "Updating CTGP-R": "Mise à jour de CTGP-R",
+    "CTGP-R update failed": "Échec de la mise à jour de CTGP-R",
+    "The update could not be installed: {1}. CTGP-R starts without it.":
+        "Impossible d'installer la mise à jour : {1}. CTGP-R démarre sans elle.",
+})
+
+# RiftWii's own CTGP-R update check and download, and the undo of an
+# interrupted update.
+T.update({
+    "Checking for a CTGP-R update...": ("Buscando una actualización de CTGP-R...", "CTGP-Rの更新を確認しています...",
+                                        "Procurando uma atualização do CTGP-R...", "Ricerca di un aggiornamento di CTGP-R..."),
+    "The update could not be downloaded: {1}. CTGP-R starts without it.": (
+        "No se pudo descargar la actualización: {1}. CTGP-R empezará sin ella.",
+        "更新をダウンロードできませんでした: {1}。CTGP-Rは更新なしで起動します。",
+        "Não foi possível baixar a atualização: {1}. O CTGP-R vai começar sem ela.",
+        "Impossibile scaricare l'aggiornamento: {1}. CTGP-R partirà senza."),
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.": (
+        "Una actualización anterior de CTGP-R se interrumpió y no se pudo deshacer: {1}. Vuelve a instalar CTGP-R con su propio instalador y después borra update-journal.bin y update-journal-jelly.bin de la carpeta ctgpr de la tarjeta SD.",
+        "以前のCTGP-Rの更新が中断され、元に戻せませんでした: {1}。CTGP-R専用のインストーラーで再インストールしてから、SDカードのctgprフォルダーにあるupdate-journal.binとupdate-journal-jelly.binを削除してください。",
+        "Uma atualização anterior do CTGP-R foi interrompida e não pôde ser desfeita: {1}. Instale o CTGP-R de novo com o instalador dele e depois apague update-journal.bin e update-journal-jelly.bin da pasta ctgpr do cartão SD.",
+        "Un aggiornamento precedente di CTGP-R è stato interrotto e non è stato possibile annullarlo: {1}. Reinstalla CTGP-R con il suo programma di installazione, poi elimina update-journal.bin e update-journal-jelly.bin dalla cartella ctgpr della scheda SD."),
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.": (
+        "La actualización de CTGP-R de la tarjeta SD no se puede usar ({1}), así que se ha apartado.",
+        "SDカードのCTGP-Rの更新は使用できないため（{1}）、別に移しました。",
+        "A atualização do CTGP-R no cartão SD não pode ser usada ({1}), então foi deixada de lado.",
+        "L'aggiornamento di CTGP-R sulla scheda SD non può essere usato ({1}), quindi è stato messo da parte."),
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.": (
+        "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, así que se ha apartado.",
+        "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}のため、別に移しました。",
+        "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, então foi deixada de lado.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, quindi è stato messo da parte."),    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.": (
+        "La actualización de CTGP-R de la tarjeta SD no se puede usar ({1}) y no se ha podido apartar. CTGP-R se inicia sin ella.",
+        "SDカードのCTGP-Rの更新は使用できず（{1}）、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。",
+        "A atualização do CTGP-R no cartão SD não pode ser usada ({1}) e não foi possível deixá-la de lado. O CTGP-R inicia sem ela.",
+        "L'aggiornamento di CTGP-R sulla scheda SD non può essere usato ({1}) e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.": (
+        "La actualización de CTGP-R de la tarjeta SD ya está instalada, pero no se ha podido apartar. CTGP-R se inicia ahora.",
+        "SDカードのCTGP-Rの更新はすでにインストールされていますが、別に移せませんでした。CTGP-Rを起動します。",
+        "A atualização do CTGP-R no cartão SD já está instalada, mas não foi possível deixá-la de lado. O CTGP-R inicia agora.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è già installato, ma non è stato possibile metterlo da parte. CTGP-R si avvia ora."),
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.": (
+        "La actualización de CTGP-R de la tarjeta SD es para la versión {1}, pero está instalado CTGP-R {2}, y no se ha podido apartar. CTGP-R se inicia sin ella.",
+        "SDカードのCTGP-Rの更新はバージョン{1}用ですが、インストールされているのはCTGP-R {2}で、別に移すこともできませんでした。CTGP-Rは更新なしで起動します。",
+        "A atualização do CTGP-R no cartão SD é para a versão {1}, mas o CTGP-R {2} está instalado, e não foi possível deixá-la de lado. O CTGP-R inicia sem ela.",
+        "L'aggiornamento di CTGP-R sulla scheda SD è per la versione {1}, ma è installato CTGP-R {2}, e non è stato possibile metterlo da parte. CTGP-R si avvia senza."),    "Less than a minute left": ("Queda menos de un minuto", "残り1分未満", "Falta menos de um minuto", "Manca meno di un minuto"),
+    "About a minute left": ("Queda aproximadamente un minuto", "残り約1分", "Falta cerca de um minuto", "Manca circa un minuto"),
+    "About {1} minutes left": ("Quedan aproximadamente {1} minutos", "残り約{1}分", "Faltam cerca de {1} minutos", "Mancano circa {1} minuti"),
+})
+KO.update({
+    "Checking for a CTGP-R update...": "CTGP-R 업데이트를 확인하는 중...",
+    "The update could not be downloaded: {1}. CTGP-R starts without it.":
+        "업데이트를 다운로드할 수 없습니다: {1}. CTGP-R은 업데이트 없이 시작합니다.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.":
+        "이전 CTGP-R 업데이트가 중단되었고 되돌릴 수 없습니다: {1}. CTGP-R 설치 프로그램으로 다시 설치한 다음, SD 카드의 ctgpr 폴더에서 update-journal.bin과 update-journal-jelly.bin을 삭제하세요.",
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
+        "SD 카드의 CTGP-R 업데이트를 사용할 수 없어서({1}) 따로 옮겼습니다.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이라서 따로 옮겼습니다.",    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.":
+        "SD 카드의 CTGP-R 업데이트를 사용할 수 없고({1}) 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
+        "SD 카드의 CTGP-R 업데이트는 이미 설치되어 있지만 따로 옮길 수 없었습니다. CTGP-R을 시작합니다.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
+        "SD 카드의 CTGP-R 업데이트는 {1} 버전용이지만 설치된 것은 CTGP-R {2}이고, 따로 옮길 수도 없었습니다. CTGP-R은 업데이트 없이 시작합니다.",    "Less than a minute left":
+        "1분 미만 남음",
+    "About a minute left":
+        "약 1분 남음",
+    "About {1} minutes left":
+        "약 {1}분 남음",
+})
+FR.update({
+    "Checking for a CTGP-R update...": "Recherche d'une mise à jour de CTGP-R...",
+    "The update could not be downloaded: {1}. CTGP-R starts without it.":
+        "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle.",
+    "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card.":
+        "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation, puis supprimez update-journal.bin et update-journal-jelly.bin du dossier ctgpr de la carte SD.",
+    "The CTGP-R update on the SD card can't be used ({1}), so it was set aside.":
+        "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside.":
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté.",    "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it.":
+        "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) et n'a pas pu être mise de côté. CTGP-R démarre sans elle.",
+    "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now.":
+        "La mise à jour de CTGP-R sur la carte SD est déjà installée, mais elle n'a pas pu être mise de côté. CTGP-R démarre.",
+    "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it.":
+        "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé, et elle n'a pas pu être mise de côté. CTGP-R démarre sans elle.",    "Less than a minute left":
+        "Moins d'une minute restante",
+    "About a minute left":
+        "Environ une minute restante",
+    "About {1} minutes left":
+        "Environ {1} minutes restantes",
+})
+
+T.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.': ('Hay una actualización de CTGP-R. ¿Actualizar CTGP-R a la última versión ahora? La primera actualización ocupa {1} MB; puede haber más después.', 'CTGP-Rの更新があります。今すぐCTGP-Rを最新版に更新しますか? 最初の更新は{1} MBで、その後にもまだあるかもしれません。', 'Há uma atualização do CTGP-R. Atualizar o CTGP-R para a versão mais recente agora? A primeira atualização tem {1} MB; pode haver mais depois dela.', "È disponibile un aggiornamento di CTGP-R. Aggiornare ora CTGP-R all'ultima versione? Il primo aggiornamento è di {1} MB; potrebbero essercene altri dopo."),
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?': ('Hay una actualización de CTGP-R lista. ¿Actualizar CTGP-R a la última versión ahora?', 'CTGP-Rの更新の準備ができています。今すぐCTGP-Rを最新版に更新しますか?', 'Uma atualização do CTGP-R está pronta. Atualizar o CTGP-R para a versão mais recente agora?', "Un aggiornamento di CTGP-R è pronto. Aggiornare ora CTGP-R all'ultima versione?"),
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.': ('CTGP-R se ha actualizado a {1}, pero no se ha podido instalar la siguiente actualización: {2}. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されましたが、次の更新はインストールできませんでした: {2}。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}, mas não foi possível instalar a atualização seguinte: {2}. O CTGP-R inicia agora.', "CTGP-R è stato aggiornato a {1}, ma non è stato possibile installare l'aggiornamento successivo: {2}. CTGP-R si avvia ora."),
+    'CTGP-R was updated to {1}. CTGP-R starts now.': ('CTGP-R se ha actualizado a {1}. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されました。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}. O CTGP-R inicia agora.', 'CTGP-R è stato aggiornato a {1}. CTGP-R si avvia ora.'),
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R, pero no se ha podido instalar la siguiente actualización: {1}. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストは更新されましたが、次の更新はインストールできませんでした: {1}。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas, mas não foi possível instalar a atualização seguinte: {1}. O CTGP-R inicia agora.', "Gli elenchi di hash di CTGP-R sono stati aggiornati, ma non è stato possibile installare l'aggiornamento successivo: {1}. CTGP-R si avvia ora."),
+    "CTGP-R's hash lists were updated. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストが更新されました。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas. O CTGP-R inicia agora.', 'Gli elenchi di hash di CTGP-R sono stati aggiornati. CTGP-R si avvia ora.'),
+    'File {1} of {2}': ('Archivo {1} de {2}', 'ファイル {1}/{2}', 'Ficheiro {1} de {2}', 'File {1} di {2}'),
+    'Update {1}: CTGP-R {2} to {3}': ('Actualización {1}: CTGP-R {2} a {3}', '更新 {1}: CTGP-R {2}から{3}へ', 'Atualização {1}: CTGP-R {2} para {3}', 'Aggiornamento {1}: CTGP-R da {2} a {3}'),
+    "Update {1}: CTGP-R's hash lists": ('Actualización {1}: listas de hashes de CTGP-R', '更新 {1}: CTGP-Rのハッシュリスト', 'Atualização {1}: listas de hashes do CTGP-R', 'Aggiornamento {1}: elenchi di hash di CTGP-R'),
+    'Update {1}: downloading...': ('Actualización {1}: descargando...', '更新 {1}: ダウンロード中...', 'Atualização {1}: a transferir...', 'Aggiornamento {1}: download in corso...'),
+    "the server offered an update for {1}, which RiftWii doesn't install": ('el servidor ofreció una actualización para {1}, que RiftWii no instala', 'サーバーが{1}の更新を提示しましたが、RiftWiiはそれをインストールしません', 'o servidor ofereceu uma atualização para {1}, que o RiftWii não instala', 'il server ha offerto un aggiornamento per {1}, che RiftWii non installa'),
+    'the server offered {1} {2}, which is not newer than what is installed': ('el servidor ofreció {1} {2}, que no es más reciente que lo instalado', 'サーバーが{1} {2}を提示しましたが、インストール済みのものより新しくありません', 'o servidor ofereceu {1} {2}, que não é mais recente do que o que está instalado', 'il server ha offerto {1} {2}, che non è più recente di quanto installato'),
+    'the server offered {1} {2} again after it was installed': ('el servidor volvió a ofrecer {1} {2} después de instalarlo', 'サーバーがインストール後に{1} {2}を再び提示しました', 'o servidor voltou a oferecer {1} {2} depois de ter sido instalado', 'il server ha offerto di nuovo {1} {2} dopo che era stato installato'),
+    '{1} updates were installed in a row, the most at one start; the rest install next time': ('se instalaron {1} actualizaciones seguidas, el máximo en un inicio; el resto se instala la próxima vez', '{1}件の更新を続けてインストールしました。1回の起動ではこれが上限で、残りは次回インストールされます', 'foram instaladas {1} atualizações seguidas, o máximo num arranque; as restantes instalam-se da próxima vez', 'sono stati installati {1} aggiornamenti di fila, il massimo per un avvio; gli altri si installano la prossima volta'),
+    'the last update went in, but its file on the SD card could not be moved aside': ('la última actualización se instaló, pero su archivo en la tarjeta SD no se pudo apartar', '最後の更新はインストールされましたが、SDカード上のそのファイルを移動できませんでした', 'a última atualização foi instalada, mas o seu ficheiro no cartão SD não pôde ser posto de lado', "l'ultimo aggiornamento è stato installato, ma il suo file sulla scheda SD non è stato possibile spostarlo"),
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.": ('La siguiente actualización de CTGP-R necesita más espacio en jelly.bin, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora.', '次のCTGP-Rの更新はjelly.binにもっと空きが必要なため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'A próxima atualização do CTGP-R precisa de mais espaço no jelly.bin, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora.', 'Il prossimo aggiornamento di CTGP-R richiede più spazio in jelly.bin, quindi lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.": ('La siguiente actualización de CTGP-R está en un formato que RiftWii no puede instalar, así que el canal de CTGP-R la instala por sí mismo. CTGP-R se inicia ahora.', '次のCTGP-Rの更新はRiftWiiがインストールできない形式のため、CTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'A próxima atualização do CTGP-R está num formato que o RiftWii não consegue instalar, por isso o canal do CTGP-R instala-a ele próprio. O CTGP-R inicia agora.', 'Il prossimo aggiornamento di CTGP-R è in un formato che RiftWii non sa installare, quindi lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('Se han actualizado las listas de hashes de CTGP-R. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rのハッシュリストが更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'As listas de hashes do CTGP-R foram atualizadas. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'Gli elenchi di hash di CTGP-R sono stati aggiornati. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.": ('CTGP-R se ha actualizado a {1}. El canal de CTGP-R instala la siguiente actualización por sí mismo. CTGP-R se inicia ahora.', 'CTGP-Rは{1}に更新されました。次の更新はCTGP-Rのチャンネルが自分でインストールします。CTGP-Rを起動します。', 'O CTGP-R foi atualizado para {1}. O canal do CTGP-R instala a próxima atualização ele próprio. O CTGP-R inicia agora.', 'CTGP-R è stato aggiornato a {1}. Il prossimo aggiornamento lo installa il canale di CTGP-R. CTGP-R si avvia ora.'),
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.': ('La actualización de CTGP-R que ofrece el servidor cambió después de elegir Actualizar, así que no se descargó nada. RiftWii volverá a comprobarlo la próxima vez que se inicie CTGP-R. CTGP-R se inicia ahora.', '「更新」を選んだ後でサーバーが提示するCTGP-Rの更新が変わったため、何もダウンロードされませんでした。次にCTGP-Rを起動するときにRiftWiiが再確認します。CTGP-Rを起動します。', 'A atualização do CTGP-R oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido. O RiftWii volta a verificar da próxima vez que o CTGP-R iniciar. O CTGP-R inicia agora.', "L'aggiornamento di CTGP-R offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla. RiftWii controllerà di nuovo al prossimo avvio di CTGP-R. CTGP-R si avvia ora."),
+    'the update the server offers changed after Update was chosen, so nothing was downloaded': ('la actualización que ofrece el servidor cambió después de elegir Actualizar, así que no se descargó nada', '「更新」を選んだ後でサーバーが提示する更新が変わったため、何もダウンロードされませんでした', 'a atualização oferecida pelo servidor mudou depois de escolher Atualizar, por isso nada foi transferido', "l'aggiornamento offerto dal server è cambiato dopo aver scelto Aggiorna, quindi non è stato scaricato nulla"),
+})
+KO.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
+        'CTGP-R 업데이트가 있습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요? 첫 업데이트는 {1} MB이며, 그 뒤에 더 있을 수 있습니다.',
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?':
+        'CTGP-R 업데이트가 준비되었습니다. 지금 CTGP-R을 최신 버전으로 업데이트할까요?',
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.':
+        'CTGP-R이 {1}(으)로 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {2}. CTGP-R을 시작합니다.',
+    'CTGP-R was updated to {1}. CTGP-R starts now.':
+        'CTGP-R이 {1}(으)로 업데이트되었습니다. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었지만 다음 업데이트를 설치할 수 없었습니다: {1}. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었습니다. CTGP-R을 시작합니다.',
+    'File {1} of {2}':
+        '파일 {1}/{2}',
+    'Update {1}: CTGP-R {2} to {3}':
+        '업데이트 {1}: CTGP-R {2}에서 {3}(으)로',
+    "Update {1}: CTGP-R's hash lists":
+        '업데이트 {1}: CTGP-R 해시 목록',
+    'Update {1}: downloading...':
+        '업데이트 {1}: 다운로드 중...',
+    "the server offered an update for {1}, which RiftWii doesn't install":
+        '서버가 {1}의 업데이트를 제공했지만 RiftWii는 이를 설치하지 않습니다',
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.':
+        '업데이트를 선택한 뒤 서버가 제공하는 CTGP-R 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다. 다음에 CTGP-R을 시작할 때 RiftWii가 다시 확인합니다. CTGP-R을 시작합니다.',
+    'the update the server offers changed after Update was chosen, so nothing was downloaded':
+        '업데이트를 선택한 뒤 서버가 제공하는 업데이트가 바뀌어 아무것도 다운로드하지 않았습니다',
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        '다음 CTGP-R 업데이트는 jelly.bin에 공간이 더 필요하므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        '다음 CTGP-R 업데이트는 RiftWii가 설치할 수 없는 형식이므로 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R의 해시 목록이 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R이 {1}(으)로 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 직접 설치합니다. CTGP-R을 시작합니다.',
+    'the server offered {1} {2}, which is not newer than what is installed':
+        '서버가 {1} {2}을(를) 제공했지만 설치된 것보다 새롭지 않습니다',
+    'the server offered {1} {2} again after it was installed':
+        '서버가 설치 후에 {1} {2}을(를) 다시 제공했습니다',
+    '{1} updates were installed in a row, the most at one start; the rest install next time':
+        '{1}개의 업데이트를 연속으로 설치했습니다. 한 번 시작할 때의 최대치이며, 나머지는 다음에 설치됩니다',
+    'the last update went in, but its file on the SD card could not be moved aside':
+        '마지막 업데이트는 설치되었지만 SD 카드의 해당 파일을 옮길 수 없었습니다',
+})
+FR.update({
+    'A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it.':
+        "Une mise à jour de CTGP-R est disponible. Mettre CTGP-R à jour vers la dernière version maintenant ? La première mise à jour fait {1} Mo ; il peut y en avoir d'autres après.",
+    'A CTGP-R update is ready. Update CTGP-R to the latest version now?':
+        'Une mise à jour de CTGP-R est prête. Mettre CTGP-R à jour vers la dernière version maintenant ?',
+    'CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now.':
+        "CTGP-R a été mis à jour vers {1}, mais la mise à jour suivante n'a pas pu être installée : {2}. CTGP-R démarre.",
+    'CTGP-R was updated to {1}. CTGP-R starts now.':
+        'CTGP-R a été mis à jour vers {1}. CTGP-R démarre.',
+    "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now.":
+        "Les listes de hachages de CTGP-R ont été mises à jour, mais la mise à jour suivante n'a pas pu être installée : {1}. CTGP-R démarre.",
+    "CTGP-R's hash lists were updated. CTGP-R starts now.":
+        'Les listes de hachages de CTGP-R ont été mises à jour. CTGP-R démarre.',
+    'File {1} of {2}':
+        'Fichier {1} sur {2}',
+    'Update {1}: CTGP-R {2} to {3}':
+        'Mise à jour {1} : CTGP-R {2} vers {3}',
+    "Update {1}: CTGP-R's hash lists":
+        'Mise à jour {1} : listes de hachages de CTGP-R',
+    'Update {1}: downloading...':
+        'Mise à jour {1} : téléchargement...',
+    "the server offered an update for {1}, which RiftWii doesn't install":
+        "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas",
+    'The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now.':
+        "La mise à jour de CTGP-R proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé. RiftWii vérifiera à nouveau au prochain démarrage de CTGP-R. CTGP-R démarre.",
+    'the update the server offers changed after Update was chosen, so nothing was downloaded':
+        "la mise à jour proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé",
+    "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        "La prochaine mise à jour de CTGP-R a besoin de plus de place dans jelly.bin, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre.",
+    "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now.":
+        "La prochaine mise à jour de CTGP-R est dans un format que RiftWii ne sait pas installer, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre.",
+    "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'Les listes de hachages de CTGP-R ont été mises à jour. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre.',
+    "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now.":
+        'CTGP-R a été mis à jour vers {1}. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre.',
+    'the server offered {1} {2}, which is not newer than what is installed':
+        "le serveur a proposé {1} {2}, qui n'est pas plus récent que ce qui est installé",
+    'the server offered {1} {2} again after it was installed':
+        'le serveur a proposé à nouveau {1} {2} après son installation',
+    '{1} updates were installed in a row, the most at one start; the rest install next time':
+        "{1} mises à jour ont été installées à la suite, le maximum en un démarrage ; les autres s'installent la prochaine fois",
+    'the last update went in, but its file on the SD card could not be moved aside':
+        "la dernière mise à jour a été installée, mais son fichier sur la carte SD n'a pas pu être mis de côté",
+})
 T["CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."] = (
     "No se pudo preparar la imagen de juego de CTGP-R. El motivo está en sd:/riftwii/boot.log.",
     "CTGP-Rのゲームイメージを準備できませんでした。理由はsd:/riftwii/boot.logにあります。",
@@ -10748,6 +10972,102 @@ FR.update({
     'Emulated + Wii': 'Émulée + Wii',
 })
 
+# The CTGP-R updater's behavior reference, shown with the other credits.
+T.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": (
+        "Canal de CTGP-R: cómo CTGP-R firma sus archivos de actualización y sus listas de hashes (qué cubre la firma y el patrón de relleno de 48 bytes que ocupa su lugar), consultado como documentación del comportamiento. El patrón y la clave pública de firma de CTGP-R se incluyen como datos; no se copió código.",
+        "CTGP-Rのチャンネル：CTGP-Rが更新ファイルとハッシュ一覧に署名するしくみ（署名が対象とする範囲と、署名の代わりに入れる48バイトの固定パターン）を、動作の資料として参照しました。このパターンとCTGP-Rの公開署名キーはデータとして収録しています。コードはコピーしていません。",
+        "Canal do CTGP-R: como o CTGP-R assina seus arquivos de atualização e suas listas de hashes (o que a assinatura cobre e o padrão de preenchimento de 48 bytes que ocupa o lugar dela), consultado como documentação do comportamento. O padrão e a chave pública de assinatura do CTGP-R são incluídos como dados; nenhum código foi copiado.",
+        "Canale di CTGP-R: come CTGP-R firma i file di aggiornamento e le liste di hash (cosa copre la firma e il motivo di riempimento di 48 byte che ne prende il posto), consultato come documentazione del comportamento. Il motivo e la chiave pubblica di firma di CTGP-R sono inclusi come dati; nessun codice è stato copiato.",
+    ),
+})
+KO.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": "CTGP-R 채널: CTGP-R이 업데이트 파일과 해시 목록에 서명하는 방식(서명이 다루는 범위와 서명 자리에 넣는 48바이트 고정 패턴)을 동작 문서로 참고했습니다. 이 패턴과 CTGP-R의 공개 서명 키는 데이터로 포함되어 있으며, 코드는 복사하지 않았습니다.",
+})
+FR.update({
+    "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied.": "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié.",
+})
+
+# The CTGP-R updater: a waiting update the hash lists can't vouch for (the
+# sentences the notice is built from), and the native launch not starting
+# CTGP-R's channel.
+T.update({
+    "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}).": (
+        'La actualización de CTGP-R de la tarjeta SD no se puede comprobar con las listas de hashes de esta tarjeta ({1}).',
+        'SDカードにあるCTGP-Rの更新は、このカードのハッシュ一覧では確認できません（{1}）。',
+        'A atualização do CTGP-R no cartão SD não pode ser verificada com as listas de hashes deste cartão ({1}).',
+        "L'aggiornamento di CTGP-R sulla scheda SD non può essere verificato con le liste di hash di questa scheda ({1})."),
+    'The update server had no newer hash lists for it.': (
+        'El servidor de actualizaciones no tenía listas de hashes más nuevas para ella.',
+        '更新サーバーに、これ用の新しいハッシュ一覧はありませんでした。',
+        'O servidor de atualizações não tinha listas de hashes mais novas para ela.',
+        'Il server degli aggiornamenti non aveva liste di hash più recenti per questo.'),
+    'Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again.': (
+        'Las descargas están desactivadas, así que RiftWii no pidió listas más nuevas al servidor de actualizaciones. Activa las descargas y juega de nuevo.',
+        'ダウンロードがオフなので、RiftWiiは新しい一覧を更新サーバーに問い合わせませんでした。ダウンロードをオンにして、もう一度プレイしてください。',
+        'Os downloads estão desativados, então o RiftWii não pediu listas mais novas ao servidor de atualizações. Ative os downloads e jogue de novo.',
+        'I download sono disattivati, quindi RiftWii non ha chiesto liste più recenti al server degli aggiornamenti. Attiva i download e gioca di nuovo.'),
+    'RiftWii could not reach the update server to ask for newer ones. Try again later.': (
+        'RiftWii no pudo conectar con el servidor de actualizaciones para pedir listas más nuevas. Inténtalo más tarde.',
+        'RiftWiiは更新サーバーに接続できず、新しい一覧を問い合わせられませんでした。あとでもう一度試してください。',
+        'O RiftWii não conseguiu falar com o servidor de atualizações para pedir listas mais novas. Tente de novo mais tarde.',
+        'RiftWii non è riuscito a contattare il server degli aggiornamenti per chiedere liste più recenti. Riprova più tardi.'),
+    'RiftWii could not download or read what the update server offered.': (
+        'RiftWii no pudo descargar o leer lo que ofreció el servidor de actualizaciones.',
+        'RiftWiiは、更新サーバーが示したものをダウンロードまたは読み取れませんでした。',
+        'O RiftWii não conseguiu baixar ou ler o que o servidor de atualizações ofereceu.',
+        'RiftWii non è riuscito a scaricare o leggere ciò che il server degli aggiornamenti ha offerto.'),
+    'The update server offered an update that is not newer, and no newer hash lists.': (
+        'El servidor de actualizaciones ofreció una actualización que no es más nueva, y ninguna lista de hashes más nueva.',
+        '更新サーバーが示したのは新しくない更新で、新しいハッシュ一覧はありませんでした。',
+        'O servidor de atualizações ofereceu uma atualização que não é mais nova, e nenhuma lista de hashes mais nova.',
+        'Il server degli aggiornamenti ha offerto un aggiornamento non più recente, e nessuna lista di hash più recente.'),
+    "RiftWii got a newer update from the update server, but it still can't be checked.": (
+        'RiftWii recibió una actualización más nueva del servidor de actualizaciones, pero aún no se puede comprobar.',
+        'RiftWiiは更新サーバーから新しい更新を受け取りましたが、それでも確認できません。',
+        'O RiftWii recebeu uma atualização mais nova do servidor de atualizações, mas ela ainda não pode ser verificada.',
+        'RiftWii ha ricevuto un aggiornamento più recente dal server degli aggiornamenti, ma non può ancora essere verificato.'),
+    "CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.": (
+        'El canal propio de CTGP-R puede actualizar CTGP-R: inicia CTGP-R por él una vez (si ctgpnative.txt está junto a boot.dol, bórralo antes). CTGP-R se inicia ahora sin la actualización.',
+        'CTGP-R自身のチャンネルならCTGP-Rを更新できます。一度そのチャンネルからCTGP-Rを起動してください（ctgpnative.txtがboot.dolの隣にあるときは、先に削除します）。CTGP-Rは更新なしで起動します。',
+        'O próprio canal do CTGP-R pode atualizar o CTGP-R: inicie o CTGP-R por ele uma vez (se o ctgpnative.txt estiver ao lado do boot.dol, apague-o antes). O CTGP-R inicia agora sem a atualização.',
+        "Il canale di CTGP-R può aggiornare CTGP-R: avvia CTGP-R da lì una volta (se ctgpnative.txt è accanto a boot.dol, eliminalo prima). CTGP-R si avvia ora senza l'aggiornamento."),
+    "CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To update: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": (
+        'El canal de CTGP-R tiene que instalar la siguiente actualización, pero ctgpnative.txt hace que RiftWii inicie CTGP-R por su cuenta. Para actualizar: elige Atrás, borra ctgpnative.txt de la tarjeta SD y vuelve a iniciar CTGP-R. O elige Jugar igualmente.',
+        '次の更新はCTGP-Rのチャンネルがインストールする必要がありますが、ctgpnative.txtがあるため、RiftWiiがCTGP-Rを直接起動します。更新するには「もどる」を選び、SDカードからctgpnative.txtを削除して、CTGP-Rをもう一度起動してください。このまま起動するには「そのまま遊ぶ」を選びます。',
+        'O canal do CTGP-R precisa instalar a próxima atualização, mas o ctgpnative.txt faz o RiftWii iniciar o CTGP-R por conta própria. Para atualizar: escolha Voltar, apague o ctgpnative.txt do cartão SD e inicie o CTGP-R de novo. Ou escolha Jogar mesmo assim.',
+        'Il canale di CTGP-R deve installare il prossimo aggiornamento, ma ctgpnative.txt fa avviare CTGP-R direttamente da RiftWii. Per aggiornare: scegli Indietro, elimina ctgpnative.txt dalla scheda SD e avvia di nuovo CTGP-R. Oppure scegli Gioca comunque.'),
+    "CTGP-R was updated as far as RiftWii can. CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To finish: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": (
+        'CTGP-R se actualizó hasta donde RiftWii puede. El canal de CTGP-R tiene que instalar la siguiente actualización, pero ctgpnative.txt hace que RiftWii inicie CTGP-R por su cuenta. Para terminar: elige Atrás, borra ctgpnative.txt de la tarjeta SD y vuelve a iniciar CTGP-R. O elige Jugar igualmente.',
+        'CTGP-RはRiftWiiができるところまで更新されました。次の更新はCTGP-Rのチャンネルがインストールする必要がありますが、ctgpnative.txtがあるため、RiftWiiがCTGP-Rを直接起動します。続けるには「もどる」を選び、SDカードからctgpnative.txtを削除して、CTGP-Rをもう一度起動してください。このまま起動するには「そのまま遊ぶ」を選びます。',
+        'O CTGP-R foi atualizado até onde o RiftWii consegue. O canal do CTGP-R precisa instalar a próxima atualização, mas o ctgpnative.txt faz o RiftWii iniciar o CTGP-R por conta própria. Para concluir: escolha Voltar, apague o ctgpnative.txt do cartão SD e inicie o CTGP-R de novo. Ou escolha Jogar mesmo assim.',
+        'CTGP-R è stato aggiornato fin dove RiftWii può arrivare. Il canale di CTGP-R deve installare il prossimo aggiornamento, ma ctgpnative.txt fa avviare CTGP-R direttamente da RiftWii. Per finire: scegli Indietro, elimina ctgpnative.txt dalla scheda SD e avvia di nuovo CTGP-R. Oppure scegli Gioca comunque.'),
+})
+KO.update({
+    "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}).": 'SD 카드의 CTGP-R 업데이트를 이 카드의 해시 목록으로 확인할 수 없습니다({1}).',
+    'The update server had no newer hash lists for it.': '업데이트 서버에 이 업데이트용 더 새로운 해시 목록이 없었습니다.',
+    'Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again.': '다운로드가 꺼져 있어서 RiftWii가 업데이트 서버에 더 새로운 목록을 요청하지 않았습니다. 다운로드를 켜고 다시 플레이하세요.',
+    'RiftWii could not reach the update server to ask for newer ones. Try again later.': 'RiftWii가 업데이트 서버에 연결하지 못해 더 새로운 목록을 요청하지 못했습니다. 나중에 다시 시도하세요.',
+    'RiftWii could not download or read what the update server offered.': 'RiftWii가 업데이트 서버가 제공한 것을 다운로드하거나 읽지 못했습니다.',
+    'The update server offered an update that is not newer, and no newer hash lists.': '업데이트 서버가 제공한 것은 더 새롭지 않은 업데이트였고, 더 새로운 해시 목록은 없었습니다.',
+    "RiftWii got a newer update from the update server, but it still can't be checked.": 'RiftWii가 업데이트 서버에서 더 새로운 업데이트를 받았지만 여전히 확인할 수 없습니다.',
+    "CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.": 'CTGP-R 자체 채널은 CTGP-R을 업데이트할 수 있습니다. 그 채널로 CTGP-R을 한 번 실행하세요(ctgpnative.txt가 boot.dol 옆에 있으면 먼저 삭제하세요). CTGP-R은 업데이트 없이 지금 실행됩니다.',
+    "CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To update: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": '다음 업데이트는 CTGP-R 채널이 설치해야 하지만, ctgpnative.txt 때문에 RiftWii가 CTGP-R을 직접 실행합니다. 업데이트하려면 뒤로를 선택하고 SD 카드에서 ctgpnative.txt를 삭제한 뒤 CTGP-R을 다시 실행하세요. 또는 그대로 플레이를 선택하세요.',
+    "CTGP-R was updated as far as RiftWii can. CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To finish: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": 'CTGP-R은 RiftWii가 할 수 있는 만큼 업데이트되었습니다. 다음 업데이트는 CTGP-R 채널이 설치해야 하지만, ctgpnative.txt 때문에 RiftWii가 CTGP-R을 직접 실행합니다. 끝내려면 뒤로를 선택하고 SD 카드에서 ctgpnative.txt를 삭제한 뒤 CTGP-R을 다시 실행하세요. 또는 그대로 플레이를 선택하세요.',
+})
+FR.update({
+    "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1}).": 'La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1}).',
+    'The update server had no newer hash lists for it.': "Le serveur de mises à jour n'avait pas de listes de hachages plus récentes pour elle.",
+    'Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again.': "Les téléchargements sont désactivés, donc RiftWii n'a pas demandé de listes plus récentes au serveur de mises à jour. Activez les téléchargements et rejouez.",
+    'RiftWii could not reach the update server to ask for newer ones. Try again later.': "RiftWii n'a pas pu joindre le serveur de mises à jour pour demander des listes plus récentes. Réessayez plus tard.",
+    'RiftWii could not download or read what the update server offered.': "RiftWii n'a pas pu télécharger ou lire ce que le serveur de mises à jour proposait.",
+    'The update server offered an update that is not newer, and no newer hash lists.': "Le serveur de mises à jour a proposé une mise à jour qui n'est pas plus récente, et aucune liste de hachages plus récente.",
+    "RiftWii got a newer update from the update server, but it still can't be checked.": 'RiftWii a reçu une mise à jour plus récente du serveur de mises à jour, mais elle ne peut toujours pas être vérifiée.',
+    "CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update.": "La chaîne de CTGP-R peut mettre CTGP-R à jour : lancez CTGP-R par elle une fois (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour.",
+    "CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To update: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": 'La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour mettre à jour : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même.',
+    "CTGP-R was updated as far as RiftWii can. CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To finish: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway.": 'CTGP-R a été mis à jour aussi loin que RiftWii le peut. La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour terminer : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même.',
+})
+
 # Downloaded saves. Keep these messages short enough for the existing row
 # pages and progress popups on both television aspect ratios.
 T.update({
@@ -10945,6 +11265,37 @@ FR.update({
     'Home order: {1}': "Ordre de l'accueil : {1}",
 })
 
+# CTGP-R updates (review of #561): a card that can't say whether the update
+# is there, a failed check after an update went in, and an update file the
+# card would not remove.
+T.update({
+    "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer.": ('No se pudo borrar el archivo de actualización update.dif de la carpeta ctgpr de la tarjeta SD. Bórralo con un ordenador.', 'SDカードのctgprフォルダにある更新ファイルupdate.difを削除できませんでした。パソコンで削除してください。', 'Não foi possível apagar o ficheiro de atualização update.dif da pasta ctgpr do cartão SD. Apague-o num computador.', "Non è stato possibile eliminare il file di aggiornamento update.dif dalla cartella ctgpr della scheda SD. Eliminalo da un computer."),
+    'the SD card could not be read; try again': ('no se pudo leer la tarjeta SD; inténtalo de nuevo', 'SDカードを読み込めませんでした。もう一度お試しください', 'não foi possível ler o cartão SD; tente novamente', 'non è stato possibile leggere la scheda SD; riprova'),
+    'the update server could not be asked for the next one ({1})': ('no se pudo consultar al servidor de actualizaciones por la siguiente ({1})', '次の更新について更新サーバーに問い合わせできませんでした（{1}）', 'não foi possível perguntar ao servidor de atualizações pela seguinte ({1})', 'non è stato possibile chiedere al server degli aggiornamenti il successivo ({1})'),
+})
+KO.update({
+    "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer.": 'SD 카드의 ctgpr 폴더에 있는 업데이트 파일 update.dif를 삭제할 수 없었습니다. 컴퓨터에서 삭제하세요.',
+    'the SD card could not be read; try again': 'SD 카드를 읽을 수 없었습니다. 다시 시도하세요',
+    'the update server could not be asked for the next one ({1})': '다음 업데이트를 업데이트 서버에 요청할 수 없었습니다 ({1})',
+})
+FR.update({
+    "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer.": "Le fichier de mise à jour update.dif du dossier ctgpr de la carte SD n'a pas pu être supprimé. Supprimez-le depuis un ordinateur.",
+    'the SD card could not be read; try again': "la carte SD n'a pas pu être lue ; réessayez",
+    'the update server could not be asked for the next one ({1})': "le serveur de mises à jour n'a pas pu être interrogé pour la suivante ({1})",
+})
+
+
+# CTGP-R updates (review of #561): a held update the card would not rename
+# back.
+T.update({
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': ('No se pudo devolver una actualización de CTGP-R en espera. Cambia el nombre de update.dif.held a update.dif en la carpeta ctgpr de la tarjeta SD y se instalará la próxima vez.', '待機中のCTGP-Rの更新を元に戻せませんでした。SDカードのctgprフォルダにあるupdate.dif.heldの名前をupdate.difに変更すると、次回インストールされます。', 'Não foi possível repor uma atualização do CTGP-R em espera. Mude o nome de update.dif.held para update.dif na pasta ctgpr do cartão SD e ela será instalada da próxima vez.', "Non è stato possibile ripristinare un aggiornamento di CTGP-R in attesa. Rinomina update.dif.held in update.dif nella cartella ctgpr della scheda SD e verrà installato la prossima volta."),
+})
+KO.update({
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': '대기 중인 CTGP-R 업데이트를 되돌릴 수 없었습니다. SD 카드의 ctgpr 폴더에서 update.dif.held의 이름을 update.dif로 바꾸면 다음에 설치됩니다.',
+})
+FR.update({
+    'A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time.': "Une mise à jour de CTGP-R en attente n'a pas pu être remise en place. Renommez update.dif.held en update.dif dans le dossier ctgpr de la carte SD, et elle s'installera la prochaine fois.",
+})
 
 if __name__ == "__main__":
     main()

@@ -89,4 +89,10 @@ bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner
 bool read_partition_file(const ByteSource& data, const std::string& path, std::vector<std::uint8_t>& out,
                          std::string& error, std::size_t max_size = 8u << 20);
 
+// The same, handing the file to `sink` 64 KiB at a time instead of holding
+// it whole; `size` (may be null) gets its length before the first piece.
+using PartitionFileSink = std::function<bool(const std::uint8_t* data, std::size_t length)>;
+bool read_partition_file(const ByteSource& data, const std::string& path, const PartitionFileSink& sink,
+                         std::uint32_t* size, std::string& error);
+
 }  // namespace riftwii

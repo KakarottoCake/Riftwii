@@ -13,10 +13,12 @@
 #include <utility>
 
 #include "channel.hpp"
+#include "ctgpupdatenet.hpp"
 #include "gameinfo.hpp"
 #include "homebrewart.hpp"
 #include "log.hpp"
 #include "riftwii/appmeta.hpp"
+#include "riftwii/ctgplaunch.hpp"
 #include "riftwii/homebrewmatch.hpp"
 #include "textfile.hpp"
 
@@ -189,6 +191,17 @@ bool StartHomebrew(const HomebrewApp& app, std::string& error) {
     if (app.path.empty()) {
         error = app.folder + " has no boot.dol to start";
         return false;
+    }
+    // CTGP-R's channel app started from its Homebrew tile goes through the
+    // same gate as every CTGP-R launch: not on a pack an interrupted update
+    // left half-written (ctgpupdatenet.hpp).
+    if (riftwii::ctgp_is_channel_app(app.path)) {
+        std::string message;
+        if (!CtgpPackReady(message)) {
+            logf("Homebrew: %s not started: %s\n", app.path.c_str(), message.c_str());
+            error = message;
+            return false;
+        }
     }
     const std::string line = riftwii::app_command_line(app.path, app.arguments);
     if (line.empty()) {

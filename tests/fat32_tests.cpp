@@ -897,6 +897,43 @@ static void test_cycles_at_file_size_cap() {
     }
 }
 
+// A file something else appends to (the CTGP-R undo journal, written by
+// libfat): forget_folder_of drops its folder's listing and the FAT window,
+// so the next lookup sees the new size and the longer chain.
+static void test_forget_folder_of() {
+    Fixture fx(512, 1, 0);
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(fx.img.reader(), v, err));
+    riftwii::Fat32File f;
+    const std::string path = "/riivolution/nested dir/deep.bin";
+    EXPECT_TRUE(v.lookup(path, f, err));
+    EXPECT_EQ(f.entry.size, std::uint32_t(3));
+    // "libfat" grows the file into a second cluster.
+    const std::uint32_t cb = fx.img.cluster_bytes();
+    fx.img.chain({61, 63});
+    Bytes nested;
+    cat(nested, short_entry(".          ", 0x10, 60, 0));
+    cat(nested, short_entry("..         ", 0x10, 3, 0));
+    cat(nested, lfn_entries(ucs(u"deep.bin"), "DEEP    BIN", 0x20, 61, cb + 3));
+    EXPECT_TRUE(fx.img.write_dir({60}, nested));
+    EXPECT_TRUE(v.lookup(path, f, err));
+    EXPECT_EQ(f.entry.size, std::uint32_t(3));  // still the cached listing
+    v.forget_folder_of(path);
+    EXPECT_TRUE(v.lookup(path, f, err));
+    EXPECT_EQ(f.entry.size, cb + 3);
+    EXPECT_EQ(f.fragments.size(), std::size_t(2));
+    // A backslash, which lookup() takes too, finds the same folder.
+    cat(nested, short_entry("MORE    BIN", 0x20, 0, 0));
+    EXPECT_TRUE(fx.img.write_dir({60}, nested));
+    EXPECT_TRUE(!v.lookup("/riivolution/nested dir/more.bin", f, err));  // cached listing
+    v.forget_folder_of("/riivolution/nested dir\\deep.bin");  // a mixed path: its folder, not riivolution
+    EXPECT_TRUE(v.lookup("/riivolution/nested dir/more.bin", f, err));
+    // A path whose folder isn't there drops everything, and lookups still work.
+    v.forget_folder_of("/no such folder/x.bin");
+    EXPECT_TRUE(v.lookup("/short.txt", f, err));
+}
+
 int main() {
     test_cycles_at_file_size_cap();
     test_free_pieces();
@@ -905,6 +942,7 @@ int main() {
     test_reserved_bits_and_end_marks();
     test_active_fat_when_not_mirrored();
     test_geometry_and_lookup(512, 1, 0);
+    test_forget_folder_of();
     test_geometry_and_lookup(512, 8, 0);
     test_geometry_and_lookup(1024, 4, 2048);
     test_geometry_and_lookup(4096, 1, 63);

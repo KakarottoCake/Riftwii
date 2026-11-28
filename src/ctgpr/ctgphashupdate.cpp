@@ -1,0 +1,408 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "riftwii/ctgphashupdate.hpp"
+
+#include "riftwii/checkedalloc.hpp"
+#include "riftwii/ctgphash.hpp"
+#include "riftwii/ctgpjournal.hpp"
+
+#include <algorithm>
+#include <cstring>
+
+namespace riftwii {
+namespace {
+
+std::uint32_t be32(const std::uint8_t* p) {
+    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | std::uint32_t(p[3]);
+}
+
+bool collect(void* user, const std::uint8_t* data, std::size_t length) {
+    auto* out = static_cast<std::vector<std::uint8_t>*>(user);
+    if (out->size() + length > kCtgpHashListMaxBytes) return false;
+    out->insert(out->end(), data, data + length);
+    return true;
+}
+
+// "/ctgpr.hsh" -> "CTGPR": one level, a name of one to eight letters,
+// digits or underscores, and the ".hsh" ending (any case).
+bool package_of(const std::string& path, std::string& package) {
+    if (path.size() < 6 || path[0] != '/') return false;
+    const std::size_t dot = path.size() - 4;
+    std::string ending = path.substr(dot);
+    for (char& c : ending) {
+        if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+    }
+    if (ending != ".hsh") return false;
+    const std::string stem = path.substr(1, dot - 1);
+    if (stem.empty() || stem.size() > 8) return false;
+    package.clear();
+    for (char c : stem) {
+        if (c >= 'a' && c <= 'z') c = char(c - 'a' + 'A');
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) return false;
+        package.push_back(c);
+    }
+    return true;
+}
+
+std::uint64_t clusters_for(std::uint64_t bytes, std::uint32_t cluster) {
+    return cluster == 0 ? 0 : (bytes + cluster - 1) / cluster;
+}
+
+// The list checked as CTGP-R's: its signature, size, name and body digest,
+// under its own label. The label is not tied to the HASH update's version or
+// to blob.bin's CTGPR version: CTGP-R's own lists run ahead of the pack (HASH
+// 0x01031374's CTGPR.HSH is labelled 1194 while the pack is still at 1192 or
+// 1193), and the channel installs them as they come. The native launch's
+// label rule (ctgp_load_hash_list against PACKAGES.BIN) is separate.
+// `no_memory` (may be null) is set when the check could not have the room
+// for its copy of the list: a failure the player can retry, not a bad list.
+bool check_list(const std::vector<std::uint8_t>& bytes, const std::string& package, std::string& error,
+                const CtgpDsaKey* key, bool* no_memory = nullptr) {
+    if (no_memory != nullptr) *no_memory = false;
+    if (bytes.size() < 0x2C) {
+        error = "the list is too short";
+        return false;
+    }
+    CtgpBytes copy;
+    if (!try_assign_range(copy, bytes.begin(), bytes.end())) {
+        error = "there is not enough free memory to check the list; try again";
+        if (no_memory != nullptr) *no_memory = true;
+        return false;
+    }
+    CtgpHashList list;
+    return ctgp_load_hash_list(copy, package, be32(bytes.data() + 0x28), list, error, key);
+}
+
+}  // namespace
+
+bool ctgp_packages_set_version(std::vector<std::uint8_t>& list, const std::string& component, std::uint32_t version,
+                               std::string& error) {
+    if (list.size() < 16 || std::memcmp(list.data(), "PAK0", 4) != 0 || component.empty() || component.size() > 8) {
+        error = "PACKAGES.BIN is not a package list";
+        return false;
+    }
+    const std::uint32_t count = be32(list.data() + 12);
+    if (count > (list.size() - 16) / 16) {
+        error = "PACKAGES.BIN is shorter than its record count";
+        return false;
+    }
+    char name[8] = {};
+    std::memcpy(name, component.data(), component.size());
+    bool found = false;
+    for (std::uint32_t i = 0; i < count; ++i) {
+        std::uint8_t* record = list.data() + 16 + i * 16;
+        if (std::memcmp(record, name, 8) != 0) continue;
+        record[8] = std::uint8_t(version >> 24);
+        record[9] = std::uint8_t(version >> 16);
+        record[10] = std::uint8_t(version >> 8);
+        record[11] = std::uint8_t(version);
+        // As CTGP-R's channel does when it installs an update: the record's
+        // 0x40000000 flag goes (no card seen so far has it set).
+        record[12] = std::uint8_t(record[12] & ~0x40u);
+        found = true;
+    }
+    if (!found) error = "PACKAGES.BIN has no " + component + " record";
+    return found;
+}
+
+bool ctgp_hash_update_build(const CtgpUpdateRead& read, std::uint64_t size, const CtgpDia& dia,
+                            std::vector<CtgpHashUpdateList>& out, CtgpUpdateFailure& failure, std::string& error,
+                            const CtgpDsaKey* key) {
+    out.clear();
+    failure = CtgpUpdateFailure::Temporary;
+    if (dia.component != "HASH") {
+        failure = CtgpUpdateFailure::BadUpdate;
+        error = "not a HASH update";
+        return false;
+    }
+    for (const CtgpDiaSection& place : dia.sections) {
+        if (place.size > kCtgpHashListMaxBytes + 0x10000u || std::uint64_t(place.offset) + place.size > size) {
+            failure = CtgpUpdateFailure::BadUpdate;
+            error = "a HASH update section is too large";
+            return false;
+        }
+        // The size comes from the update file: ask for the memory first, and
+        // fail in a way the player can retry (nothing has been written).
+        std::vector<std::uint8_t> section;
+        if (!try_resize(section, place.size)) {
+            error = "there is not enough free memory to read the HASH update (" + std::to_string(place.size) +
+                    " bytes); try again";
+            return false;
+        }
+        if (!read(place.offset, section.data(), section.size())) {
+            error = "the update file could not be read";
+            return false;
+        }
+        CtgpDif dif;
+        bool unsupported = false;
+        {
+            OutOfMemoryScope parse_memory;  // out of memory: Temporary, not a bad section
+            if (!ctgp_dif_parse(section.data(), section.size(), dif, &unsupported, error)) {
+                failure = parse_memory.failed() ? CtgpUpdateFailure::Temporary
+                          : unsupported         ? CtgpUpdateFailure::Unsupported
+                                                : CtgpUpdateFailure::BadUpdate;
+                return false;
+            }
+        }
+        CtgpHashUpdateList list;
+        list.section_path = ctgp_dif_path(section.data(), section.size(), dif.path_table);
+        // jelly.bin holds the lists unpacked, each written whole. A signed
+        // section in another form (packed, rebuilt from base files, or larger
+        // than RiftWii takes) is one RiftWii can't install, not a bad one.
+        if ((dif.flags & kCtgpDifFlagPacked) != 0 || !dif.entries.empty() ||
+            dif.unpacked_size > kCtgpHashListMaxBytes) {
+            failure = CtgpUpdateFailure::Unsupported;
+            error = "the HASH update's " + list.section_path + " is not a whole list";
+            return false;
+        }
+        if (!package_of(list.section_path, list.package)) {
+            failure = CtgpUpdateFailure::BadUpdate;
+            error = "the HASH update names a file that is not a hash list (" + list.section_path + ")";
+            return false;
+        }
+        for (const CtgpHashUpdateList& earlier : out) {
+            if (earlier.package == list.package) {
+                failure = CtgpUpdateFailure::BadUpdate;
+                error = "the HASH update has " + list.section_path + " twice";
+                return false;
+            }
+        }
+        if (!try_reserve(list.bytes, dif.unpacked_size)) {
+            error = "there is not enough free memory to rebuild " + list.section_path + "; try again";
+            return false;
+        }
+        std::string apply_error;
+        OutOfMemoryScope rebuild_memory;
+        if (!ctgp_dif_apply(section.data(), section.size(), dif, {}, collect, &list.bytes, apply_error)) {
+            if (rebuild_memory.failed()) {
+                error = list.section_path + ": " + apply_error;
+                return false;  // still Temporary
+            }
+            failure = CtgpUpdateFailure::BadUpdate;
+            error = list.section_path + ": " + apply_error;
+            return false;
+        }
+        std::string check_error;
+        bool no_memory = false;
+        if (!check_list(list.bytes, list.package, check_error, key, &no_memory)) {
+            if (no_memory) {
+                error = list.section_path + ": " + check_error;
+                return false;  // still Temporary
+            }
+            failure = CtgpUpdateFailure::BadUpdate;
+            error = "the HASH update's " + list.section_path + " is not a list CTGP-R signed: " + check_error;
+            return false;
+        }
+        list.label = be32(list.bytes.data() + 0x28);
+        list.disk_path = "/PACKAGES/HASH/" + list.package + ".HSH";
+        out.push_back(std::move(list));
+    }
+    if (out.empty()) {
+        failure = CtgpUpdateFailure::BadUpdate;
+        error = "the HASH update has no lists";
+        return false;
+    }
+    failure = CtgpUpdateFailure::None;
+    return true;
+}
+
+bool ctgp_hash_update_fits(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists, std::string& error,
+                           bool* needs_growth) {
+    if (needs_growth != nullptr) *needs_growth = false;
+    const std::uint32_t cluster = jelly.cluster_bytes();
+    if (cluster == 0) {
+        error = "jelly.bin is not open";
+        return false;
+    }
+    // The free clusters as the write will see them, list by list in its
+    // order: a list that shrinks gives its tail back before the next one
+    // grows (CtgpPackWriter::replace_file), so a shrink can pay for a
+    // later growth on a full jelly.bin.
+    std::uint64_t balance = jelly.free_clusters();
+    for (const CtgpHashUpdateList& list : lists) {
+        std::uint32_t old_size = 0;
+        std::uint32_t old_clusters = 0;
+        bool present = false;
+        std::string read_error;
+        if (!jelly.stat_file(list.disk_path, present, old_size, read_error, &old_clusters)) {
+            // The card or the disk, not the update: it may go in next time.
+            error = "jelly.bin's " + list.disk_path + " could not be looked up: " + read_error;
+            return false;
+        }
+        if (!present) {
+            // CTGP-R's channel creates it; RiftWii never adds to jelly.bin.
+            error = "jelly.bin has no " + list.disk_path + " to replace";
+            if (needs_growth != nullptr) *needs_growth = true;
+            return false;
+        }
+        // The whole old list must read, or the replace could fail part-way.
+        if (!jelly.read_file(list.disk_path, [](const std::uint8_t*, std::size_t) { return true; }, nullptr,
+                             read_error)) {
+            error = "jelly.bin's " + list.disk_path + " could not be read: " + read_error;
+            return false;
+        }
+        // What the old chain holds, not what its size needs: the replace
+        // reuses every cluster of it.
+        const std::uint64_t now = std::max<std::uint64_t>(old_clusters, clusters_for(old_size, cluster));
+        const std::uint64_t then = clusters_for(list.bytes.size(), cluster);
+        if (then > now && then - now > balance) {
+            error = "the new " + list.disk_path + " needs " + std::to_string(then - now) +
+                    " more clusters than jelly.bin has free then (" + std::to_string(balance) + ")";
+            if (needs_growth != nullptr) *needs_growth = true;
+            return false;
+        }
+        balance = balance + now - then;
+    }
+    std::vector<std::uint8_t> packages;
+    if (!jelly.read_file("/PACKAGES.BIN", packages, error)) {
+        error = "jelly.bin's version list could not be read: " + error;
+        return false;
+    }
+    return ctgp_packages_set_version(packages, "HASH", 0, error);
+}
+
+bool ctgp_hash_update_write(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
+                            std::uint32_t version, std::string& error, std::vector<std::uint8_t>* written_packages) {
+    for (const CtgpHashUpdateList& list : lists) {
+        if (!jelly.replace_file(list.disk_path, list.bytes.data(), list.bytes.size(), error)) {
+            error = list.disk_path + " was not written: " + error;
+            return false;
+        }
+    }
+    std::vector<std::uint8_t> packages;
+    if (!jelly.read_file("/PACKAGES.BIN", packages, error)) {
+        error = "jelly.bin's version list could not be read: " + error;
+        return false;
+    }
+    if (!ctgp_packages_set_version(packages, "HASH", version, error)) return false;
+    if (!jelly.replace_file("/PACKAGES.BIN", packages.data(), packages.size(), error)) {
+        error = "jelly.bin's version list was not updated: " + error;
+        return false;
+    }
+    if (written_packages != nullptr) *written_packages = std::move(packages);
+    return true;
+}
+
+bool ctgp_hash_update_verify(CtgpPackWriter& jelly, const std::vector<CtgpHashUpdateList>& lists,
+                             std::uint32_t version, std::string& error, const CtgpDsaKey* key,
+                             const std::vector<std::uint8_t>* expected_packages, bool* no_memory_out) {
+    if (no_memory_out != nullptr) *no_memory_out = false;
+    std::vector<std::uint8_t> bytes;
+    for (const CtgpHashUpdateList& list : lists) {
+        if (!jelly.read_file(list.disk_path, bytes, error)) {
+            error = list.disk_path + " could not be read back: " + error;
+            return false;
+        }
+        if (bytes != list.bytes) {
+            error = list.disk_path + " reads back different from what was written";
+            return false;
+        }
+        std::string check_error;
+        bool no_memory = false;
+        if (!check_list(bytes, list.package, check_error, key, &no_memory)) {
+            // Out of memory says nothing about the card: the caller still
+            // rolls back, but the player reads that trying again may work.
+            if (no_memory && no_memory_out != nullptr) *no_memory_out = true;
+            error = no_memory ? "there is not enough free memory to check " + list.disk_path + "; try again"
+                              : list.disk_path + " does not check out after writing: " + check_error;
+            return false;
+        }
+    }
+    if (!jelly.read_file("/PACKAGES.BIN", bytes, error)) {
+        error = "jelly.bin's version list could not be read back: " + error;
+        return false;
+    }
+    if (expected_packages != nullptr && bytes != *expected_packages) {
+        error = "jelly.bin's version list reads back different from what was written";
+        return false;
+    }
+    // Its shape, with or without the bytes to compare: the same checks as
+    // ctgp_packages_set_version (magic, record count), on a copy.
+    {
+        // The copy is pack-sized: checked, so a shortfall is an error the
+        // caller rolls back from, not a stop.
+        if (!can_allocate(bytes.size())) {
+            if (no_memory_out != nullptr) *no_memory_out = true;
+            error = "there is not enough free memory to check jelly.bin's version list; try again";
+            return false;
+        }
+        std::vector<std::uint8_t> shape = bytes;
+        std::string shape_error;
+        if (!ctgp_packages_set_version(shape, "HASH", version, shape_error)) {
+            error = "jelly.bin's version list reads back damaged: " + shape_error;
+            return false;
+        }
+    }
+    const std::uint32_t count = bytes.size() >= 16 ? be32(bytes.data() + 12) : 0;
+    for (std::uint32_t i = 0; i < count && 16 + i * 16 + 16 <= bytes.size(); ++i) {
+        const std::uint8_t* record = bytes.data() + 16 + i * 16;
+        if (std::memcmp(record, "HASH\0\0\0\0", 8) == 0) {
+            // The version and the cleared 0x40000000 flag, as written.
+            if (be32(record + 8) == version && (record[12] & 0x40u) == 0) return true;
+            error = "jelly.bin's HASH record reads back wrong";
+            return false;
+        }
+    }
+    error = "jelly.bin's version list has no HASH record after writing";
+    return false;
+}
+
+bool ctgp_hash_update_install(const CtgpPackIo& raw, std::uint64_t size, const std::array<std::uint8_t, 16>& key,
+                              const CtgpChunkIv& iv, const std::vector<CtgpHashUpdateList>& lists,
+                              std::uint32_t version, const std::string& journal_path,
+                              const std::function<bool()>& sync, bool& rolled_back, std::string& error,
+                              const CtgpDsaKey* dsa_key, bool* needs_growth) {
+    rolled_back = true;  // nothing written yet
+    if (needs_growth != nullptr) *needs_growth = false;
+    CtgpPackIo read_only;
+    read_only.read = raw.read;
+    read_only.write = [](std::uint64_t, const std::uint8_t*, std::uint32_t) { return false; };
+    {
+        CtgpPackWriter look;
+        const bool fits =
+            look.open(read_only, size, key, iv, error) && ctgp_hash_update_fits(look, lists, error, needs_growth);
+        look.close();
+        if (!fits) {
+            error = "jelly.bin: " + error;
+            return false;
+        }
+    }
+    // No write to jelly.bin happens outside the journal: a locked card stops
+    // at the journal's creation, and a raw write the card refuses is the
+    // first journaled write (its chunk already saved), so it rolls back.
+    CtgpPackJournal journal;
+    if (!journal.begin(journal_path, raw, size, error)) {
+        error = "the undo journal for jelly.bin could not be started: " + error;
+        return false;
+    }
+    rolled_back = false;  // from here a failure is undone through the journal
+    CtgpPackWriter jelly;
+    std::vector<std::uint8_t> written_packages;
+    bool ok = jelly.open(journal.io(), size, key, iv, error) &&
+              ctgp_hash_update_write(jelly, lists, version, error, &written_packages);
+    // The writer keeps the last chunk it changed: out before anything is read back.
+    jelly.close();
+    if (ok && !sync()) {
+        ok = false;
+        error = "jelly.bin could not be synced";
+    }
+    if (ok) {
+        CtgpPackWriter check;
+        bool no_memory = false;
+        ok = check.open(read_only, size, key, iv, error) && ctgp_hash_update_verify(check, lists, version, error, dsa_key,
+                                                                                      &written_packages, &no_memory);
+        check.close();
+        if (!ok && !no_memory) error = "jelly.bin did not read back right: " + error;
+    }
+    std::string journal_error;
+    if (ok && !journal.commit(sync, journal_error)) {
+        ok = false;
+        error = "the jelly.bin update could not be finished: " + journal_error;
+    }
+    if (ok) return true;
+    rolled_back = journal.rollback(sync, journal_error);
+    if (!rolled_back) error += "; jelly.bin could not be put back now (" + journal_error + "), the next start tries again";
+    return false;
+}
+
+}  // namespace riftwii

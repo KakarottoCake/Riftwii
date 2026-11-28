@@ -17,12 +17,15 @@
 #include <strings.h>
 #include <sys/stat.h>
 
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 
 #include "boot.hpp"
 #include "padhook.hpp"
 #include "channel.hpp"
 #include "ctgpr.hpp"
+#include "ctgpupdatenet.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
@@ -113,13 +116,31 @@ std::string basename_of(const std::string& disc_path) {
 // card. Returns false, with `error` set, when a virtual disc's changed file
 // cannot be written: the channel would then run its own IOS exploit, which
 // can hang under d2x.
-bool SetCtgpDefaults(const std::string& app, bool virtual_disc, std::string& error) {
+bool SetCtgpDefaults(const std::string& given_app, bool virtual_disc, std::string& error) {
     const std::string folder = "sd:/apps/ctgpr/";
+    // Compared as the card resolves it: "sd:/apps/ctgpr/./boot.dol" or a
+    // doubled slash is still the channel, and must not skip the check of
+    // an interrupted update below.
+    const std::string app = ctgp_canonical_app_path(given_app);
     if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
         app.find('/', folder.size()) != std::string::npos)
         return true;
     struct stat st;
-    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return true;
+    errno = 0;
+    if (stat("sd:/ctgpr", &st) != 0) {
+        // No CTGP-R folder: nothing to set up or recover. A card that can't
+        // say is not "no folder": the channel must not start on a pack an
+        // interrupted update may have left half-written.
+        if (errno == ENOENT || errno == ENOTDIR) return true;
+        logf("CTGP-R: the SD card could not say whether sd:/ctgpr is there (%s), so CTGP-R was not started\n",
+             strerror(errno));
+        error = tr("the SD card could not be read; try again");
+        return false;
+    }
+    if (!S_ISDIR(st.st_mode)) return true;
+    // An update RiftWii was installing was cut off and could not be undone:
+    // CTGP-R must not start on a half-written blob.bin.
+    if (!CtgpPackReady(error)) return false;
     const char* path = "sd:/ctgpr/config.ini";
     // No file yet: the defaults go into an empty one.
     std::string text;

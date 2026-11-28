@@ -5190,6 +5190,114 @@ msgstr "Passe ce jeu sur {1}. Retour garde la carte qu'il a."
 msgid "CTGP-R keeps its save on the SD card, in {1}. The Wii's save is copied in when the folder has none."
 msgstr "CTGP-R garde sa sauvegarde sur la carte SD, dans {1}. La sauvegarde de la Wii y est copiée si le dossier n'en a pas."
 
+msgid "CTGP-R update"
+msgstr "Mise à jour de CTGP-R"
+
+msgid "Updating CTGP-R"
+msgstr "Mise à jour de CTGP-R"
+
+msgid "CTGP-R update failed"
+msgstr "Échec de la mise à jour de CTGP-R"
+
+msgid "The update could not be installed: {1}. CTGP-R starts without it."
+msgstr "Impossible d'installer la mise à jour : {1}. CTGP-R démarre sans elle."
+
+msgid "Checking for a CTGP-R update..."
+msgstr "Recherche d'une mise à jour de CTGP-R..."
+
+msgid "The update could not be downloaded: {1}. CTGP-R starts without it."
+msgstr "Impossible de télécharger la mise à jour : {1}. CTGP-R démarre sans elle."
+
+msgid "An earlier CTGP-R update was interrupted and could not be undone: {1}. Install CTGP-R again with its own installer, then delete update-journal.bin and update-journal-jelly.bin from the ctgpr folder on the SD card."
+msgstr "Une mise à jour précédente de CTGP-R a été interrompue et n'a pas pu être annulée : {1}. Réinstallez CTGP-R avec son propre programme d'installation, puis supprimez update-journal.bin et update-journal-jelly.bin du dossier ctgpr de la carte SD."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), so it was set aside."
+msgstr "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) : elle a été mise de côté."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, so it was set aside."
+msgstr "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé : elle a été mise de côté."
+
+msgid "The CTGP-R update on the SD card can't be used ({1}), and it could not be moved aside. CTGP-R starts without it."
+msgstr "La mise à jour de CTGP-R sur la carte SD est inutilisable ({1}) et n'a pas pu être mise de côté. CTGP-R démarre sans elle."
+
+msgid "The CTGP-R update on the SD card is already installed, but it could not be moved aside. CTGP-R starts now."
+msgstr "La mise à jour de CTGP-R sur la carte SD est déjà installée, mais elle n'a pas pu être mise de côté. CTGP-R démarre."
+
+msgid "The CTGP-R update on the SD card is for version {1}, but CTGP-R {2} is installed, and it could not be moved aside. CTGP-R starts without it."
+msgstr "La mise à jour de CTGP-R sur la carte SD est pour la version {1}, mais CTGP-R {2} est installé, et elle n'a pas pu être mise de côté. CTGP-R démarre sans elle."
+
+msgid "Less than a minute left"
+msgstr "Moins d'une minute restante"
+
+msgid "About a minute left"
+msgstr "Environ une minute restante"
+
+msgid "About {1} minutes left"
+msgstr "Environ {1} minutes restantes"
+
+msgid "A CTGP-R update is available. Update CTGP-R to the latest version now? The first update is {1} MB; there may be more after it."
+msgstr "Une mise à jour de CTGP-R est disponible. Mettre CTGP-R à jour vers la dernière version maintenant ? La première mise à jour fait {1} Mo ; il peut y en avoir d'autres après."
+
+msgid "A CTGP-R update is ready. Update CTGP-R to the latest version now?"
+msgstr "Une mise à jour de CTGP-R est prête. Mettre CTGP-R à jour vers la dernière version maintenant ?"
+
+msgid "CTGP-R was updated to {1}, but the next update could not be installed: {2}. CTGP-R starts now."
+msgstr "CTGP-R a été mis à jour vers {1}, mais la mise à jour suivante n'a pas pu être installée : {2}. CTGP-R démarre."
+
+msgid "CTGP-R was updated to {1}. CTGP-R starts now."
+msgstr "CTGP-R a été mis à jour vers {1}. CTGP-R démarre."
+
+msgid "CTGP-R's hash lists were updated, but the next update could not be installed: {1}. CTGP-R starts now."
+msgstr "Les listes de hachages de CTGP-R ont été mises à jour, mais la mise à jour suivante n'a pas pu être installée : {1}. CTGP-R démarre."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R starts now."
+msgstr "Les listes de hachages de CTGP-R ont été mises à jour. CTGP-R démarre."
+
+msgid "File {1} of {2}"
+msgstr "Fichier {1} sur {2}"
+
+msgid "Update {1}: CTGP-R {2} to {3}"
+msgstr "Mise à jour {1} : CTGP-R {2} vers {3}"
+
+msgid "Update {1}: CTGP-R's hash lists"
+msgstr "Mise à jour {1} : listes de hachages de CTGP-R"
+
+msgid "Update {1}: downloading..."
+msgstr "Mise à jour {1} : téléchargement..."
+
+msgid "the server offered an update for {1}, which RiftWii doesn't install"
+msgstr "le serveur a proposé une mise à jour pour {1}, que RiftWii n'installe pas"
+
+msgid "the server offered {1} {2}, which is not newer than what is installed"
+msgstr "le serveur a proposé {1} {2}, qui n'est pas plus récent que ce qui est installé"
+
+msgid "the server offered {1} {2} again after it was installed"
+msgstr "le serveur a proposé à nouveau {1} {2} après son installation"
+
+msgid "{1} updates were installed in a row, the most at one start; the rest install next time"
+msgstr "{1} mises à jour ont été installées à la suite, le maximum en un démarrage ; les autres s'installent la prochaine fois"
+
+msgid "the last update went in, but its file on the SD card could not be moved aside"
+msgstr "la dernière mise à jour a été installée, mais son fichier sur la carte SD n'a pas pu être mis de côté"
+
+msgid "The next CTGP-R update needs more room in jelly.bin, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "La prochaine mise à jour de CTGP-R a besoin de plus de place dans jelly.bin, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre."
+
+msgid "The next CTGP-R update is in a form RiftWii can't install, so CTGP-R's channel installs it itself. CTGP-R starts now."
+msgstr "La prochaine mise à jour de CTGP-R est dans un format que RiftWii ne sait pas installer, donc la chaîne de CTGP-R l'installe elle-même. CTGP-R démarre."
+
+msgid "CTGP-R's hash lists were updated. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "Les listes de hachages de CTGP-R ont été mises à jour. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre."
+
+msgid "CTGP-R was updated to {1}. CTGP-R's channel installs the next update itself. CTGP-R starts now."
+msgstr "CTGP-R a été mis à jour vers {1}. La chaîne de CTGP-R installe elle-même la mise à jour suivante. CTGP-R démarre."
+
+msgid "The CTGP-R update the server offers changed after Update was chosen, so nothing was downloaded. RiftWii checks again the next time CTGP-R starts. CTGP-R starts now."
+msgstr "La mise à jour de CTGP-R proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé. RiftWii vérifiera à nouveau au prochain démarrage de CTGP-R. CTGP-R démarre."
+
+msgid "the update the server offers changed after Update was chosen, so nothing was downloaded"
+msgstr "la mise à jour proposée par le serveur a changé après le choix de Mettre à jour, donc rien n'a été téléchargé"
+
 msgid "CTGP-R's game image could not be prepared. The reason is in sd:/riftwii/boot.log."
 msgstr "Impossible de préparer l'image de jeu de CTGP-R. La raison se trouve dans sd:/riftwii/boot.log."
 
@@ -5436,6 +5544,39 @@ msgstr "Autres titres"
 msgid "Emulated + Wii"
 msgstr "Émulée + Wii"
 
+msgid "CTGP-R's channel: how CTGP-R signs its update files and hash lists (what the signature covers and the 48-byte filler pattern that stands in for it), read as documentation of behavior. The pattern and CTGP-R's public signing key are carried as data; no code is copied."
+msgstr "Chaîne de CTGP-R : comment CTGP-R signe ses fichiers de mise à jour et ses listes de hachages (ce que couvre la signature et le motif de remplissage de 48 octets qui la remplace), consulté comme documentation du comportement. Le motif et la clé publique de signature de CTGP-R sont repris comme données ; aucun code n’a été copié."
+
+msgid "The CTGP-R update on the SD card can't be checked against this card's hash lists ({1})."
+msgstr "La mise à jour de CTGP-R sur la carte SD ne peut pas être vérifiée avec les listes de hachages de cette carte ({1})."
+
+msgid "The update server had no newer hash lists for it."
+msgstr "Le serveur de mises à jour n'avait pas de listes de hachages plus récentes pour elle."
+
+msgid "Downloads are off, so RiftWii did not ask the update server for newer ones. Turn Downloads on and play again."
+msgstr "Les téléchargements sont désactivés, donc RiftWii n'a pas demandé de listes plus récentes au serveur de mises à jour. Activez les téléchargements et rejouez."
+
+msgid "RiftWii could not reach the update server to ask for newer ones. Try again later."
+msgstr "RiftWii n'a pas pu joindre le serveur de mises à jour pour demander des listes plus récentes. Réessayez plus tard."
+
+msgid "RiftWii could not download or read what the update server offered."
+msgstr "RiftWii n'a pas pu télécharger ou lire ce que le serveur de mises à jour proposait."
+
+msgid "The update server offered an update that is not newer, and no newer hash lists."
+msgstr "Le serveur de mises à jour a proposé une mise à jour qui n'est pas plus récente, et aucune liste de hachages plus récente."
+
+msgid "RiftWii got a newer update from the update server, but it still can't be checked."
+msgstr "RiftWii a reçu une mise à jour plus récente du serveur de mises à jour, mais elle ne peut toujours pas être vérifiée."
+
+msgid "CTGP-R's own channel can update CTGP-R: start CTGP-R through it once (if ctgpnative.txt is next to boot.dol, delete it first). CTGP-R starts now without the update."
+msgstr "La chaîne de CTGP-R peut mettre CTGP-R à jour : lancez CTGP-R par elle une fois (si ctgpnative.txt se trouve à côté de boot.dol, supprimez-le d'abord). CTGP-R démarre maintenant sans la mise à jour."
+
+msgid "CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To update: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway."
+msgstr "La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour mettre à jour : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même."
+
+msgid "CTGP-R was updated as far as RiftWii can. CTGP-R's channel has to install the next update, but ctgpnative.txt makes RiftWii start CTGP-R itself. To finish: choose Back, delete ctgpnative.txt from the SD card and start CTGP-R again. Or choose Play anyway."
+msgstr "CTGP-R a été mis à jour aussi loin que RiftWii le peut. La chaîne de CTGP-R doit installer la prochaine mise à jour, mais ctgpnative.txt fait que RiftWii lance CTGP-R lui-même. Pour terminer : choisissez Retour, supprimez ctgpnative.txt de la carte SD et relancez CTGP-R. Ou choisissez Jouer quand même."
+
 msgid "Get a save"
 msgstr "Obtenir une sauvegarde"
 
@@ -5558,3 +5699,15 @@ msgstr "Disposition et ordre"
 
 msgid "Home order: {1}"
 msgstr "Ordre de l'accueil : {1}"
+
+msgid "The update file update.dif in the ctgpr folder on the SD card could not be removed. Delete it on a computer."
+msgstr "Le fichier de mise à jour update.dif du dossier ctgpr de la carte SD n'a pas pu être supprimé. Supprimez-le depuis un ordinateur."
+
+msgid "the SD card could not be read; try again"
+msgstr "la carte SD n'a pas pu être lue ; réessayez"
+
+msgid "the update server could not be asked for the next one ({1})"
+msgstr "le serveur de mises à jour n'a pas pu être interrogé pour la suivante ({1})"
+
+msgid "A waiting CTGP-R update could not be put back. Rename update.dif.held in the ctgpr folder on the SD card to update.dif, and it installs next time."
+msgstr "Une mise à jour de CTGP-R en attente n'a pas pu être remise en place. Renommez update.dif.held en update.dif dans le dossier ctgpr de la carte SD, et elle s'installera la prochaine fois."

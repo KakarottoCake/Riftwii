@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ctgpr.hpp"
 
+#include "ctgpupdatenet.hpp"
+
 #include <sys/stat.h>
 
 #include <cctype>
@@ -177,6 +179,12 @@ bool prepare_ctgpr_launch(const std::string& game_id, std::shared_ptr<const Ctgp
         return stop(CtgprFailure::NotInstalled,
                     "CTGP-R is not installed on the SD card (sd:/ctgpr/blob.bin and jelly.bin are missing): install "
                     "it with its own installer first");
+    // An update RiftWii was installing was cut off and could not be undone:
+    // CTGP-R must not start on a half-written blob.bin.
+    if (!CtgpPackReady(error)) {
+        logf("CTGP-R: the native launch stops: an interrupted update could not be undone\n");
+        return false;
+    }
 
     CtgprLaunchRequest request;
     request.layout = ctgpr_request_layout();

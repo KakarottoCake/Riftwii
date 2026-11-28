@@ -74,6 +74,27 @@ bool ctgp_has_hash_reference(const std::string& package, std::uint32_t version) 
     return reference_body(package, version) != nullptr;
 }
 
+bool ctgp_hash_list_signature_ok(const std::uint8_t* list, std::size_t size, std::string& error,
+                                 const CtgpDsaKey* key) {
+    if (list == nullptr || size < kBody + 12) {
+        error = "the hash list is too short";
+        return false;
+    }
+    // The channel passes the raw 0x2C-byte header to DSA_verify; its DSA
+    // method truncates that to q's 20 bytes. The name/version are outside
+    // that range, which is why callers bind them to a known body afterwards.
+    const std::uint32_t sig_length = be32(list + 0x2C);
+    if (sig_length == 0 || sig_length > 0x30 || 0x30 + sig_length > kBody) {
+        error = "the hash list's signature has a bad length";
+        return false;
+    }
+    if (!ctgp_dsa_verify(key ? *key : ctgp_signing_key(), list, kHeader, list + 0x30, sig_length)) {
+        error = "the hash list's signature does not verify";
+        return false;
+    }
+    return true;
+}
+
 bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std::uint32_t version,
                          CtgpHashList& out, std::string& error, const CtgpDsaKey* key,
                          const std::array<std::uint8_t, 20>* reference) {
@@ -82,18 +103,9 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
         return false;
     }
     const std::uint8_t* d = file.data();
-    // The channel passes the raw 0x2C-byte header to DSA_verify; its DSA
-    // method truncates that to q's 20 bytes. The name/version are outside
-    // that range. After verification, bind them to a known body below.
-    const std::uint32_t sig_length = be32(d + 0x2C);
-    if (sig_length == 0 || sig_length > 0x30 || 0x30 + sig_length > kBody) {
-        error = "the hash list's signature has a bad length";
-        return false;
-    }
-    if (!ctgp_dsa_verify(key ? *key : ctgp_signing_key(), d, kHeader, d + 0x30, sig_length)) {
-        error = "the hash list's signature does not verify";
-        return false;
-    }
+    // The signature comes first (ctgp_hash_list_signature_ok): the name,
+    // version and body checks below are bound to a list CTGP-R signed.
+    if (!ctgp_hash_list_signature_ok(d, file.size(), error, key)) return false;
     if (be32(d) != 0x48616830u || be32(d + 4) != file.size() || be32(d + 8) != 0) {
         error = "the hash list's header is wrong";
         return false;
@@ -119,7 +131,14 @@ bool ctgp_load_hash_list(const CtgpBytes& file, const std::string& package, std:
     // carries new CTGPR.HSH and CORE.HSH bodies under the labels PACKAGES.BIN
     // names).
     if (!known_identity && be32(d + 0x28) != version) {
-        error = "the hash list is for another version of the package";
+        // Ahead: the hash lists came before the pack update they describe,
+        // as CTGP-R's own channel (and RiftWii's chain, when a later step
+        // fails) leaves them part-way through its updates. (0: PACKAGES.BIN
+        // names no such package, so nothing is known.)
+        error = version != 0 && be32(d + 0x28) > version
+                    ? "the hash list is for a newer version than the one installed (a CTGP-R update may not be "
+                      "finished): start CTGP-R through its channel once, or let RiftWii update it, to finish it"
+                    : "the hash list is for another version of the package";
         return false;
     }
     // CTGPR and CORE are accepted on CTGP-R's own signature with their label

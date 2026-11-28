@@ -61,6 +61,24 @@ struct Fat32File {
     std::vector<Fragment> fragments;  // absolute device blocks, coalesced, whole clusters
 };
 
+// Writes `count` consecutive 512-byte blocks starting at `lba` from `data`.
+using BlockWriter = std::function<bool(std::uint64_t lba, std::uint32_t count, const std::uint8_t* data)>;
+
+// Overwrites whole 512-byte blocks of a file where they already lie on the
+// device, through `file`'s fragments and nothing else: the FAT, FSInfo and
+// every directory sector (the file's own entry, with its times and size)
+// are left exactly as they are. `offset` and `length` must be multiples of
+// 512 and the range must end within the file's size, so nothing past its
+// last whole block is ever written and the file can never grow. CTGP-R's
+// jelly.bin needs this: its key is made from its entry's times.
+// The fragments are used as given, never looked up again: the caller passes
+// a map from a fresh lookup and keeps the file's layout unchanged until its
+// last write. A false return can follow blocks already written (the device
+// refused a later one); a caller that needs all or nothing arranges its own
+// undo (the CTGP-R updater's journal, riftwii/ctgpjournal.hpp).
+bool fat32_write_in_place(const Fat32File& file, const BlockWriter& write, std::uint64_t offset,
+                          const std::uint8_t* data, std::size_t length, std::string& error);
+
 // What reading the free space of a volume says about writing a file of a
 // given size into it (Fat32Volume::free_pieces).
 enum class FreeSpaceVerdict {
@@ -130,6 +148,12 @@ public:
     // Drops the FAT window and the directory listings kept from earlier
     // lookups; needed once something else (libfat) has written the volume.
     void forget_cached() const;
+    // Less than that, for a file something else keeps writing (an undo
+    // journal libfat appends to): drops the FAT window and the listing of
+    // the folder holding `path`, and keeps the listings above it, whose
+    // entries such a write does not change. Everything goes when the folder
+    // can't be found from what is cached.
+    void forget_folder_of(const std::string& path) const;
 
 private:
     bool next_cluster(std::uint32_t cluster, std::uint32_t& next, std::string& error) const;

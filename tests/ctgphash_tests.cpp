@@ -170,6 +170,15 @@ int main() {
     EXPECT_TRUE(!list.find("/missing", d));
     EXPECT_TRUE(!list.find("/A/ONE.BIN", d));  // exact names only
 
+    // The signature rule alone (shared with the game-update path): the test
+    // key's own list passes with it, CTGP-R's key and a damaged header do not.
+    EXPECT_TRUE(ctgp_hash_list_signature_ok(good.data(), good.size(), error, &key));
+    EXPECT_TRUE(!ctgp_hash_list_signature_ok(good.data(), good.size(), error));
+    auto header_damaged = good;
+    header_damaged[0x10] ^= 1;
+    EXPECT_TRUE(!ctgp_hash_list_signature_ok(header_damaged.data(), header_damaged.size(), error, &key));
+    EXPECT_TRUE(!ctgp_hash_list_signature_ok(nullptr, 0, error, &key));
+
     // CTGP's own key does not accept a list signed with the test key
     CtgpHashList other;
     EXPECT_TRUE(!ctgp_load_hash_list(good, "TEST", 0x01020304, other, error));
@@ -189,6 +198,13 @@ int main() {
     };
     EXPECT_TRUE(ctgp_load_hash_list(relabelled_as("CORE", 0x01030412u), "CORE", 0x01030412u, other, error, &key));
     EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030411u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(error.find("another version") != std::string::npos);
+    // A list ahead of the pack (CTGP-R's update part-way): the refusal says
+    // how to finish it.
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030413u), "CORE", 0x01030412u, other, error, &key));
+    EXPECT_TRUE(error.find("through its channel") != std::string::npos);
+    // No version known (PACKAGES.BIN names no CORE): not called "newer".
+    EXPECT_TRUE(!ctgp_load_hash_list(relabelled_as("CORE", 0x01030413u), "CORE", 0, other, error, &key));
     EXPECT_TRUE(error.find("another version") != std::string::npos);
     {
         // The tested core code, by its own SHA-1s; anything else is refused.

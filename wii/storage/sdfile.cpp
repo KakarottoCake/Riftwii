@@ -21,6 +21,12 @@ bool read_blocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
     return sd_interface()->readSectors(static_cast<sec_t>(lba), count, out);
 }
 
+bool write_blocks(std::uint64_t lba, std::uint32_t count, const std::uint8_t* data) {
+    if (lba > 0xFFFFFFFFull) return false;
+    CoverLoaderHold();
+    return sd_interface()->writeSectors(static_cast<sec_t>(lba), count, data);
+}
+
 bool ensure_mounted(std::string& error) {
     if (g_mounted) return true;
     if (!Fat32Volume::mount(&read_blocks, g_volume, error)) return false;
@@ -151,6 +157,40 @@ bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out,
 
 bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
     return g_mounted && g_volume.read(file, offset, out, length);
+}
+
+bool read_sd_file_from_card(const std::string& sd_path, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+    std::string error;
+    if (sd_path.compare(0, 4, "sd:/") != 0 || !ensure_mounted(error)) return false;
+    // Called once per journal entry (32 KiB), so only what an append to
+    // this file changes is read again: its folder's listing (the entry's
+    // size and first cluster) and the FAT (its chain). The folders above
+    // keep their cached listings, which an append never changes. About four
+    // small reads plus the entry's own bytes, some 15 ms on a Wii's SD card.
+    // Everything this allocates is the DOL's and is given back before it
+    // returns (the listing cache aside, which is the DOL's to keep), and it
+    // never calls into the plugin, so the plugin's escape can't stop it
+    // halfway. It logs only when the check fails, which ends the update.
+    g_volume.forget_folder_of(sd_path.substr(3));
+    Fat32File file;
+    if (!resolve_sd_file(sd_path, file, error)) {
+        logf("SD: %s could not be found on the card to check a write: %s\n", sd_path.c_str(), error.c_str());
+        return false;
+    }
+    if (offset > file.entry.size || length > file.entry.size - offset) {
+        logf("SD: the card's entry for %s says %u bytes, short of what was written (%llu)\n", sd_path.c_str(),
+             unsigned(file.entry.size), static_cast<unsigned long long>(offset + length));
+        return false;
+    }
+    return read_sd_file(file, offset, out, length);
+}
+
+bool write_sd_file_in_place(const Fat32File& file, std::uint64_t offset, const std::uint8_t* data, std::size_t length) {
+    if (!g_mounted) return false;
+    std::string error;
+    if (fat32_write_in_place(file, &write_blocks, offset, data, length, error)) return true;
+    logf("SD: in-place write of %s failed: %s\n", file.entry.name.c_str(), error.c_str());
+    return false;
 }
 
 void forget_sd_layout() {
