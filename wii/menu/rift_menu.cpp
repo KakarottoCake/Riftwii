@@ -16302,6 +16302,8 @@ static std::string GameFacts(const FrontendState& state)
 	}
 	const std::string played = riftwii::wii::PlayNote(riftwii::wii::TileKey(state));
 	if (!played.empty()) parts.push_back(played);
+	const std::string playTime = riftwii::wii::PlayTimeNote(riftwii::wii::TileKey(state), SelectedGcGame(state) != nullptr);
+	if (!playTime.empty()) parts.push_back(playTime);
 	std::string out;
 	for (const std::string& part : parts) out += (out.empty() ? "" : " \xC2\xB7 ") + part;
 	return out;

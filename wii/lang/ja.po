@@ -5558,3 +5558,18 @@ msgstr "レイアウトと並び順"
 
 msgid "Home order: {1}"
 msgstr "ホームの並び順：{1}"
+
+msgid "Play time {1}"
+msgstr "プレイ時間 {1}"
+
+msgid "Play time not recorded"
+msgstr "プレイ時間は記録されません"
+
+msgid "{1} h {2} min"
+msgstr "{1}時間{2}分"
+
+msgid "{1} min"
+msgstr "{1}分"
+
+msgid "under 1 min"
+msgstr "1分未満"

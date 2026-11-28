@@ -10,6 +10,7 @@
 #include "riftwii/langfile.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/playtime.hpp"
 #include "riftwii/returnto.hpp"
 #include "riftwii/launchargs.hpp"
 #include "riftwii/settingsfile.hpp"
@@ -3063,6 +3064,85 @@ void TestLang() {
     EXPECT_TRUE(cps == want);
 }
 
+void TestPlayTime() {
+    constexpr std::uint64_t kTick = kWiiTicksPerSecond;
+    // A record the writer above makes, then the two times set as a game's SDK does.
+    std::vector<std::uint8_t> rec = play_log_record("Mario", "RMCE01", 0);
+    const auto put64 = [&](std::size_t at, std::uint64_t v) {
+        for (int i = 7; i >= 0; --i, v >>= 8) rec[at + i] = static_cast<std::uint8_t>(v & 0xFF);
+    };
+    put64(0x58, 1000 * kTick);
+    put64(0x60, 1000 * kTick + 3725 * kTick + 123);
+    PlayLogSession s;
+    EXPECT_TRUE(parse_play_log(rec.data(), rec.size(), s));
+    EXPECT_EQ(s.game_id, "RMCE01");
+    EXPECT_EQ(s.start, 1000 * kTick);
+    std::uint64_t secs = 99;
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 0, secs) == SessionVerdict::counted);
+    EXPECT_EQ(secs, 3725u);
+    // A profile's tile of the same game takes it; another game does not.
+    EXPECT_TRUE(judge_play_session(s, "RMCE01@retro", 0, secs) == SessionVerdict::counted);
+    EXPECT_TRUE(judge_play_session(s, "SB4E01", 0, secs) == SessionVerdict::other_game);
+    EXPECT_EQ(secs, 0u);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 1000 * kTick, secs) == SessionVerdict::counted_already);
+    EXPECT_TRUE(judge_play_session(s, "RMCE01", 5 * kTick, secs) == SessionVerdict::counted);
+    // Limits: ends before it starts, over 24 hours; exactly 24 hours counts.
+    PlayLogSession back = s;
+    back.last = back.start - 1;
+    EXPECT_TRUE(judge_play_session(back, "RMCE01", 0, secs) == SessionVerdict::backwards);
+    PlayLogSession edge = s;
+    edge.last = edge.start + kMaxSessionSeconds * kTick;
+    EXPECT_TRUE(judge_play_session(edge, "RMCE01", 0, secs) == SessionVerdict::counted);
+    EXPECT_EQ(secs, kMaxSessionSeconds);
+    edge.last += kTick;
+    EXPECT_TRUE(judge_play_session(edge, "RMCE01", 0, secs) == SessionVerdict::too_long);
+    // Not a record: short, or an ID that is not six letters and digits.
+    EXPECT_FALSE(parse_play_log(rec.data(), 0x7F, s));
+    std::vector<std::uint8_t> zero(0x80, 0);
+    EXPECT_FALSE(parse_play_log(zero.data(), zero.size(), s));
+
+    // History: the total rides in a comment line older builds skip, and survives a round trip.
+    PlayHistory h;
+    h.record("RMCE01", 1790000000);
+    h.record("RMCE01@retro", 1790000100);
+    EXPECT_TRUE(h.add_play_time("RMCE01", 3725, 1000 * kTick));
+    EXPECT_TRUE(h.add_play_time("RMCE01", 75, 2000 * kTick));
+    EXPECT_FALSE(h.add_play_time("SB4E01", 10, 1));  // not in the history
+    const std::string text = h.serialize();
+    PlayHistory back2;
+    back2.parse(text);
+    EXPECT_EQ(back2.find("RMCE01")->play_seconds, 3800u);
+    EXPECT_EQ(back2.find("RMCE01")->session_start, 2000 * kTick);
+    EXPECT_EQ(back2.find("RMCE01")->count, 1u);
+    EXPECT_EQ(back2.find("RMCE01@retro")->play_seconds, 0u);
+    // What a build before this one would make of the file: its parser skips every
+    // '#' line, so both game lines are read.
+    std::string old_view;
+    for (std::size_t at = 0; at < text.size();) {
+        const std::size_t end = text.find('\n', at);
+        const std::string line = text.substr(at, end - at);
+        if (!line.empty() && line[0] != '#') old_view += line + "\n";
+        at = end == std::string::npos ? text.size() : end + 1;
+    }
+    PlayHistory plain;
+    plain.parse(old_view);
+    EXPECT_EQ(plain.size(), 2u);
+    EXPECT_TRUE(text.find("#playtime\tRMCE01\t3800\t") != std::string::npos);
+    // Bad or orphan time lines are left out; forgetting a tile drops its time.
+    PlayHistory bad;
+    bad.parse("RMCE01\t1\t5\n#playtime\tRMCE01\tx\t1\n#playtime\tSB4E01\t5\t6\n#playtime\tRMCE01\t-5\t1\n#playtime\tRMCE01\t7\n");
+    EXPECT_EQ(bad.find("RMCE01")->play_seconds, 0u);
+    EXPECT_TRUE(bad.find("SB4E01") == nullptr);
+    back2.forget("RMCE01");
+    EXPECT_TRUE(back2.serialize().find("#playtime") == std::string::npos);
+    // Saturates instead of wrapping.
+    PlayHistory big;
+    big.record("RMCE01", 1);
+    big.add_play_time("RMCE01", 0xFFFFFFFFFFFFFFF0ull, 1);
+    big.add_play_time("RMCE01", 100, 2);
+    EXPECT_EQ(big.find("RMCE01")->play_seconds, 0xFFFFFFFFFFFFFFFFull);
+}
+
 void TestHistory() {
     PlayHistory h;
     h.parse("# comment\r\nSB4E01\t3\t1790000000\nRMCE01\t1\t1790000500\nbad line\nrmce01\t1\t5\nSMNE01\tx\t1\n");
@@ -3355,6 +3435,7 @@ int main() {
     TestCoverDownloads();
     TestLang();
     TestHistory();
+    TestPlayTime();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

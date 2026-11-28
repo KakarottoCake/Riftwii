@@ -5558,3 +5558,18 @@ msgstr "레이아웃과 순서"
 
 msgid "Home order: {1}"
 msgstr "홈 정렬 순서: {1}"
+
+msgid "Play time {1}"
+msgstr "플레이 시간 {1}"
+
+msgid "Play time not recorded"
+msgstr "플레이 시간이 기록되지 않음"
+
+msgid "{1} h {2} min"
+msgstr "{1}시간 {2}분"
+
+msgid "{1} min"
+msgstr "{1}분"
+
+msgid "under 1 min"
+msgstr "1분 미만"

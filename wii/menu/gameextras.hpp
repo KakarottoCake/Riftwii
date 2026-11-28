@@ -48,6 +48,14 @@ void RecordPlay(const std::string& game_id);
 // sd:/riftwii/last_tile.txt even with the history off: a problem report
 // then shows the choices that ran (riftwii/profiles.hpp's launched_choices_key).
 void RememberLaunchedTile(const std::string& key);
+// At RiftWii's start: adds the play time the Wii Menu's play log holds for
+// the tile launched last to its total (riftwii/playtime.hpp). Needs the card
+// and the settings; leaves the log itself alone.
+void CollectPlayTime();
+// The game page's play time: "Play time 2 h 5 min", or "Play time not
+// recorded" for a GameCube game or an emulator game. Empty with history off,
+// for a tile never played and for a Wii game with no time yet.
+std::string PlayTimeNote(const std::string& game_id, bool gamecube);
 // The last game's key for automatic start, including when Play history is off.
 std::string LastGameKey();
 // Drops a tile from the history (a profile removed).

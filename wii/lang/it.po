@@ -5558,3 +5558,18 @@ msgstr "Layout e ordine"
 
 msgid "Home order: {1}"
 msgstr "Ordine della Home: {1}"
+
+msgid "Play time {1}"
+msgstr "Tempo di gioco {1}"
+
+msgid "Play time not recorded"
+msgstr "Tempo di gioco non registrato"
+
+msgid "{1} h {2} min"
+msgstr "{1} h {2} min"
+
+msgid "{1} min"
+msgstr "{1} min"
+
+msgid "under 1 min"
+msgstr "meno di 1 min"

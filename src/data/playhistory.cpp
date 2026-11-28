@@ -24,13 +24,39 @@ bool plausible_id(const std::string& id) { return valid_tile_key(id) || emulator
 
 }  // namespace
 
+// "#playtime<TAB>key<TAB>seconds<TAB>start": for a tile listed above it;
+// any other comment, or a line that does not read, is left out.
+void PlayHistory::parse_play_time_line(const std::string& line) {
+    LineReader fields(line);
+    std::string tag, id, seconds, start;
+    if (!fields.next(tag, '\t') || tag != "#playtime" || !fields.next(id, '\t') || !fields.next(seconds, '\t') ||
+        !fields.next(start))
+        return;
+    const auto it = games_.find(id);
+    if (it == games_.end()) return;
+    const auto number = [](const std::string& text, unsigned long long& out) {
+        if (text.empty() || text[0] < '0' || text[0] > '9') return false;
+        char* end = nullptr;
+        out = std::strtoull(text.c_str(), &end, 10);
+        return end != text.c_str() && *end == '\0';
+    };
+    unsigned long long s = 0, t = 0;
+    if (!number(seconds, s) || !number(start, t)) return;
+    it->second.play_seconds = s;
+    it->second.session_start = t;
+}
+
 void PlayHistory::parse(const std::string& text) {
     games_.clear();
     LineReader in(text);
     std::string line;
     while (in.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (line.empty() || line[0] == '#') continue;
+        if (line.empty()) continue;
+        if (line[0] == '#') {
+            parse_play_time_line(line);
+            continue;
+        }
         // The ID and the count end at a tab; the time is the rest of the line.
         LineReader fields(line);
         std::string id, count, last;
@@ -52,6 +78,11 @@ std::string PlayHistory::serialize() const {
     for (const auto& g : games_) {
         out += g.first + "\t" + std::to_string(g.second.count) + "\t" + std::to_string(g.second.last) + "\n";
     }
+    for (const auto& g : games_) {
+        if (g.second.play_seconds == 0 && g.second.session_start == 0) continue;
+        out += "#playtime\t" + g.first + "\t" + std::to_string(g.second.play_seconds) + "\t" +
+               std::to_string(g.second.session_start) + "\n";
+    }
     return out;
 }
 
@@ -63,6 +94,16 @@ void PlayHistory::record(const std::string& game_id, std::int64_t now) {
 }
 
 void PlayHistory::forget(const std::string& game_id) { games_.erase(game_id); }
+
+bool PlayHistory::add_play_time(const std::string& game_id, std::uint64_t seconds, std::uint64_t session_start) {
+    const auto it = games_.find(game_id);
+    if (it == games_.end()) return false;
+    PlayRecord& r = it->second;
+    const std::uint64_t room = 0xFFFFFFFFFFFFFFFFull - r.play_seconds;
+    r.play_seconds += std::min(seconds, room);
+    r.session_start = session_start;
+    return true;
+}
 
 const PlayRecord* PlayHistory::find(const std::string& game_id) const {
     const auto it = games_.find(game_id);

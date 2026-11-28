@@ -11,11 +11,22 @@
 // (sd:/riftwii/history.txt): "<ID>\t<count>\t<unix time>" lines. It
 // drives the Home screen's "Recently played" view, opening on the last
 // game played, and the game page's play count.
+//
+// The play time of a tile is kept in a "#playtime\t<key>\t<seconds>\t<start>"
+// line after the others. A tab-separated fourth column on the game's own
+// line would make builds before this one drop that line (their time field
+// must end the line), losing the game from the history; a comment line is
+// skipped by them whole.
 namespace riftwii {
 
 struct PlayRecord {
     std::uint32_t count = 0;
     std::int64_t last = 0;  // seconds since 1970, the Wii's clock
+    // Play time (#642), from the Wii Menu's play log (riftwii/playtime.hpp):
+    // the seconds added so far, and the start time (Wii ticks) of the
+    // session added last, so a session is counted once.
+    std::uint64_t play_seconds = 0;
+    std::uint64_t session_start = 0;
 };
 
 class PlayHistory {
@@ -27,12 +38,16 @@ public:
     // `game_id` may also be a profile's tile key ("RMCE01@retro-rewind").
     void record(const std::string& game_id, std::int64_t now);
     void forget(const std::string& game_id);
+    // Adds a played session to a tile already in the history (nothing for
+    // another) and remembers its start time. Saturates.
+    bool add_play_time(const std::string& game_id, std::uint64_t seconds, std::uint64_t session_start);
     const PlayRecord* find(const std::string& game_id) const;
     // Game IDs, the most recently played first (at most `limit`).
     std::vector<std::string> recent(std::size_t limit = 64) const;
     std::size_t size() const { return games_.size(); }
 
 private:
+    void parse_play_time_line(const std::string& line);
     std::map<std::string, PlayRecord> games_;
 };
 
