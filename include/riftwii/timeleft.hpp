@@ -88,10 +88,39 @@ public:
         if (sampled_ && ms < sample_ms_ + kSampleMs) return;
         sampled_ = true;
         sample_ms_ = ms;
-        // The oldest sample in the window (the start, until it is full).
-        const bool full = count_ == kWindow;
-        const double from_f = full ? window_f_[next_] : 0;
-        const std::uint64_t from_ms = full ? window_ms_[next_] : 0;
+        // The rate's starting point, by time: the newest sample at least two
+        // minutes old (kWindow seconds), so callbacks further apart than a
+        // second don't stretch the window. The job's start (0 done at 0 ms)
+        // counts while the ring still holds every sample since then, and is
+        // the starting point for the first two minutes.
+        double from_f = 0;
+        std::uint64_t from_ms = 0;
+        const std::uint64_t span = std::uint64_t(kWindow) * kSampleMs;
+        if (ms > span) {
+            const std::uint64_t cutoff = ms - span;
+            bool have = count_ < kWindow;  // the start is still a sample
+            bool newer_only = false;       // nothing at or before the cutoff yet
+            std::uint64_t oldest_newer = 0;
+            double oldest_newer_f = 0;
+            for (int i = 0; i < count_; ++i) {
+                const std::uint64_t t = window_ms_[i];
+                if (t <= cutoff) {
+                    if (!have || t > from_ms) {
+                        from_ms = t;
+                        from_f = window_f_[i];
+                    }
+                    have = true;
+                } else if (!newer_only || t < oldest_newer) {
+                    oldest_newer = t;
+                    oldest_newer_f = window_f_[i];
+                    newer_only = true;
+                }
+            }
+            if (!have && newer_only) {
+                from_ms = oldest_newer;
+                from_f = oldest_newer_f;
+            }
+        }
         window_f_[next_] = fraction;
         window_ms_[next_] = ms;
         next_ = (next_ + 1) % kWindow;

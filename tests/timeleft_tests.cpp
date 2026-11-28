@@ -197,6 +197,7 @@ int main() {
             f = to;
         }
         const Replay r = replay(stages);
+        EXPECT_TRUE(r.samples > 0);  // an estimate was shown to judge
         EXPECT_TRUE(r.biggest_rise <= 1);
         EXPECT_TRUE(r.off == 0);
     }
@@ -278,6 +279,22 @@ int main() {
         t.update(0.201, 601000);
         EXPECT_TRUE(t.seconds() + 2 >= before);
         EXPECT_TRUE(t.text().wording == TimeLeftWording::AboutMinutes);
+    }
+    // The rate's window is two minutes of time, not of callbacks: a job that
+    // ran fast for its first three minutes and slowly since, reported every
+    // two seconds, is judged by the slow part once two minutes of it passed.
+    {
+        TimeLeft t;
+        double f = 0;
+        for (std::uint64_t s = 0; s <= 400; s += 2) {
+            f += s <= 180 ? 0.004 : 0.0005;
+            t.update(f, s * 1000);
+        }
+        // At the slow rate about 2300 s are left at 400 s. A window of 120
+        // callbacks (240 s back) still reached into the fast part and showed
+        // about 950 s; two minutes of time show about 1440 s, on the way up.
+        if (t.seconds() < 1200) std::cerr << "time window: " << t.seconds() << " s" << std::endl;
+        EXPECT_TRUE(t.seconds() >= 1200);
     }
     // A steady job reported only every five seconds (no calls between): the
     // figure is not frozen by the stall rule, it follows the job down.
