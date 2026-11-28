@@ -46,10 +46,10 @@
 #include "memlimits.hpp"
 #include "nandchannels.hpp"
 #include "stash.hpp"
+#include "playtimemark.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/nandcheck.hpp"
-#include "riftwii/playtime.hpp"
 #include "gcadapter.hpp"
 #include "hidpads.hpp"
 #include "padhook.hpp"
@@ -79,7 +79,6 @@
 #include "riftwii/launchargs.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/playhistory.hpp"
-#include "riftwii/playtime.hpp"
 #include "riftwii/wfstitle.hpp"
 #include "riftwii/returnto.hpp"
 #include "d2xsave.hpp"
@@ -4327,14 +4326,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // waits: ES would give its saves to the wrong owner, or find none of the
     // shared contents its titles use.
     if (!files.emu_nand.empty()) {
-        // Where the next start finds the game's play log (play time, #642).
-        if (Settings().play_history != "off") {
-            if (FILE* f = std::fopen(kLastNandPath, "wb")) {
-                const std::string line = files.emu_nand + "\n";
-                std::fwrite(line.data(), 1, line.size(), f);
-                std::fclose(f);
-            }
-        }
+        // Where the next start finds the game's play log (play time, #642); the card is d2x's after this.
+        PlayTimeLaunchNand(files.emu_nand);
         struct SystemList {
             const char* path;
             const char* what;

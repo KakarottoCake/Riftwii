@@ -17452,6 +17452,7 @@ static int MenuHome(FrontendState& state)
 	OutlinedText factsOutlined(factsTxt, tilesX, factsY, kFactsInk, 1, 1);
 	factsOutlined.SetMarquee(tilesWidth);
 	FitFacts(state, factsTxt, tilesWidth);
+	factsOutlined.ResetMarquee();
 
 	const auto refreshTitle = [&] {
 		titleTxt.SetText(GameTitle(state).c_str());

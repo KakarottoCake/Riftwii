@@ -5,6 +5,7 @@
 #include "d2xsave.hpp"
 #include "d2xsd.hpp"
 #include "progress.hpp"
+#include "playtimemark.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/wfstitle.hpp"
@@ -303,6 +304,7 @@ bool Session::ensure_probe(std::string& error) {
         // (The pads plugin was loaded at the start, while the card was
         // RiftWii's.)
         if (d2x_ready) {
+            PlayTimeLaunchNand(own_saves_dir);  // where the next start looks for the play log (#642); the card is d2x's after this
             const int base = d2x_base(used_slot);
             std::string why;
             const D2xNandScope scope = own_saves_whole ? D2xNandScope::WholeNand : D2xNandScope::GamePaths;
