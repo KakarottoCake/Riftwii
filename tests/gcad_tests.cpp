@@ -1682,6 +1682,418 @@ static void TestPatchedCodeRanges() {
     EXPECT_TRUE(error.find("plain memory patches") != std::string::npos);
 }
 
+// The Wii Remotes' screen-dimming reset found with no PADRead to start
+// from: the one-store reset the Wii Remote library (near WPADProbe) calls.
+// KPAD's camera switch where the game never links KPADEnableDPD, found
+// where KPAD reads it before WPADIsDpdEnabled (Super Mario Galaxy 2's KPAD:
+// blocks from 0x80750A00, 1672 bytes each, the switch at +0x642).
+static void TestKpadDpdSwitch() {
+    const auto is_dpd = [](Asm& a) {
+        const std::uint32_t at = a.here();
+        a.prologue();
+        a.op(0x3C808079u);  // lis r4,0x8079
+        a.op(0x5460103Au);  // slwi r0,r3,2
+        a.op(0x38841C10u);  // addi r4,r4,0x1C10
+        a.op(0x7FE4002Eu);  // lwzx r31,r4,r0
+        a.op(0x83FF0838u);  // lwz r31,0x838(r31): +2104
+        a.op(0x7FE3FB78u);  // mr r3,r31
+        a.blr();
+        return at;
+    };
+    const auto reader = [](Asm& a, std::uint32_t call, std::uint32_t lbz) {
+        a.prologue();
+        a.op(0x3FE08075u);  // lis r31,0x8075
+        a.op(0x3BFF0A00u);  // addi r31,r31,0x0A00
+        a.op(0x1CC30688u);  // mulli r6,r3,1672
+        a.op(0x389F0000u);  // addi r4,r31,0 (a copy of the base)
+        a.op(0x7FC43214u);  // add r30,r4,r6
+        a.op(lbz);          // lbz r0,offset(r30)
+        a.op(0x2C000000u);  // cmpwi r0,0
+        a.op(0x7F83E378u);  // mr r3,r28
+        a.bl(call);
+        a.blr();
+    };
+    Asm a{0x8054C000u, {}};
+    const std::uint32_t call = is_dpd(a);
+    reader(a, call, 0x881E0642u);  // lbz r0,0x642(r30)
+    std::vector<std::uint8_t> code = a.bytes();
+    std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
+    riftwii::KpadDpd k = riftwii::find_kpad_dpd_switch(text);
+    EXPECT_EQ(k.base, 0x80750A00u);
+    EXPECT_EQ(k.stride, 1672u);
+    EXPECT_EQ(k.offset, 0x642u);
+    EXPECT_TRUE(k.enable != 0);
+    // The reading function split across touching entries of the code's view
+    // (a pack's patch over one of its words): still read whole (CodeRabbit,
+    // fork #23).
+    // The rest of the code in an entry with no bytes behind it: not read,
+    // and nothing found (CodeRabbit CLI, fork #23).
+    for (std::size_t cut : {std::size_t{16}, code.size() - 20}) {
+        text = {{a.base, code.data(), cut}, {a.base + static_cast<std::uint32_t>(cut), nullptr, code.size() - cut}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+        EXPECT_EQ(riftwii::find_kpad_enable_dpd(text).enable, 0u);
+    }
+    // The query split the same way (fork #23), after its stwu.
+    for (std::size_t cut : {8u, 16u, 24u}) {
+        text = {{a.base, code.data(), cut}, {a.base + static_cast<std::uint32_t>(cut), code.data() + cut, code.size() - cut}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, k.enable);
+    }
+    for (std::size_t back : {12u, 20u, 32u}) {
+        const std::size_t cut = code.size() - back;
+        text = {{a.base, code.data(), cut}, {a.base + static_cast<std::uint32_t>(cut), code.data() + cut, code.size() - cut}};
+        const riftwii::KpadDpd split = riftwii::find_kpad_dpd_switch(text);
+        EXPECT_EQ(split.base, 0x80750A00u);
+        EXPECT_EQ(split.offset, 0x642u);
+        EXPECT_EQ(split.enable, k.enable);
+    }
+    // A second read of another byte before another call: two switches, not guessed.
+    reader(a, call, 0x881E0645u);  // lbz r0,0x645(r30)
+    code = a.bytes();
+    text = {{a.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    // The block moved before the read (`addi r30,r30,4`): not the block any
+    // more, so nothing.
+    {
+        Asm c{0x8054C000u, {}};
+        const std::uint32_t is = is_dpd(c);
+        c.prologue();
+        c.op(0x3FE08075u);  // lis r31,0x8075
+        c.op(0x3BFF0A00u);  // addi r31,r31,0x0A00
+        c.op(0x1CC30688u);  // mulli r6,r3,1672
+        c.op(0x7FDF3214u);  // add r30,r31,r6
+        c.op(0x3BDE0004u);  // addi r30,r30,4
+        c.op(0x881E0642u);  // lbz r0,0x642(r30)
+        c.bl(is);
+        c.blr();
+        code = c.bytes();
+        text = {{c.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    }
+    // Two different bytes read just before the one call: not guessed.
+    {
+        Asm c{0x8054C000u, {}};
+        const std::uint32_t is = is_dpd(c);
+        c.prologue();
+        c.op(0x3FE08075u);  // lis r31,0x8075
+        c.op(0x3BFF0A00u);  // addi r31,r31,0x0A00
+        c.op(0x1CC30688u);  // mulli r6,r3,1672
+        c.op(0x7FDF3214u);  // add r30,r31,r6
+        c.op(0x881E0642u);  // lbz r0,0x642(r30)
+        c.op(0x887E0645u);  // lbz r3,0x645(r30)
+        c.bl(is);
+        c.blr();
+        code = c.bytes();
+        text = {{c.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    }
+    // The read and call with no function start before them (a `blr` ends
+    // the code before): not inside a framed function, so nothing.
+    {
+        Asm c{0x8054C000u, {}};
+        const std::uint32_t is = is_dpd(c);
+        c.op(0x3FE08075u);  // lis r31,0x8075
+        c.op(0x3BFF0A00u);  // addi r31,r31,0x0A00
+        c.op(0x1CC30688u);  // mulli r6,r3,1672
+        c.op(0x7FDF3214u);  // add r30,r31,r6
+        c.op(0x881E0642u);  // lbz r0,0x642(r30)
+        c.bl(is);
+        c.blr();
+        code = c.bytes();
+        text = {{c.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    }
+    // The stride overwritten before the add (`li r6,0` after `mulli r6`): the
+    // read no longer depends on the channel, so nothing.
+    {
+        Asm c{0x8054C000u, {}};
+        const std::uint32_t is = is_dpd(c);
+        c.prologue();
+        c.op(0x3FE08075u);  // lis r31,0x8075
+        c.op(0x3BFF0A00u);  // addi r31,r31,0x0A00
+        c.op(0x1CC30688u);  // mulli r6,r3,1672
+        c.op(0x38C00000u);  // li r6,0
+        c.op(0x7FDF3214u);  // add r30,r31,r6
+        c.op(0x881E0642u);  // lbz r0,0x642(r30)
+        c.bl(is);
+        c.blr();
+        code = c.bytes();
+        text = {{c.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    }
+    // A "WPADIsDpdEnabled" that loads the word and then returns 0 (`li r3,0`
+    // before its blr) isn't the camera query, so nothing is found.
+    {
+        Asm c{0x8054C000u, {}};
+        const std::uint32_t is = c.here();
+        c.prologue();
+        c.op(0x3C808079u);  // lis r4,0x8079
+        c.op(0x5460103Au);  // slwi r0,r3,2
+        c.op(0x38841C10u);  // addi r4,r4,0x1C10
+        c.op(0x7FE4002Eu);  // lwzx r31,r4,r0
+        c.op(0x807F0838u);  // lwz r3,0x838(r31)
+        c.op(0x38600000u);  // li r3,0
+        c.blr();
+        reader(c, is, 0x881E0642u);
+        code = c.bytes();
+        text = {{c.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+    }
+    // No WPADIsDpdEnabled: nothing.
+    Asm b{0x8054C000u, {}};
+    reader(b, 0x8054C000u, 0x881E0642u);
+    code = b.bytes();
+    text = {{b.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_kpad_dpd_switch(text).enable, 0u);
+}
+
+// A pack's code that reads the GameCube ports itself (quatric's Excite
+// Truck GameCube patch: `lis r6,0xCD00` then `add r6,r6,r5` and `lwz
+// r8,0x6404(r6)`... here with the access right after): found; other
+// hardware registers, or an SI offset through another register: not.
+static void TestReadsGcPorts() {
+    const auto bytes = [](std::initializer_list<std::uint32_t> words) {
+        std::vector<std::uint8_t> out;
+        for (std::uint32_t w : words) {
+            out.push_back(static_cast<std::uint8_t>(w >> 24));
+            out.push_back(static_cast<std::uint8_t>(w >> 16));
+            out.push_back(static_cast<std::uint8_t>(w >> 8));
+            out.push_back(static_cast<std::uint8_t>(w));
+        }
+        return out;
+    };
+    std::vector<std::uint8_t> code = bytes({0x3CC0CD00u, 0x60000000u, 0x81066404u, 0x4E800020u});  // lis r6,0xCD00; nop; lwz r8,0x6404(r6)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CC00u, 0x60C66430u, 0x4E800020u});  // lis r6,0xCC00; ori r6,r6,0x6430 (SIPOLL)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x81060000u, 0x4E800020u});  // lis r6,0xCD00; lwz r8,0(r6): IPC, not the ports
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x81076404u, 0x4E800020u});  // the SI offset through r7, not r6
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC08000u, 0x81066404u, 0x4E800020u});  // lis r6,0x8000: plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x3CC08000u, 0x81066404u});  // lis r6,0xCD00; lis r6,0x8000: plain memory again
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7C661B78u, 0x81066404u});  // lis r6,0xCD00; mr r6,r3: plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CC62A14u, 0x81066404u});  // lis r6,0xCD00; add r6,r6,r5 (a port's offset): still a port read
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x60000000u, 0x60006430u});  // lis r0,0xCD00; nop; ori r0,r0,0x6430: still a port read
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CC3252Eu, 0x81066404u});  // lis r6,0xCD00; stfsx f6,r3,r4 (no GPR written): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0xC4C30004u, 0x81066404u});  // lis r6,0xCD00; lfsu f6,4(r3) (r3 is its base): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0xC4060004u, 0x81066404u});  // lis r6,0xCD00; lfsu f0,4(r6): r6 = base + 4, still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x8D060000u, 0x81066404u});  // lis r6,0xCD00; lbzu r8,0(r6): r6 kept, still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x60000000u, 0x38606430u});  // lis r0,0xCD00; nop; li r3,0x6430 (zero, not r0): none
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3C00CD00u, 0x38000005u, 0x60006430u});  // lis r0,0xCD00; li r0,5; ori r0,r0,0x6430: none
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7C6424AAu, 0x81066404u});  // lis r6,0xCD00; lswi r3,r4,4 (r3 only): still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x7CA444AAu, 0x81066404u});  // lis r6,0xCD00; lswi r5,r4,8 (r5 and r6): plain memory
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x85066404u});  // lis r6,0xCD00; lwzu r8,0x6404(r6): an update form reads it too
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000101u, 0x81066404u});  // lis r6,0xCD00; bl: the call may change r6 (fork #25)
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4E800421u, 0x81066404u});  // lis r6,0xCD00; bctrl: the same
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000101u, 0x3CC0CD00u, 0x81066404u});  // a fresh lis after the call: one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x429F0005u, 0x7CE802A6u, 0x81066404u});  // bcl 20,31,$+4; mflr r7: r6 kept, one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C69C00u, 0x81066404u});  // lis r6,0xCD00; addi r6,r6,-0x6400; 0x6404(r6): 0xCD000004
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C6000Cu, 0x810663F8u});  // ...; addi r6,r6,12; lwz r8,0x63F8(r6): 0xCD006404
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x38C6FFFCu, 0x94C60004u, 0x81066400u});  // addi r6,r6,-4; stwu r6,4(r6); 0x6400(r6)
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4E800020u, 0x81066404u});  // lis r6,0xCD00; blr; then the next function's 0x6404(r6)
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48000008u, 0x60000000u, 0x81066404u, 0x4E800020u});  // b +8 over a word: still one
+    EXPECT_TRUE(riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x48001000u, 0x81066404u});  // lis r6,0xCD00; b far away: the word after isn't its own
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+    code = bytes({0x3CC0CD00u, 0x4BFFFFFCu, 0x81066404u});  // b back: not followed, nor the word after
+    EXPECT_TRUE(!riftwii::reads_gc_ports(code.data(), code.size()));
+}
+
+// KPAD's camera switch, read from KPADEnableDPD's code just after
+// KPADDisableDPD's (Batman: The Brave and the Bold's pair).
+static void TestKpadEnableDpd() {
+    const auto setter = [](Asm& a, std::uint32_t value) {
+        const std::uint32_t at = a.here();
+        a.op(0x1C030688u);           // mulli r0,r3,1672
+        a.op(0x3C60805Fu);           // lis r3,0x805F
+        a.op(0x38800000u | value);   // li r4,value
+        a.op(0x386371C8u);           // addi r3,r3,0x71C8
+        a.op(0x7C630214u);           // add r3,r3,r0
+        a.op(0x98830642u);           // stb r4,0x642(r3)
+        a.blr();
+        return at;
+    };
+    Asm a{0x80458FB0u, {}};
+    setter(a, 0);
+    a.op(0);  // the padding between them
+    const std::uint32_t on = setter(a, 1);
+    std::vector<std::uint8_t> code = a.bytes();
+    std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
+    riftwii::KpadDpd k = riftwii::find_kpad_enable_dpd(text);
+    EXPECT_EQ(k.enable, on);
+    EXPECT_EQ(k.base, 0x805F71C8u);
+    EXPECT_EQ(k.stride, 1672u);
+    EXPECT_EQ(k.offset, 0x642u);
+    // A negative displacement (stb's is signed) is kept signed.
+    Asm neg{0x80458FB0u, {}};
+    const auto setter_at = [](Asm& a, std::uint32_t value, std::uint32_t stb) {
+        a.op(0x1C030688u);
+        a.op(0x3C60805Fu);
+        a.op(0x38800000u | value);
+        a.op(0x386371C8u);
+        a.op(0x7C630214u);
+        a.op(stb);
+        a.blr();
+    };
+    setter_at(neg, 0, 0x9883FFFCu);  // stb r4,-4(r3)
+    setter_at(neg, 1, 0x9883FFFCu);
+    code = neg.bytes();
+    text = {{neg.base, code.data(), code.size()}};
+    k = riftwii::find_kpad_enable_dpd(text);
+    EXPECT_EQ(k.offset, 0xFFFFFFFCu);
+    EXPECT_EQ(k.base + k.offset, 0x805F71C4u);
+    // Without its Disable twin just before: not taken.
+    Asm lone{0x80458FD0u, {}};
+    setter(lone, 1);
+    code = lone.bytes();
+    text = {{lone.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_kpad_enable_dpd(text).enable, 0u);
+    // Two pairs: not guessed.
+    Asm two = a;
+    setter(two, 0);
+    setter(two, 1);
+    code = two.bytes();
+    text = {{two.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_kpad_enable_dpd(text).enable, 0u);
+    // The pair split across touching entries of the code's view (a pack's
+    // patch over one of its words, or over the padding): still found; a
+    // gap in the middle of a setter is not (CodeRabbit, fork #23).
+    code = a.bytes();
+    for (std::size_t cut : {8u, 28u, 40u}) {
+        text = {{a.base, code.data(), cut}, {a.base + static_cast<std::uint32_t>(cut), code.data() + cut, code.size() - cut}};
+        EXPECT_EQ(riftwii::find_kpad_enable_dpd(text).enable, on);
+    }
+    text = {{a.base, code.data(), 40u}, {a.base + 44u, code.data() + 44, code.size() - 44}};
+    EXPECT_EQ(riftwii::find_kpad_enable_dpd(text).enable, 0u);
+}
+
+static void TestRemotesIdleReset() {
+    Asm a{0x80200000u, {}};
+    a.blr();
+    const std::uint32_t remotes = idle_reset_function(a, -0x6034, false);
+    const std::uint32_t other = idle_reset_function(a, -0x6020, true);  // never called near WPADProbe
+    // The lis form (LEGO Star Wars III's other reset): lis r3,hi; li r0,0; stw r0,lo(r3); li r3,1; blr.
+    const std::uint32_t lis_form = a.here();
+    a.op(0x3C60809Cu);
+    a.op(0x38000000u);
+    a.op(0x9003FB48u);
+    a.op(0x38600001u);
+    a.blr();
+    const std::uint32_t probe = a.here();  // "WPADProbe", and the library's calls around it
+    a.prologue();
+    a.bl(remotes);
+    a.op(0x60000000u);
+    a.bl(remotes);
+    a.blr();
+    std::vector<std::uint8_t> code = a.bytes();
+    std::vector<riftwii::CodeRange> text = {{a.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), remotes);
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, 0), 0u);
+    // The library calling two different resets: not guessed.
+    Asm two = a;
+    two.prologue();
+    two.bl(lis_form);
+    two.blr();
+    code = two.bytes();
+    text = {{two.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe), 0u);
+    // ... but the lis form alone is taken.
+    Asm lis_only{0x80200000u, {}};
+    const std::uint32_t lone = lis_only.here();
+    lis_only.op(0x3C60809Cu);
+    lis_only.op(0x38000000u);
+    lis_only.op(0x9003FB48u);
+    lis_only.op(0x38600001u);
+    lis_only.blr();
+    const std::uint32_t probe2 = lis_only.here();
+    lis_only.prologue();
+    lis_only.bl(lone);
+    lis_only.op(0x60000000u);
+    lis_only.bl(lone);  // the library's two calls, as in every dumped game
+    lis_only.blr();
+    code = lis_only.bytes();
+    text = {{lis_only.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), lone);
+    // The return value loaded before the store, the address in r4 (CodeRabbit
+    // on #609): li r0,0; lis r4,hi; li r3,1; stw r0,lo(r4); blr. Taken; with
+    // the address in r3 the same order would lose it, so not.
+    for (const bool in_r3 : {false, true}) {
+        Asm early{0x80200000u, {}};
+        const std::uint32_t reset = early.here();
+        early.op(0x38000000u);
+        early.op(in_r3 ? 0x3C60809Cu : 0x3C80809Cu);
+        early.op(0x38600001u);
+        early.op(in_r3 ? 0x9003FB48u : 0x9004FB48u);
+        early.blr();
+        const std::uint32_t probe_early = early.here();
+        early.prologue();
+        early.bl(reset);
+        early.op(0x60000000u);
+        early.bl(reset);
+        early.blr();
+        code = early.bytes();
+        text = {{early.base, code.data(), code.size()}};
+        EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe_early), in_r3 ? 0u : reset);
+    }
+    // Called only once near WPADProbe: not the library's (CodeRabbit on #609).
+    Asm once{0x80200000u, {}};
+    const std::uint32_t once_reset = idle_reset_function(once, -0x6034, false);
+    const std::uint32_t probe3 = once.here();
+    once.prologue();
+    once.bl(once_reset);
+    once.blr();
+    code = once.bytes();
+    text = {{once.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe3), 0u);
+    // Called twice near WPADProbe and also from the game's own code far
+    // from it: a game helper of the same shape, not taken.
+    Asm far{0x80200000u, {}};
+    const std::uint32_t far_reset = idle_reset_function(far, -0x6034, false);
+    const std::uint32_t probe4 = far.here();
+    far.prologue();
+    far.bl(far_reset);
+    far.op(0x60000000u);
+    far.bl(far_reset);
+    far.blr();
+    while (far.here() < probe4 + 0x10010) far.op(0x60000000u);
+    far.bl(far_reset);  // the game's own call, out of WPAD's reach
+    code = far.bytes();
+    text = {{far.base, code.data(), code.size()}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe4), 0u);
+    // The lis-form reset split across two touching ranges (a pack's patch
+    // over its middle with the same bytes, as code_with_patches gives it):
+    // still found (CodeRabbit on #610); with a gap between, not.
+    code = lis_only.bytes();
+    const std::uint32_t split = lone - lis_only.base + 8;  // after its first two words
+    text = {{lis_only.base, code.data(), split}, {lis_only.base + split, code.data() + split, code.size() - split}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), lone);
+    text = {{lis_only.base, code.data(), split}, {lis_only.base + split + 4, code.data() + split + 4, code.size() - split - 4}};
+    EXPECT_EQ(riftwii::find_wii_remote_idle_reset(text, probe2), 0u);
+    (void)other;
+}
+
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
 // 0x40 in the top half, then SISetCommand and SITransferCommands in a row.
 static void gc_motor_function(Asm& a, std::uint32_t set_command, std::uint32_t transfer, bool second_call) {
@@ -2323,6 +2735,10 @@ int main() {
     TestPatchedSiProbeAndMotor();
     TestPackPadRead();
     TestIdleResetSearch();
+    TestRemotesIdleReset();
+    TestKpadEnableDpd();
+    TestKpadDpdSwitch();
+    TestReadsGcPorts();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
     TestGcSiProbeSearch();

@@ -9753,7 +9753,7 @@ static bool PrepareWadInMenu(riftwii::wii::NandChannel& channel)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker, GcControllers,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcVolume, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CrashLogs,
@@ -9798,6 +9798,11 @@ static bool GameRowNotApplied(const std::string& gameId, RowRef::What what)
 	case RowRef::What::Server:
 		kind = K::Wfc;
 		break;
+	case RowRef::What::GcControllers:
+		// The adapter's hook, which this setting needs: a game that checks
+		// its own code keeps it off (the launch's own guard).
+		kind = K::RuntimeHooks;
+		break;
 	default: return false;
 	}
 	return !riftwii::gx_patch_allowed(gameId, kind);
@@ -9832,6 +9837,28 @@ static const char* const kDeflickers[] = {"global", "game", "off", "low", "mediu
 static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
 static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p", "240p"};
 static const char* const kAspects[] = {"global", "game", "4:3", "16:9"};
+// GameCube controllers in a Wii game (GameSettings::gc_controllers, #587),
+// "Controllers act as": Default ("off": as they are, or the form an enabled
+// pack asks for), as Classic Controllers, as Wii Remotes with a Nunchuk, as
+// Wii Remotes held sideways, or as Wii Remotes pointed at the screen.
+static const char* const kGcControllers[] = {"off", "classic", "nunchuk", "sideways", "pointing"};
+// A stand-in form's name on the row and in its help.
+static std::string GcFormName(const std::string& form)
+{
+	return form == "nunchuk"    ? tr("Wii Remote + Nunchuk")
+	       : form == "sideways" ? tr("Sideways Wii Remote")
+	       : form == "pointing" ? tr("Pointing Wii Remote")
+	                            : tr("Classic Controller");
+}
+// Its short name, for Default's value on the row ("Default (Nunchuk)"):
+// the full one was cut off beside the arrows (Dolphin, 26 Nov).
+static std::string GcFormShortName(const std::string& form)
+{
+	return form == "nunchuk"    ? tr("Nunchuk")
+	       : form == "sideways" ? tr("Sideways")
+	       : form == "pointing" ? tr("Pointing")
+	                            : tr("Classic");
+}
 static std::string AspectName(const std::string& v)
 {
 	return v == "4:3" || v == "16:9" ? v : std::string(tr("Game's own"));
@@ -10187,6 +10214,22 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	speaker.on = game.speaker != "off";
 	speaker.value = speaker.on ? tr("On") : tr("Off");
 	add(speaker, {RowRef::What::Speaker});
+	FlowRow gcControllers;
+	gcControllers.kind = FlowRow::Kind::Option;
+	gcControllers.label = tr("Controllers act as");
+	// Default shows the form an enabled pack asks for, so the row says
+	// what the launch will do (state.model.effective_gc_controllers), as
+	// the other rows' "Default (...)" say what they follow.
+	const bool gcForm = game.gc_controllers == "classic" || game.gc_controllers == "nunchuk" ||
+	                    game.gc_controllers == "sideways" || game.gc_controllers == "pointing";
+	const std::string gcFromPack = gcForm ? std::string() : state.model.pack_gc_controllers();
+	gcControllers.on = gcForm || !gcFromPack.empty();
+	// The row's label says what the choice is for: the choice alone (a long
+	// "As ..." was cut off beside the arrows).
+	gcControllers.value = gcForm                ? GcFormName(game.gc_controllers)
+	                      : !gcFromPack.empty() ? tr("Default ({1})", {GcFormShortName(gcFromPack)})
+	                                            : tr("Default ({1})", {tr("Game's own")});
+	add(gcControllers, {RowRef::What::GcControllers});
 	FlowRow regionStrings;
 	regionStrings.kind = FlowRow::Kind::Toggle;
 	regionStrings.label = tr("Region strings fix");
@@ -10436,7 +10479,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
 	if (settingsOnly && GameRowNotApplied(state.game_id, W::Cheats)) show({W::Cheats});
-	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
+	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker, W::GcControllers});
 	if (settingsOnly) show({W::Cover, W::CoverSet, W::CoverPick, W::GameTdbEntry});
 	// What RiftWii's extras take of the game's memory this time.
 	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
@@ -16330,6 +16373,9 @@ static int ChangedGameSettings(const riftwii::GameSettings& g, const std::string
 	if (riftwii::gc_volume_boost_db(g) != 0) ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
+	if (g.gc_controllers == "classic" || g.gc_controllers == "nunchuk" || g.gc_controllers == "sideways" ||
+	    g.gc_controllers == "pointing")
+		++changed;
 	return changed;
 }
 
@@ -16496,6 +16542,7 @@ static std::string GameRowShortNote(RowRef::What what)
 		case W::Aspect: return tr("Makes this game use 4:3 or widescreen.");
 		case W::Rumble: return tr("Lets the Wii Remotes rumble in this game.");
 		case W::Speaker: return tr("Sound from the Wii Remotes' speakers.");
+		case W::GcControllers: return tr("GameCube controllers as a Wii controller in this game.");
 		case W::RegionStrings: return tr("Country names for a game from another region.");
 		case W::Language: return tr("The language this game is told to use.");
 		case W::Cios: return tr("The system software this game runs under.");
@@ -16608,6 +16655,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, page.left + 36, NoteCard::kTextY);
 	noteTxt.SetWrap(true, page.Width() - 40, NoteCard::kLines);
+	noteTxt.SetScroll(SCROLL::VERTICAL);  // a note longer than its lines (a long translation) rolls up, not cut
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -16745,6 +16793,21 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			case W::GcDiscReads:
 				labels = {tr("Fast"), tr("As on a GameCube (slower)")};
 				return game.gc_disc_reads == "drive" ? 1 : 0;
+			// The GameCube controllers setting: A opens its list too
+			// (CodeRabbit on #610).
+			case W::GcControllers: {
+				// kGcControllers' order: Default first, named as on the row
+				// (what an enabled pack asks for, else the game's own).
+				const std::string fromPack = state.model.pack_gc_controllers();
+				labels.push_back(!fromPack.empty() ? tr("Default ({1})", {GcFormShortName(fromPack)})
+				                                   : tr("Default ({1})", {tr("Game's own")}));
+				int set = 0;
+				for (std::size_t i = 1; i < sizeof(kGcControllers) / sizeof(kGcControllers[0]); ++i) {
+					if (game.gc_controllers == kGcControllers[i]) set = static_cast<int>(i);
+					labels.push_back(GcFormName(kGcControllers[i]));
+				}
+				return set;
+			}
 			default:
 				return -1;
 		}
@@ -16790,6 +16853,27 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Off: the Wii Remotes never rumble in this game."));
 			else if (ref.what == RowRef::What::Speaker)
 				say(tr("Off: no sound from the Wii Remotes' speakers in this game."));
+			else if (ref.what == RowRef::What::GcControllers)
+				// The chosen one's help only; a code build never takes the
+				// stand-in (it needs every byte): said with any choice but Off
+				// (CodeRabbit on #609).
+				if (gameSettings.gc_controllers == "nunchuk" || gameSettings.gc_controllers == "sideways" ||
+				    gameSettings.gc_controllers == "pointing" || gameSettings.gc_controllers == "classic")
+					say(std::string(gameSettings.gc_controllers == "nunchuk"
+					                    ? tr("Each GameCube controller plays as a Wii Remote with a Nunchuk (port 1 as Wii Remote 1 and so on): X shakes it, the C-stick moves the pointer.")
+					                : gameSettings.gc_controllers == "pointing"
+					                    ? tr("Each GameCube controller plays as a Wii Remote pointed at the screen (port 1 as Wii Remote 1 and so on): the control stick moves the pointer, X is 1, Y is 2, the C-stick tilts it, R shakes it.")
+					                : gameSettings.gc_controllers == "sideways"
+					                    ? tr("Each GameCube controller plays as a Wii Remote held sideways (port 1 as Wii Remote 1 and so on): A is 2, B is 1, the control stick is its D-pad, the C-stick tilts it, R shakes it.")
+					                    : tr("Each GameCube controller plays as a Classic Controller (port 1 as Wii Remote 1 and so on), for games that take one.")) +
+					    " " + tr("A code build doesn't use it.") + " " +
+					    tr("In a game with no GameCube controller code, only the adapter's controllers play."));
+				else if (const std::string from_pack = state.model.pack_gc_controllers(); !from_pack.empty())
+					// Default, with a pack that asks for a form (riftwii-gc-controllers).
+					say(tr("Default: an enabled pack asks for {1}, so the GameCube controllers play that way. Pick another choice to change it.",
+					       {GcFormName(from_pack)}));
+				else
+					say(tr("Default: GameCube controllers work only in games made for them, unless an enabled pack asks for a Wii controller. The other choices have them play as one. For now this is for GameCube controllers only."));
 			else if (ref.what == RowRef::What::RegionStrings)
 				say(tr("For a game from another region (an import): the game sees its own region's country names where it looks for the console's."));
 			else if (ref.what == RowRef::What::Language)
@@ -16951,6 +17035,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::Aspect) game.aspect = StepValue(kAspects, game.aspect, direction);
 			else if (ref.what == RowRef::What::Rumble) game.rumble = game.rumble == "off" ? "on" : "off";
 			else if (ref.what == RowRef::What::Speaker) game.speaker = game.speaker == "off" ? "on" : "off";
+			else if (ref.what == RowRef::What::GcControllers) game.gc_controllers = StepValue(kGcControllers, game.gc_controllers, direction);
 			else if (ref.what == RowRef::What::RegionStrings) game.region_strings = game.region_strings == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::Language) game.language = StepValue(kGameLanguages, game.language, direction);
 			else if (ref.what == RowRef::What::Cios && state.use_channel) {
@@ -17070,6 +17155,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					game.language = fresh.language;
 					game.rumble = fresh.rumble;
 					game.speaker = fresh.speaker;
+					game.gc_controllers = fresh.gc_controllers;
 					game.cios = fresh.cios;
 					game.server = fresh.server;
 					game.region_video = fresh.region_video;

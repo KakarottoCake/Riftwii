@@ -148,6 +148,12 @@ struct Package {
     std::vector<Option> options;
     std::map<std::string, Patch> patches;
     std::vector<NetworkServer> networks;
+    // RiftWii's own `riftwii-gc-controllers` on <wiidisc>: the GameCube
+    // controllers' stand-in form the pack's code expects ("classic",
+    // "nunchuk", "sideways", "pointing"), empty for none. While the pack is on, a game
+    // whose own setting is Default ("off") takes it (LaunchModel::pack_gc_controllers);
+    // other loaders ignore the attribute.
+    std::string gc_controllers;
     // Non-fatal notes: unknown attributes/elements that were ignored, defaults
     // that were clamped. Parsing succeeds; a frontend should surface these.
     std::vector<std::string> warnings;

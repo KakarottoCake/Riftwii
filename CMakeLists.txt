@@ -52,17 +52,20 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c runtime/rthome.c runtime/rtrestart.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c runtime/rthome.c runtime/rtgcwii.c runtime/rtslot.c runtime/rtsrc.c runtime/rtshape.c runtime/rtdeliver.c runtime/rtrestart.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
+# The Wii controller stand-ins' code (#587; the pad builds with RT_PAD_STANDIN),
+# which the tests cover; rthome.h's layout follows it, so it is public.
+target_compile_definitions(riftwii_runtime PUBLIC RT_PAD_STANDIN)
 target_link_libraries(riftwii_runtime PRIVATE zstddec)
 set_target_properties(riftwii_runtime PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON C_EXTENSIONS OFF)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(riftwii_runtime PRIVATE -ffreestanding -fno-builtin -Wall -Wextra -Wpedantic -Werror)
 endif()
 add_library(riftwii STATIC src/patching/patch.cpp src/patching/patchstream.cpp src/patching/overlay.cpp src/patching/source.cpp src/patching/apply.cpp src/patching/expand.cpp src/patching/mempatch.cpp src/patching/launch.cpp src/disc/fst.cpp src/disc/disc.cpp src/patching/redirect.cpp src/fs/fragments.cpp src/fs/fat32.cpp src/fs/cardvolume.cpp src/fs/ntfs.cpp src/fs/imagevolume.cpp src/fs/wbfspart.cpp src/fs/wfs.cpp src/fs/wfstitle.cpp src/fs/usbgame.cpp src/data/titles.cpp src/art/canvas.cpp src/disc/dol.cpp src/patching/hook.cpp src/patching/symsearch.cpp src/net/riifs.cpp src/net/riifs_sync.cpp src/net/http.cpp src/data/cheats.cpp src/patching/videopatch.cpp src/patching/gamelang.cpp src/patching/riiconfig.cpp src/net/update.cpp src/patching/wfcpatch.cpp src/data/sha1.cpp src/fs/rvz.cpp src/art/coverart.cpp src/art/pngdecode.cpp src/data/settingsfile.cpp src/data/langfile.cpp src/data/playhistory.cpp src/data/gametdb.cpp src/data/homebrewmatch.cpp src/patching/returnto.cpp src/patching/launchargs.cpp src/data/cardlog.cpp src/patching/codehook.cpp src/patching/gameconfig.cpp src/art/pngencode.cpp src/data/shotfile.cpp src/art/qrcode.cpp src/data/problemreport.cpp src/data/gamefault.cpp src/patching/gxpatches.cpp src/patching/ctgpconfig.cpp src/ctgpr/ctgpapply.cpp src/ctgpr/ctgpefa.cpp src/ctgpr/ctgpfat.cpp src/ctgpr/ctgpfields.cpp src/ctgpr/ctgpfiles.cpp src/ctgpr/ctgpdsa.cpp src/ctgpr/ctgphash.cpp src/ctgpr/ctgpimage.cpp src/ctgpr/ctgplaunch.cpp src/ctgpr/ctgpmmu.cpp src/ctgpr/ctgppackages.cpp src/ctgpr/ctgpsign.cpp src/ctgpr/ctgptables.cpp src/ctgpr/ctgpstage2.cpp src/ctgpr/ctgprowdata.cpp src/ctgpr/ctgpplace.cpp src/art/theme.cpp src/art/skinpaint.cpp src/art/inputicons.cpp src/art/inputicons_data.cpp src/net/riitag.cpp src/net/dnsquery.cpp src/disc/sysfont.cpp src/disc/brfnt.cpp src/patching/vsdparts.cpp src/patching/vsdbuild.cpp src/art/modart.cpp src/disc/bnr.cpp src/disc/bnrsound.cpp src/art/themepack.cpp src/disc/tpl.cpp src/disc/brlyt.cpp src/disc/brlan.cpp src/disc/wiicrypt.cpp src/disc/discdump.cpp src/data/d2xversion.cpp src/data/nandcheck.cpp src/data/offlinegames.cpp src/art/casecolour.cpp src/patching/extrasbudget.cpp src/patching/wpadlog.cpp src/patching/vcdiff.cpp src/patching/gcoverlay.cpp src/patching/gcrequest.cpp src/patching/gcmempatch.cpp src/patching/gcexecpacks.cpp src/fs/gccard.cpp src/fs/gccard_text.cpp src/fs/gcbackup.cpp src/fs/gcimport.cpp src/fs/gcreal.cpp src/data/gccrash.cpp src/patching/gclayout.cpp src/patching/gcload.cpp src/patching/gcclock.cpp src/disc/gcbanner.cpp src/data/sharednand.cpp src/data/emunand.cpp src/data/nandchannel.cpp src/data/wadfile.cpp src/data/contentbin.cpp src/data/homeorder.cpp src/data/foldernames.cpp src/data/homelist.cpp src/data/profiles.cpp src/data/namekeys.cpp src/data/gccontrols.cpp src/patching/gcvideo.cpp src/patching/gcfont.cpp src/patching/gcdsp.cpp src/patching/gcreset.cpp src/patching/gcprograms.cpp src/disc/gctgc.cpp src/patching/gcexi.cpp src/patching/gctriforce.cpp src/patching/gcaram.cpp src/data/stashimage.cpp src/data/sha256.cpp src/data/appmeta.cpp src/data/pluginfile.cpp src/patching/osrestart.cpp src/data/textlines.cpp src/fs/zipread.cpp src/fs/zipstream.cpp src/art/themelist.cpp src/net/applist.cpp
-    src/net/appcatalog.cpp src/disc/gcdiscs.cpp src/data/ghcheats.cpp src/patching/returnstub.cpp src/data/channelupdate.cpp src/fs/sdhotplug.cpp src/fs/sdwrite.cpp src/disc/wiisound.cpp src/disc/wiisequence.cpp src/data/nandlist.cpp src/data/ctgprsave.cpp src/art/ratingmark.cpp src/data/parental.cpp src/data/musiclist.cpp src/data/streamformat.cpp src/data/emulatorfile.cpp src/data/wiiflowplugin.cpp src/art/emulatorart.cpp src/art/emulatorbanner.cpp src/art/picturepick.cpp src/data/hidconfig.cpp src/data/hidimport.cpp src/data/builtinpads.cpp src/data/builtinpads_data.cpp src/data/codemods.cpp src/data/modcover.cpp src/data/gamepage.cpp src/data/loaderfiles.cpp src/data/padcal.cpp src/patching/hbmsearch.cpp src/art/storeicons.cpp src/data/miidb.cpp)
+    src/net/appcatalog.cpp src/disc/gcdiscs.cpp src/data/ghcheats.cpp src/patching/returnstub.cpp src/data/channelupdate.cpp src/fs/sdhotplug.cpp src/fs/sdwrite.cpp src/disc/wiisound.cpp src/disc/wiisequence.cpp src/data/nandlist.cpp src/data/ctgprsave.cpp src/art/ratingmark.cpp src/data/parental.cpp src/data/musiclist.cpp src/data/streamformat.cpp src/data/emulatorfile.cpp src/data/wiiflowplugin.cpp src/art/emulatorart.cpp src/art/emulatorbanner.cpp src/art/picturepick.cpp src/data/hidconfig.cpp src/data/hidimport.cpp src/data/builtinpads.cpp src/data/builtinpads_data.cpp src/data/codemods.cpp src/data/modcover.cpp src/data/gamepage.cpp src/data/loaderfiles.cpp src/data/padcal.cpp src/patching/hbmsearch.cpp src/patching/codescan.cpp src/art/storeicons.cpp src/data/miidb.cpp)
 target_include_directories(riftwii PUBLIC include PRIVATE runtime/gc)
 target_sources(riftwii PRIVATE src/net/savelist.cpp src/fs/saveinstall.cpp src/fs/saveinflate.cpp)
 target_link_libraries(riftwii PRIVATE pugixml zstddec ZLIB::ZLIB PUBLIC riftwii_runtime)
@@ -72,6 +75,10 @@ endif()
 # Host tool: the IPC search on a dumped main.dol (tools/ipcscan.cpp).
 add_executable(ipcscan tools/ipcscan.cpp)
 target_link_libraries(ipcscan PRIVATE riftwii)
+# Host tool: every controller finder over dumped game programs, one line each,
+# to compare against a saved run before a finder change (tools/finderscan.cpp).
+add_executable(finderscan tools/finderscan.cpp)
+target_link_libraries(finderscan PRIVATE riftwii)
 # Host timing of the in-game RVZ decoder against the vendored one (both -Os).
 add_executable(rtzstd_bench tools/rtzstd_bench.cpp runtime/rtzstd.c)
 target_include_directories(rtzstd_bench PRIVATE runtime vendor-zstd)
@@ -355,6 +362,53 @@ if(BUILD_TESTING)
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    # The Wii Remote + Nunchuk form (#587): rtgcwii.c and rthome.c built
+    # again with its define, as the pad builds that carry it are.
+    add_executable(gcwii_nunchuk_tests tests/gcwii_nunchuk_tests.cpp runtime/rtgcwii.c runtime/rtslot.c runtime/rtsrc.c runtime/rtshape.c runtime/rtdeliver.c runtime/rthome.c)
+    target_include_directories(gcwii_nunchuk_tests PRIVATE runtime)
+    target_compile_definitions(gcwii_nunchuk_tests PRIVATE RT_PAD_STANDIN RT_PAD_FORM_NUNCHUK)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcwii_nunchuk_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME gcwii_nunchuk COMMAND gcwii_nunchuk_tests)
+    add_executable(gcwii_sideways_tests tests/gcwii_sideways_tests.cpp runtime/rtgcwii.c runtime/rtslot.c runtime/rtsrc.c runtime/rtshape.c runtime/rtdeliver.c runtime/rthome.c)
+    target_include_directories(gcwii_sideways_tests PRIVATE runtime)
+    target_compile_definitions(gcwii_sideways_tests PRIVATE RT_PAD_STANDIN RT_PAD_FORM_SIDEWAYS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcwii_sideways_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME gcwii_sideways COMMAND gcwii_sideways_tests)
+    # Slot ownership (runtime/rtslot.h): the stand-in restructure's spec,
+    # one test per past review finding.
+    add_executable(rtslot_tests tests/rtslot_tests.cpp runtime/rtslot.c)
+    target_include_directories(rtslot_tests PRIVATE runtime)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(rtslot_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME rtslot COMMAND rtslot_tests)
+    # Sources (runtime/rtsrc.h): each player's controller, one sample a report.
+    add_executable(rtsrc_tests tests/rtsrc_tests.cpp runtime/rtsrc.c runtime/rthome.c)
+    target_include_directories(rtsrc_tests PRIVATE runtime)
+    target_compile_definitions(rtsrc_tests PRIVATE RT_PAD_STANDIN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(rtsrc_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME rtsrc COMMAND rtsrc_tests)
+    # Delivery (runtime/rtdeliver.h): the words and the raw report.
+    add_executable(rtdeliver_tests tests/rtdeliver_tests.cpp runtime/rtdeliver.c runtime/rtshape.c runtime/rtsrc.c runtime/rthome.c)
+    target_include_directories(rtdeliver_tests PRIVATE runtime)
+    target_compile_definitions(rtdeliver_tests PRIVATE RT_PAD_STANDIN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(rtdeliver_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME rtdeliver COMMAND rtdeliver_tests)
+    add_executable(gcwii_pointing_tests tests/gcwii_pointing_tests.cpp runtime/rtgcwii.c runtime/rtslot.c runtime/rtsrc.c runtime/rtshape.c runtime/rtdeliver.c runtime/rthome.c)
+    target_include_directories(gcwii_pointing_tests PRIVATE runtime)
+    target_compile_definitions(gcwii_pointing_tests PRIVATE RT_PAD_STANDIN RT_PAD_FORM_POINTING)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(gcwii_pointing_tests PRIVATE -Wall -Wextra -Werror)
+    endif()
+    add_test(NAME gcwii_pointing COMMAND gcwii_pointing_tests)
     # The adapter-only pad blob's driver (runtime/pad, wiiu#45): the
     # adapter's tests again, against rtgcad.c built without the other USB
     # pads' code. Its own copy of rtgcad.c takes the library's place.
@@ -509,7 +563,7 @@ if(BUILD_TESTING)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()
-    foreach(suite ctgprsave dnsquery applist appcatalog httpchunk foldernames homelist disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig hidimport builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig ctgparena ctgpapply ctgpefa ctgpfat ctgpfields ctgpfiles ctgpdsa ctgphash ctgpimage ctgplaunch ctgpmmu ctgppackages ctgpsign ctgptables ctgpstage2 theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand emunand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gctri gcvolume gcaram stash plugin gcrequest gcmempatch gcexecpacks gcgcad gcdsp gcreal osrestart rtrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug sdwrite wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra gcstorage padcal hbmsearch padhome miidb)
+    foreach(suite ctgprsave dnsquery applist appcatalog httpchunk foldernames homelist disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig hidimport builtinpads png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig ctgparena ctgpapply ctgpefa ctgpfat ctgpfields ctgpfiles ctgpdsa ctgphash ctgpimage ctgplaunch ctgpmmu ctgppackages ctgpsign ctgptables ctgpstage2 theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand emunand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gcprograms gctgc gcexi gctri gcvolume gcaram stash plugin gcrequest gcmempatch gcexecpacks gcgcad gcdsp gcreal osrestart rtrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug sdwrite wiisound nandlist ratingmark parental musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin codemods modcover homechord discdump gamepage rtzstd vsdra gcstorage padcal hbmsearch codescan padhome gcwii miidb)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(suite STREQUAL "redirect")

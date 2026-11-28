@@ -16,12 +16,6 @@ constexpr std::size_t kSearchChunk = 0x8000;
 // again: a one-byte pattern of zeros matched tens of millions of times and
 // the launch never ended (BUG-07). Real searches find a handful.
 constexpr std::size_t kMaxSearchMatches = 65536;
-// The game memory all of a launch's searches may read together. One search
-// reads the loaded game once, a few MiB; but nothing limited how many
-// searches a pack makes (macros repeat them), and each read it all again
-// (CAV-02, BUG-07). Real packs read well under this.
-constexpr std::uint64_t kMaxSearchBytes = std::uint64_t(1) << 30;
-
 // What the searches of one launch share: the read budget, and the chunk
 // last read, so the matches of one search come from the chunk in hand
 // rather than each reading 32 KiB again. A search only writes below where
@@ -83,10 +77,7 @@ bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memo
 bool find_pattern(const std::vector<MemoryRegion>& loaded, MemoryAccess& memory, const std::vector<std::uint8_t>& pattern,
                   std::uint64_t align, std::uint32_t& found, std::size_t& region_index, std::string& error,
                   SearchState& state, std::uint64_t from = 0) {
-    if (align == 0) align = 1;
-    // Beyond any region's size the stride leaves one candidate per region;
-    // clamping keeps the arithmetic below inside 32 bits on the console.
-    if (align > 0x10000000) align = 0x10000000;
+    align = search_stride(align);
     const std::size_t n = pattern.size();
     for (std::size_t ri = 0; ri < loaded.size(); ++ri) {
         const MemoryRegion& r = loaded[ri];
